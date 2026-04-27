@@ -6,7 +6,6 @@
     <title>賽馬龍虎榜 - 雲端同步版</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -60,7 +59,7 @@
                 <div class="filter-group"><label>參賽者</label><select id="homeParticipantSelect"><option value="all">全部</option></select></div>
                 <div><button id="refreshHomeBtn">🔄 刷新</button></div>
             </div>
-            <div style="overflow-x: auto;"><table id="homeBetTable"><thead><tr><th>場次</th><th>參賽者</th><th>投注詳情</th><th>金額</th><th>原因</th></tr></thead><tbody><tr><td colspan="5" class="loading">載入中...</td></tr></tbody></table></div>
+            <div style="overflow-x: auto;"><table id="homeBetTable"><thead><tr><th>場次</th><th>參賽者</th><th>投注詳情</th><th>金額</th><th>原因</th></tr></thead><tbody><tr><td colspan="5" class="loading">載入中...</td></tr></tbody>}</div>
         </div>
     </div>
 
@@ -90,18 +89,17 @@
 </div>
 
 <script>
-    // ========== 請在這裡填入你的 Supabase 資訊 ==========
-    const SUPABASE_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";      // 替換成你的 Project URL
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";               // 替換成你的 anon public key
-    // =================================================
+    // ========== 你的 Supabase 資訊 ==========
+    const SUPABASE_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
+    // =========================================
     
+    // 建立 Supabase 用戶端 (只宣告一次)
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    // 全域資料
     let participants = [];
     let raceDates = [];
     
-    // 初始化
     async function init() {
         await loadParticipants();
         await loadRaceDates();
@@ -135,8 +133,7 @@
         const raceFilter = document.getElementById("homeRaceSelect").value;
         const participantFilter = document.getElementById("homeParticipantSelect").value;
         const nextDay = await getNextRaceDay();
-        let query = supabase.from('bets').select('*').eq('race_date', nextDay);
-        const { data, error } = await query;
+        const { data, error } = await supabase.from('bets').select('*').eq('race_date', nextDay);
         if (error) { console.error(error); return; }
         let filtered = data || [];
         if (raceFilter !== 'all') filtered = filtered.filter(b => b.race_no == raceFilter);
