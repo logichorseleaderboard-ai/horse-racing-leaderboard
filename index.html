@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賽馬龍虎榜</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #f4f7fc; padding: 24px 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 28px; border-bottom: 2px solid #cbd5e1; padding-bottom: 6px; flex-wrap: wrap; }
+        .tab-btn { background: transparent; border: none; font-size: 1rem; font-weight: 600; padding: 8px 20px; border-radius: 40px; cursor: pointer; color: #2c3e50; }
+        .tab-btn.active { background: #1e6f3f; color: white; }
+        .page { display: none; }
+        .page.active-page { display: block; }
+        .card { background: white; border-radius: 24px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); padding: 24px; margin-bottom: 30px; }
+        h2 { font-size: 1.4rem; margin-bottom: 1rem; border-left: 5px solid #1e6f3f; padding-left: 16px; }
+        .filter-bar { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 28px; background: #f8fafc; padding: 16px 20px; border-radius: 20px; }
+        .filter-group { display: flex; flex-direction: column; gap: 6px; }
+        select, input, textarea, button { border: 1px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; font-size: 0.9rem; }
+        button { background: #1e6f3f; color: white; border: none; font-weight: 600; cursor: pointer; }
+        button.secondary { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 0.85rem; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f1f5f9; }
+        .badge { background: #e6f7ec; color: #0b5e2e; padding: 4px 10px; border-radius: 30px; font-size: 0.75rem; }
+        .stat-cards { display: flex; flex-wrap: wrap; gap: 20px; }
+        .stat-item { background: #f0f9f4; padding: 16px; border-radius: 20px; flex: 1; min-width: 180px; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: #1e6f3f; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; align-items: center; }
+        .form-row label { width: 100px; font-weight: 600; }
+        .form-row input, .form-row select, .form-row textarea { flex: 1; min-width: 200px; }
+        .inline-buttons { display: flex; gap: 10px; margin-top: 10px; }
+        .loading { text-align: center; padding: 40px; color: #1e6f3f; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="tabs">
+        <button class="tab-btn active" data-page="home">🐎 主頁</button>
+        <button class="tab-btn" data-page="enter">✍️ 投注</button>
+        <button class="tab-btn" data-page="admin">⚙️ 管理</button>
+        <button class="tab-btn" data-page="data">📊 數據</button>
+    </div>
+
+    <div id="home-page" class="page active-page">
+        <div class="card">
+            <h2>🐎 下個賽日投注表</h2>
+            <div class="filter-bar">
+                <div class="filter-group"><label>場次</label><select id="homeRaceSelect"><option value="all">全部</option></select></div>
+                <div class="filter-group"><label>參賽者</label><select id="homeParticipantSelect"><option value="all">全部</option></select></div>
+                <div><button id="refreshHomeBtn">🔄 刷新</button></div>
+            </div>
+            <div style="overflow-x: auto;"><table id="homeBetTable"><thead><tr><th>場次</th><th>參賽者</th><th>投注詳情</th><th>金額</th><th>原因</th></tr></thead><tbody><tr><td colspan="5" class="loading">載入中...</td></tr></tbody>}</div>
+        </div>
+    </div>
+
+    <div id="enter-page" class="page">
+        <div class="card">
+            <h2>✍️ 新增投注</h2>
+            <form id="betForm">
+                <div class="form-row"><label>參賽者</label><input type="text" id="betParticipant" required placeholder="姓名"></div>
+                <div class="form-row"><label>賽日</label><select id="betRaceDate"></select></div>
+                <div class="form-row"><label>場次</label><select id="betRaceNo"></select></div>
+                <div class="form-row"><label>投注詳情</label><input type="text" id="betDetail" required placeholder="例: 獨贏 1號馬"></div>
+                <div class="form-row"><label>金額 ($)</label><input type="number" id="betAmount" required min="10" step="10" value="100"></div>
+                <div class="form-row"><label>原因</label><textarea id="betReason" rows="2"></textarea></div>
+                <div class="inline-buttons"><button type="submit">💾 儲存</button><button type="button" id="clearBetForm" class="secondary">清除</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="admin-page" class="page">
+        <div class="card"><h2>👥 參賽者管理</h2><div class="form-row"><label>新增</label><input type="text" id="newParticipantName" placeholder="姓名"><button id="addParticipantBtn">➕ 加入</button></div><div id="participantList" style="margin-top:20px; display:flex; flex-wrap:wrap; gap:8px;"></div></div>
+        <div class="card"><h2>📅 賽日管理</h2><div class="form-row"><label>新增賽日</label><input type="date" id="newRaceDate"><button id="addRaceDateBtn">📅 加入</button></div><ul id="raceDateList" style="margin-top:16px;"></ul></div>
+    </div>
+
+    <div id="data-page" class="page">
+        <div class="card"><h2>📊 每月數據</h2><div class="filter-bar"><div class="filter-group"><label>月份</label><select id="monthSelector"></select></div><button id="refreshDataBtn">📈 計算</button></div><div id="monthlyStatsContainer"></div></div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
+    
+    const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    let participants = [];
+    let raceDates = [];
+    
+    (async function() {
+        await loadParticipants();
+        await loadRaceDates();
+        await refreshHome();
+        await updateSelectors();
+        await updateMonthList();
+        setupEvents();
+    })();
+    
+    async function loadParticipants() {
+        const { data } = await _supabase.from('participants').select('name');
+        if (data) participants = data.map(p => p.name);
+        const container = document.getElementById("participantList");
+        if(container) container.innerHTML = participants.map(p => `<span class="badge">${p} <i class="fas fa-trash-alt" style="cursor:pointer; margin-left:6px; color:#b91c1c;" onclick="deleteParticipant('${p}')"></i></span>`).join('');
+    }
+    
+    window.deleteParticipant = async function(name) {
+        if(!confirm("刪除?")) return;
+        await _supabase.from('participants').delete().eq('name', name);
+        await loadParticipants();
+        await updateSelectors();
+    };
+    
+    async function loadRaceDates() {
+        const { data } = await _supabase.from('race_days').select('race_date').order('race_date');
+        if (data) raceDates = data.map(d => d.race_date);
+        const container = document.getElementById("raceDateList");
+        if(container) container.innerHTML = raceDates.map(d => `<li>📅 ${d} <button class="secondary" onclick="deleteRaceDate('${d}')">刪除</button></li>`).join('');
+    }
+    
+    window.deleteRaceDate = async function(date) {
+        if(!confirm("刪除賽日?")) return;
+        await _supabase.from('race_days').delete().eq('race_date', date);
+        await loadRaceDates();
+        await updateSelectors();
+    };
+    
+    async function getNextRaceDay() {
+        const today = new Date().toISOString().slice(0,10);
+        let next = raceDates.find(d => d >= today);
+        return next || raceDates[0] || today;
+    }
+    
+    async function refreshHome() {
+        const raceNo = document.getElementById("homeRaceSelect").value;
+        const participant = document.getElementById("homeParticipantSelect").value;
+        const nextDay = await getNextRaceDay();
+        const { data } = await _supabase.from('bets').select('*').eq('race_date', nextDay);
+        let filtered = data || [];
+        if(raceNo !== 'all') filtered = filtered.filter(b => b.race_no == raceNo);
+        if(participant !== 'all') filtered = filtered.filter(b => b.participant === participant);
+        const tbody = document.querySelector("#homeBetTable tbody");
+        if(filtered.length === 0) { tbody.innerHTML = "<tr><td colspan='5'>暫無投注紀錄</td></tr>"; return; }
+        tbody.innerHTML = filtered.map(b => `<tr><td>第 ${b.race_no} 場</td><td>${b.participant}</td><td>${b.bet_detail}</td><td>$${b.amount}</td><td>${b.reason || '-'}</td></tr>`).join('');
+    }
+    
+    async function updateSelectors() {
+        const races = '<option value="all">全部</option>' + Array.from({length:12}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
+        document.getElementById("homeRaceSelect").innerHTML = races;
+        document.getElementById("betRaceNo").innerHTML = races.replace('value="all"','value="1"');
+        document.getElementById("homeParticipantSelect").innerHTML = '<option value="all">全部</option>' + participants.map(p => `<option value="${p}">${p}</option>`).join('');
+        document.getElementById("betRaceDate").innerHTML = raceDates.map(d => `<option value="${d}">${d}</option>`).join('');
+        let next = await getNextRaceDay();
+        let dateSelect = document.getElementById("betRaceDate");
+        if(dateSelect && next) dateSelect.value = next;
+    }
+    
+    async function updateMonthList() {
+        const { data } = await _supabase.from('bets').select('race_date');
+        if(!data) return;
+        let months = [...new Set(data.map(b => b.race_date.slice(0,7)))].sort().reverse();
+        let sel = document.getElementById("monthSelector");
+        if(sel) sel.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+        if(months.length) await showMonthlyStats(months[0]);
+    }
+    
+    async function showMonthlyStats(month) {
+        const { data } = await _supabase.from('bets').select('*').ilike('race_date', `${month}%`);
+        if(!data || !data.length) { document.getElementById("monthlyStatsContainer").innerHTML = "<div>無資料</div>"; return; }
+        let stats = new Map();
+        data.forEach(b => {
+            if(!stats.has(b.participant)) stats.set(b.participant, { stake:0, profit:0, win:0, total:0 });
+            let s = stats.get(b.participant);
+            s.total++;
+            s.stake += b.amount;
+            if(b.is_win) { s.profit += b.amount; s.win++; }
+            else s.profit -= b.amount;
+        });
+        let html = '<div class="stat-cards">';
+        for(let [name, s] of stats) {
+            let winRate = s.total ? (s.win/s.total*100).toFixed(1) : 0;
+            let roi = s.stake ? (s.profit/s.stake*100).toFixed(1) : 0;
+            html += `<div class="stat-item"><div class="stat-label">${name}</div><div class="stat-value">${winRate}%</div><div>勝率</div><div>回報率 ${roi}%</div><div>總投注:$${s.stake} | 淨利:$${s.profit}</div></div>`;
+        }
+        html += '</div>';
+        document.getElementById("monthlyStatsContainer").innerHTML = html;
+    }
+    
+    function setupEvents() {
+        document.getElementById("refreshHomeBtn").onclick = refreshHome;
+        document.getElementById("betForm").onsubmit = async (e) => {
+            e.preventDefault();
+            let participant = document.getElementById("betParticipant").value.trim();
+            if(!participant) return alert("請輸入參賽者");
+            let raceDate = document.getElementById("betRaceDate").value;
+            let race_no = parseInt(document.getElementById("betRaceNo").value);
+            let bet_detail = document.getElementById("betDetail").value.trim();
+            let amount = parseInt(document.getElementById("betAmount").value);
+            let reason = document.getElementById("betReason").value;
+            if(!raceDate || !bet_detail) return alert("請完整填寫");
+            let { error } = await _supabase.from('bets').insert([{ participant, race_date: raceDate, race_no, bet_detail, amount, reason, is_win: false }]);
+            if(error) alert("儲存失敗: " + error.message);
+            else { alert("投注成功"); e.target.reset(); await refreshHome(); await updateMonthList(); }
+        };
+        document.getElementById("addParticipantBtn").onclick = async () => {
+            let name = document.getElementById("newParticipantName").value.trim();
+            if(name && !participants.includes(name)) { await _supabase.from('participants').insert([{ name }]); await loadParticipants(); await updateSelectors(); document.getElementById("newParticipantName").value = ""; }
+        };
+        document.getElementById("addRaceDateBtn").onclick = async () => {
+            let date = document.getElementById("newRaceDate").value;
+            if(date && !raceDates.includes(date)) { await _supabase.from('race_days').insert([{ race_date: date }]); await loadRaceDates(); await updateSelectors(); }
+        };
+        document.getElementById("refreshDataBtn").onclick = () => showMonthlyStats(document.getElementById("monthSelector").value);
+        document.querySelectorAll(".tab-btn").forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
+                document.getElementById(`${btn.dataset.page}-page`).classList.add("active-page");
+                if(btn.dataset.page === "data") updateMonthList();
+                if(btn.dataset.page === "home") refreshHome();
+                if(btn.dataset.page === "admin") { loadParticipants(); loadRaceDates(); }
+            };
+        });
+        document.getElementById("clearBetForm").onclick = () => document.getElementById("betForm").reset();
+    }
+</script>
+</body>
+</html>
