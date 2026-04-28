@@ -47,54 +47,82 @@
         </div>
     </div>
 
-    <div id="enter-page" class="page">
-        <div class="card">
-            <h2>✍️ 提交投注</h2>
-            <form id="betForm">
-                <div class="form-group"><label>參賽者</label><select id="betParticipantSelect" required></select></div>
-                <div class="form-group"><label>賽日</label><select id="betRaceDate" required></select></div>
-                <div class="form-group"><label>場次</label><select id="betRaceNo"></select></div>
-                <div class="form-group">
-                    <label>玩法</label>
-                    <select id="betBetType" required>
-                        <option value="獨贏">獨贏</option>
-                        <option value="位置">位置</option>
-                        <option value="獨贏及位置">獨贏及位置</option>
-                        <option value="連贏">連贏</option>
-                        <option value="位置Q">位置Q</option>
-                        <option value="連贏及位置">連贏及位置Q</option>
-                        <option value="二重彩">二重彩</option>
-                        <option value="三重彩">三重彩</option>
-                        <option value="單T">單T</option>
-                        <option value="四連環">四連環</option>
-                        <option value="四重彩">四重彩</option>
-                        <option value="孖寶">孖寶</option>
-                        <option value="三寶">三寶</option>
-                        <option value="孖T">孖T</option>
-                        <option value="三T">三T</option>
-                        <option value="六環彩">六環彩</option>
-                        <option value="過關">過關</option>
-                    </select>
-                </div>
-                <div id="subBetTypeGroup" class="sub-bet-type-group">
-                    <label>子玩法</label>
-                    <select id="betSubType">
-                        <option value="">-- 請選擇 --</option>
-                        <option value="單式">單式</option>
-                        <option value="複式">複式</option>
-                        <option value="單式馬膽">單式馬膽</option>
-                        <option value="複式馬膽">複式馬膽</option>
-                        <option value="指定位置馬膽">指定位置馬膽</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>馬匹詳情</label><input type="text" id="betDetail" placeholder="例如: 1, 3, 5" required></div>
-                <div class="form-group"><label>金額 ($)</label><input type="number" id="betAmount" value="100" required></div>
-                <div class="form-group"><label>分析</label><textarea id="betReason" rows="2"></textarea></div>
-                <button type="submit" style="width: 100%;">💾 儲存投注</button>
-            </form>
-        </div>
-    </div>
+<div id="enter-page" class="page">
+    <div class="card">
+        <h2>✍️ 提交投注</h2>
+        <form id="betForm">
+            <div class="form-group">
+                <label>參賽者</label>
+                <select id="betParticipantSelect" required>
+                    <option value="">載入中...</option>
+                </select>
+            </div>
 
+            <div class="form-group">
+                <label>賽日</label>
+                <select id="betRaceDate" required></select>
+            </div>
+            <div class="form-group">
+                <label>場次</label>
+                <select id="betRaceNo"></select>
+            </div>
+
+            <div class="form-group">
+                <label>玩法</label>
+                <select id="betBetType" required>
+                    <option value="獨贏">獨贏</option>
+                    <option value="位置">位置</option>
+                    <option value="獨贏及位置">獨贏及位置</option>
+                    <option value="連贏">連贏</option>
+                    <option value="位置Q">位置Q</option>
+                    <option value="連贏及位置Q">連贏及位置Q</option>
+                    <option value="二重彩">二重彩</option>
+                    <option value="三重彩">三重彩</option>
+                    <option value="單T">單T</option>
+                    <option value="四連環">四連環</option>
+                    <option value="四重彩">四重彩</option>
+                    <option value="孖寶">孖寶</option>
+                    <option value="三寶">三寶</option>
+                    <option value="孖T">孖T</option>
+                    <option value="三T">三T</option>
+                    <option value="六環彩">六環彩</option>
+                    <option value="過關">過關</option>
+                </select>
+            </div>
+
+            <div id="subBetTypeGroup" class="form-group" style="display: none;">
+                <label>子玩法</label>
+                <select id="betSubType">
+                    <option value="">-- 請選擇 --</option>
+                    <option value="單式">單式</option>
+                    <option value="複式">複式</option>
+                    <option value="單式馬膽">單式馬膽</option>
+                    <option value="複式馬膽">複式馬膽</option>
+                    <option value="指定位置馬膽">指定位置馬膽</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>馬匹詳情</label>
+                <input type="text" id="betDetail" placeholder="例如: 1, 3, 5" required>
+            </div>
+            <div class="form-group">
+                <label>金額 ($)</label>
+                <input type="number" id="betAmount" value="100" min="10" required>
+            </div>
+
+            <div class="form-group">
+                <label>分析原因</label>
+                <textarea id="betReason" rows="2" placeholder="選填..."></textarea>
+            </div>
+
+            <button type="submit" id="submitBetBtn" style="width: 100%; height: 50px; font-size: 1.1rem; background: #1e6f3f;">
+                💾 儲存投注
+            </button>
+        </form>
+    </div>
+</div>
+    
     <div id="bets-manage-page" class="page">
         <div class="card">
             <h2>📋 投注紀錄維護</h2>
