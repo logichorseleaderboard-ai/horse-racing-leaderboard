@@ -290,15 +290,37 @@
     </div>
 </div>
     
-    <div id="bets-manage-page" class="page">
-        <div class="card">
-            <h2>📋 投注紀錄維護</h2>
-            <table id="manageBetsTable">
-                <thead><tr><th>參賽者</th><th>日期</th><th>金額</th><th>結果</th><th>操作</th></tr></thead>
-                <tbody></tbody>
-            </table>
+<div id="admin-page" class="page">
+    <div id="admin-auth" class="card" style="text-align: center; padding: 40px 20px;">
+        <h2>🔐 管理員驗證</h2>
+        <div style="max-width: 300px; margin: 0 auto;">
+            <input type="password" id="adminPassword" placeholder="輸入管理員密碼..." style="margin-bottom: 15px; text-align: center;">
+            <button onclick="checkAdminAuth()" style="width: 100%;">驗證進入</button>
         </div>
     </div>
+
+    <div id="admin-content" style="display: none;">
+        <div class="card">
+            <h2>👤 參賽者管理</h2>
+            <div class="form-group" style="display: flex; gap: 10px;">
+                <input type="text" id="newParticipantName" placeholder="輸入姓名...">
+                <button onclick="addParticipant()" style="white-space: nowrap; width: auto; padding: 0 20px;">新增</button>
+            </div>
+            <div id="participantList" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                </div>
+        </div>
+
+        <div class="card">
+            <h2>📅 賽日管理</h2>
+            <div class="form-group" style="display: flex; gap: 10px;">
+                <input type="date" id="newRaceDate">
+                <button onclick="addRaceDay()" style="white-space: nowrap; width: auto; padding: 0 20px;">新增日期</button>
+            </div>
+            <div id="raceDateList" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                </div>
+        </div>
+    </div>
+</div>
 
     <div id="data-page" class="page">
         <div class="card">
@@ -323,7 +345,7 @@
     var CONFIG = {
         URL: "https://dmgauesvjpelufjrnlzf.supabase.co",
         KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4",
-        PASS: "LBadmin"
+        PASS: "LBadmin" // 管理頁面密碼
     };
 
     // 檢查全域實體，防止重複建立 Client
@@ -335,6 +357,17 @@
     // --- 2. 頁面切換系統 ---
     function switchPage(pageId) {
         console.log("切換至頁面:", pageId);
+
+        // 如果進入管理頁，強制重設驗證狀態
+        if (pageId === 'admin') {
+            const authDiv = document.getElementById("admin-auth");
+            const contentDiv = document.getElementById("admin-content");
+            if (authDiv) authDiv.style.display = "block";
+            if (contentDiv) contentDiv.style.display = "none";
+            const pwdInput = document.getElementById("adminPassword");
+            if (pwdInput) pwdInput.value = "";
+        }
+
         // 切換顯示狀態
         document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -349,10 +382,9 @@
         if (pageId === 'home') refreshHome();
         if (pageId === 'bets-manage') refreshManage();
         if (pageId === 'data') refreshStats();
-        if (pageId === 'admin') { loadParticipants(); loadRaceDays(); }
     }
 
-    // --- 3. 數據加載與下拉選單 ---
+    // --- 3. 基礎數據加載 (下拉選單同步) ---
     async function loadBasics() {
         // 1. 生成場次 (1-12場)
         const raceNoEl = document.getElementById("betRaceNo");
@@ -362,25 +394,85 @@
 
         // 2. 加載參賽者
         const { data: pData } = await supabase.from('participants').select('name');
-        if (pData) {
-            const pSelect = document.getElementById("betParticipantSelect");
-            if (pSelect) pSelect.innerHTML = pData.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        const pSelect = document.getElementById("betParticipantSelect");
+        if (pSelect && pData) {
+            pSelect.innerHTML = pData.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
         }
 
         // 3. 加載賽日
         const { data: dData } = await supabase.from('race_days').select('race_date').order('race_date', {ascending: false});
-        if (dData) {
-            const dSelect = document.getElementById("betRaceDate");
-            if (dSelect) dSelect.innerHTML = dData.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+        const dSelect = document.getElementById("betRaceDate");
+        if (dSelect && dData) {
+            dSelect.innerHTML = dData.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
         }
     }
 
-    // --- 4. 功能邏輯 (主頁、管理、統計) ---
+    // --- 4. 管理員驗證與管理功能 ---
+    function checkAdminAuth() {
+        const pwd = document.getElementById("adminPassword").value;
+        if (pwd === CONFIG.PASS) {
+            document.getElementById("admin-auth").style.display = "none";
+            document.getElementById("admin-content").style.display = "block";
+            loadAdminData(); 
+        } else {
+            alert("密碼錯誤！");
+        }
+    }
+
+    async function loadAdminData() {
+        // 渲染人員列表
+        const { data: pData } = await supabase.from('participants').select('*');
+        const pList = document.getElementById("participantList");
+        if (pList && pData) {
+            pList.innerHTML = pData.map(p => `
+                <span class="badge" style="display:flex; align-items:center; gap:8px;">
+                    ${p.name} <b style="color:#be123c; cursor:pointer;" onclick="deleteAdminItem('participants', ${p.id})">×</b>
+                </span>
+            `).join('');
+        }
+
+        // 渲染賽日列表
+        const { data: dData } = await supabase.from('race_days').select('*').order('race_date', {ascending: false});
+        const dList = document.getElementById("raceDateList");
+        if (dList && dData) {
+            dList.innerHTML = dData.map(d => `
+                <span class="badge" style="display:flex; align-items:center; gap:8px;">
+                    ${d.race_date} <b style="color:#be123c; cursor:pointer;" onclick="deleteAdminItem('race_days', ${d.id})">×</b>
+                </span>
+            `).join('');
+        }
+    }
+
+    async function addParticipant() {
+        const nameInput = document.getElementById("newParticipantName");
+        if (!nameInput.value) return;
+        await supabase.from('participants').insert([{ name: nameInput.value }]);
+        nameInput.value = "";
+        loadAdminData();
+        loadBasics(); // 同步更新投注頁下拉選單
+    }
+
+    async function addRaceDay() {
+        const dateInput = document.getElementById("newRaceDate");
+        if (!dateInput.value) return;
+        await supabase.from('race_days').insert([{ race_date: dateInput.value }]);
+        loadAdminData();
+        loadBasics(); // 同步更新投注頁下拉選單
+    }
+
+    async function deleteAdminItem(table, id) {
+        if (confirm("確定要刪除嗎？")) {
+            await supabase.from(table).delete().eq('id', id);
+            loadAdminData();
+            loadBasics();
+        }
+    }
+
+    // --- 5. 數據呈現 (主頁、統計、紀錄) ---
     async function refreshHome() {
         const tbody = document.querySelector("#homeBetTable tbody");
         if (!tbody) return;
         tbody.innerHTML = "<tr><td colspan='6'>載入中...</td></tr>";
-        
         const { data } = await supabase.from('bets').select('*').order('id', {ascending: false});
         tbody.innerHTML = (data || []).map(b => `
             <tr>
@@ -391,7 +483,7 @@
                 <td>$${b.amount}</td>
                 <td>${b.reason || '-'}</td>
             </tr>
-        `).join('') || "<tr><td colspan='6'>暫無最新投注紀錄</td></tr>";
+        `).join('') || "<tr><td colspan='6'>暫無最新投注</td></tr>";
     }
 
     async function refreshManage() {
@@ -414,7 +506,6 @@
     async function refreshStats() {
         const { data } = await supabase.from('bets').select('*');
         if (!data) return;
-
         const totalAmt = data.reduce((sum, b) => sum + b.amount, 0);
         const winCount = data.filter(b => b.is_win).length;
         const winRate = data.length > 0 ? (winCount / data.length * 100).toFixed(1) : 0;
@@ -422,7 +513,6 @@
         if (document.getElementById("totalBet")) document.getElementById("totalBet").innerText = `$${totalAmt}`;
         if (document.getElementById("winRate")) document.getElementById("winRate").innerText = `${winRate}%`;
 
-        // 玩家表現排名邏輯
         const players = {};
         data.forEach(b => {
             if (!players[b.participant]) players[b.participant] = { count: 0, wins: 0 };
@@ -430,34 +520,29 @@
             if (b.is_win) players[b.participant].wins++;
         });
 
-        const sortedPlayers = Object.entries(players).sort((a, b) => (b[1].wins / b[1].count) - (a[1].wins / a[1].count));
+        const sortedPlayers = Object.entries(players).sort((a, b) => (b[1].wins/b[1].count) - (a[1].wins/a[1].count));
         const rankBody = document.querySelector("#playerRankTable tbody");
         if (rankBody) {
             rankBody.innerHTML = sortedPlayers.map(([name, stat]) => `
-                <tr>
-                    <td>${name}</td>
-                    <td>${stat.count}</td>
-                    <td>${stat.wins}</td>
-                    <td>${((stat.wins / stat.count) * 100).toFixed(1)}%</td>
-                </tr>
+                <tr><td>${name}</td><td>${stat.count}</td><td>${stat.wins}</td><td>${((stat.wins/stat.count)*100).toFixed(1)}%</td></tr>
             `).join('');
         }
     }
 
-    // --- 5. 事件監聽與表單處理 ---
     window.handleWin = async (id, curStatus) => {
         await supabase.from('bets').update({ is_win: !curStatus }).eq('id', id);
         refreshManage();
     };
 
     window.handleDel = async (id) => {
-        if (confirm("確定要刪除這筆紀錄嗎？")) {
+        if (confirm("確定刪除這筆紀錄？")) {
             await supabase.from('bets').delete().eq('id', id);
             refreshManage();
         }
     };
 
-    // 子玩法連動顯示邏輯
+    // --- 6. 事件綁定 (子玩法與表單) ---
+    // 子玩法連動
     const betTypeEl = document.getElementById('betBetType');
     if (betTypeEl) {
         betTypeEl.addEventListener('change', function() {
@@ -472,7 +557,7 @@
         });
     }
 
-    // 表單提交
+    // 投注表單提交
     const betForm = document.getElementById("betForm");
     if (betForm) {
         betForm.onsubmit = async (e) => {
@@ -489,32 +574,16 @@
                 is_win: false,
                 created_at: new Date().toISOString()
             };
-
             const { error } = await supabase.from('bets').insert([entry]);
-            if (error) {
-                alert("儲存失敗: " + error.message);
-            } else {
-                alert("✅ 投注已成功儲存！");
-                betForm.reset();
-                document.getElementById('subBetTypeGroup').style.display = 'none';
-                switchPage('home');
-            }
+            if (error) alert("失敗: " + error.message);
+            else { alert("✅ 提交成功！"); betForm.reset(); document.getElementById('subBetTypeGroup').style.display = 'none'; switchPage('home'); }
         };
     }
 
-    // --- 6. 系統初始化啟動 ---
+    // --- 7. 初始化 ---
     window.onload = async () => {
-        console.log("系統啟動中...");
-        
-        // 綁定標籤按鈕
-        document.querySelectorAll(".tab-btn").forEach(btn => {
-            btn.onclick = () => switchPage(btn.dataset.page);
-        });
-
-        // 預加載基礎數據
+        document.querySelectorAll(".tab-btn").forEach(btn => btn.onclick = () => switchPage(btn.dataset.page));
         await loadBasics();
-        
-        // 預設進入主頁
         switchPage('home');
     };
 </script>
