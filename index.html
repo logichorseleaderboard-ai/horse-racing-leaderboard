@@ -4,28 +4,195 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logic Horse龍虎榜</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-        body { background: #f4f7fc; padding: 20px; color: #1e293b; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; flex-wrap: wrap; }
-        .tab-btn { background: #e2e8f0; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: 600; color: #475569; transition: 0.3s; }
-        .tab-btn.active { background: #1e6f3f; color: white; }
-        .page { display: none; }
-        .page.active-page { display: block; }
-        .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        h2 { font-size: 1.2rem; margin-bottom: 15px; color: #0f172a; border-left: 4px solid #1e6f3f; padding-left: 12px; }
-        .form-group { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
-        .form-group label { width: 80px; font-weight: 600; }
-        select, input, textarea { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
-        button { padding: 10px 20px; border-radius: 8px; border: none; background: #1e6f3f; color: white; font-weight: 600; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-        th { background: #f8fafc; color: #64748b; }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, min-max(200px, 1fr)); gap: 15px; margin-top: 10px; }
-        .stat-item { background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; }
-        .stat-value { font-size: 1.5rem; font-weight: 800; color: #1e6f3f; }
-    </style>
+<style>
+    /* 基礎重設 */
+    * { 
+        margin: 0; 
+        padding: 0; 
+        box-sizing: border-box; 
+        font-family: 'PingFang HK', 'Microsoft JhengHei', system-ui, sans-serif; 
+    }
+
+    body { 
+        background: #f0f2f5; 
+        padding: 15px; 
+        color: #1e293b; 
+        line-height: 1.6;
+    }
+
+    .container { 
+        max-width: 1000px; 
+        margin: 0 auto; 
+    }
+
+    /* 頂部導覽標籤 */
+    .tabs { 
+        display: flex; 
+        gap: 8px; 
+        margin-bottom: 20px; 
+        overflow-x: auto; /* 手機版可左右滑動 */
+        padding-bottom: 5px;
+        position: sticky;
+        top: 0;
+        background: #f0f2f5;
+        z-index: 100;
+    }
+
+    .tab-btn { 
+        background: white; 
+        border: 1px solid #cbd5e1; 
+        padding: 10px 18px; 
+        border-radius: 50px; 
+        cursor: pointer; 
+        font-weight: 600; 
+        color: #64748b; 
+        white-space: nowrap;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .tab-btn.active { 
+        background: #1e6f3f; 
+        color: white; 
+        border-color: #14532d;
+    }
+
+    /* 頁面切換內容 */
+    .page { display: none; animation: fadeIn 0.3s ease; }
+    .page.active-page { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* 卡片樣式 */
+    .card { 
+        background: white; 
+        border-radius: 16px; 
+        padding: 20px; 
+        margin-bottom: 20px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+    }
+
+    h2 { 
+        font-size: 1.25rem; 
+        margin-bottom: 20px; 
+        color: #0f172a; 
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    h2::before {
+        content: "";
+        width: 4px;
+        height: 1.25rem;
+        background: #1e6f3f;
+        border-radius: 2px;
+    }
+
+    /* 表單樣式 */
+    .form-group { 
+        margin-bottom: 18px; 
+        display: flex; 
+        flex-direction: column; /* 手機版預設垂直 */
+        gap: 8px; 
+    }
+
+    label { 
+        font-weight: 600; 
+        color: #475569; 
+        font-size: 0.95rem;
+    }
+
+    select, input, textarea { 
+        width: 100%; 
+        padding: 12px; 
+        border: 1px solid #cbd5e1; 
+        border-radius: 10px; 
+        font-size: 1rem;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    select:focus, input:focus { border-color: #1e6f3f; }
+
+    /* 子玩法專用樣式 */
+    #subBetTypeGroup {
+        background: #f0fdf4; /* 淡淡的綠色背景 */
+        padding: 15px;
+        border-radius: 12px;
+        border: 2px dashed #bbf7d0;
+        display: none; /* 由 JS 控制 */
+    }
+
+    /* 按鈕樣式 */
+    button[type="submit"] { 
+        background: #1e6f3f; 
+        color: white; 
+        border: none; 
+        padding: 15px; 
+        border-radius: 10px; 
+        font-size: 1.1rem; 
+        font-weight: 700; 
+        cursor: pointer; 
+        width: 100%;
+        margin-top: 10px;
+        transition: background 0.2s;
+    }
+
+    button[type="submit"]:hover { background: #14532d; }
+    button[type="submit"]:disabled { background: #94a3b8; }
+
+    /* 表格樣式 */
+    .table-container { overflow-x: auto; }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        min-width: 600px;
+    }
+
+    th, td { 
+        padding: 14px; 
+        text-align: left; 
+        border-bottom: 1px solid #f1f5f9; 
+        font-size: 0.95rem;
+    }
+
+    th { background: #f8fafc; color: #64748b; font-weight: 600; }
+
+    .badge { 
+        background: #e2e8f0; 
+        color: #475569; 
+        padding: 4px 10px; 
+        border-radius: 6px; 
+        font-size: 0.85rem; 
+        font-weight: 600;
+    }
+
+    /* 數據統計網格 */
+    .stat-grid { 
+        display: grid; 
+        grid-template-columns: repeat(2, 1fr); 
+        gap: 15px; 
+    }
+
+    .stat-item { 
+        background: #f8fafc; 
+        padding: 15px; 
+        border-radius: 12px; 
+        text-align: center; 
+        border: 1px solid #e2e8f0;
+    }
+
+    .stat-label { font-size: 0.85rem; color: #64748b; margin-bottom: 5px; }
+    .stat-value { font-size: 1.4rem; font-weight: 800; color: #1e6f3f; }
+
+    /* 電腦版優化 (橫向排列) */
+    @media (min-width: 640px) {
+        .form-group { flex-direction: row; align-items: center; }
+        label { width: 100px; margin-bottom: 0; }
+        .stat-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+</style>
 </head>
 <body>
 
@@ -152,59 +319,95 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // --- 1. 初始化與防衝突宣告 ---
+    // --- 1. 配置與核心初始化 (使用 var 避免重複宣告報錯) ---
     var CONFIG = {
         URL: "https://dmgauesvjpelufjrnlzf.supabase.co",
-        KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4"
+        KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4",
+        PASS: "LBadmin"
     };
 
+    // 檢查全域實體，防止重複建立 Client
     if (!window.supabaseInstance) {
         window.supabaseInstance = window.supabase.createClient(CONFIG.URL, CONFIG.KEY);
     }
     var supabase = window.supabaseInstance;
 
-    // --- 2. 頁面邏輯 ---
+    // --- 2. 頁面切換系統 ---
     function switchPage(pageId) {
+        console.log("切換至頁面:", pageId);
+        // 切換顯示狀態
         document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        document.getElementById(pageId + "-page").classList.add("active-page");
-        document.querySelector(`[data-page="${pageId}"]`).classList.add("active");
+        
+        const targetPage = document.getElementById(pageId + "-page");
+        const targetBtn = document.querySelector(`[data-page="${pageId}"]`);
+        
+        if (targetPage) targetPage.classList.add("active-page");
+        if (targetBtn) targetBtn.classList.add("active");
 
+        // 進入頁面時自動刷新數據
         if (pageId === 'home') refreshHome();
         if (pageId === 'bets-manage') refreshManage();
         if (pageId === 'data') refreshStats();
+        if (pageId === 'admin') { loadParticipants(); loadRaceDays(); }
     }
 
-    // --- 3. 數據加載 ---
+    // --- 3. 數據加載與下拉選單 ---
     async function loadBasics() {
-        // 場次下拉選單 (1-12)
+        // 1. 生成場次 (1-12場)
         const raceNoEl = document.getElementById("betRaceNo");
-        raceNoEl.innerHTML = Array.from({length:12}, (_,i)=>`<option value="${i+1}">${i+1} 場</option>`).join('');
+        if (raceNoEl) {
+            raceNoEl.innerHTML = Array.from({length: 12}, (_, i) => `<option value="${i + 1}">${i + 1} 場</option>`).join('');
+        }
 
-        // 參賽者
+        // 2. 加載參賽者
         const { data: pData } = await supabase.from('participants').select('name');
-        if (pData) document.getElementById("betParticipantSelect").innerHTML = pData.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        if (pData) {
+            const pSelect = document.getElementById("betParticipantSelect");
+            if (pSelect) pSelect.innerHTML = pData.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        }
 
-        // 賽日
-        const { data: dData } = await supabase.from('race_days').select('race_date').order('race_date', {ascending:false});
-        if (dData) document.getElementById("betRaceDate").innerHTML = dData.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+        // 3. 加載賽日
+        const { data: dData } = await supabase.from('race_days').select('race_date').order('race_date', {ascending: false});
+        if (dData) {
+            const dSelect = document.getElementById("betRaceDate");
+            if (dSelect) dSelect.innerHTML = dData.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+        }
     }
 
+    // --- 4. 功能邏輯 (主頁、管理、統計) ---
     async function refreshHome() {
-        const { data } = await supabase.from('bets').select('*').order('id', {ascending: false});
         const tbody = document.querySelector("#homeBetTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "<tr><td colspan='6'>載入中...</td></tr>";
+        
+        const { data } = await supabase.from('bets').select('*').order('id', {ascending: false});
         tbody.innerHTML = (data || []).map(b => `
-            <tr><td>${b.race_no}</td><td><b>${b.participant}</b></td><td>${b.bet_type}</td><td>${b.bet_detail}</td><td>$${b.amount}</td><td>${b.reason || '-'}</td></tr>
-        `).join('') || "<tr><td colspan='6'>暫無投注數據</td></tr>";
+            <tr>
+                <td>${b.race_no}場</td>
+                <td><span class="badge">${b.participant}</span></td>
+                <td>${b.bet_type}${b.sub_bet_type ? ' ('+b.sub_bet_type+')' : ''}</td>
+                <td>${b.bet_detail}</td>
+                <td>$${b.amount}</td>
+                <td>${b.reason || '-'}</td>
+            </tr>
+        `).join('') || "<tr><td colspan='6'>暫無最新投注紀錄</td></tr>";
     }
 
     async function refreshManage() {
-        const { data } = await supabase.from('bets').select('*').order('id', {ascending: false});
         const tbody = document.querySelector("#manageBetsTable tbody");
+        if (!tbody) return;
+        const { data } = await supabase.from('bets').select('*').order('id', {ascending: false});
         tbody.innerHTML = (data || []).map(b => `
-            <tr><td>${b.participant}</td><td>${b.race_date}</td><td>$${b.amount}</td>
-            <td><button style="background:${b.is_win?'#22c55e':'#94a3b8'}" onclick="handleWin(${b.id},${b.is_win})">${b.is_win?'贏':'未勝'}</button></td>
-            <td><button style="background:#be123c" onclick="handleDel(${b.id})">刪</button></td></tr>
+            <tr>
+                <td>${b.participant}</td>
+                <td>${b.race_date}</td>
+                <td>$${b.amount}</td>
+                <td><button style="background:${b.is_win ? '#22c55e' : '#94a3b8'}; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;" 
+                    onclick="handleWin(${b.id}, ${b.is_win})">${b.is_win ? '已贏' : '未勝'}</button></td>
+                <td><button style="background:#be123c; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;" 
+                    onclick="handleDel(${b.id})">刪除</button></td>
+            </tr>
         `).join('');
     }
 
@@ -212,14 +415,14 @@
         const { data } = await supabase.from('bets').select('*');
         if (!data) return;
 
-        const total = data.reduce((sum, b) => sum + b.amount, 0);
-        const wins = data.filter(b => b.is_win).length;
-        const rate = data.length > 0 ? (wins / data.length * 100).toFixed(1) : 0;
+        const totalAmt = data.reduce((sum, b) => sum + b.amount, 0);
+        const winCount = data.filter(b => b.is_win).length;
+        const winRate = data.length > 0 ? (winCount / data.length * 100).toFixed(1) : 0;
 
-        document.getElementById("totalBet").innerText = `$${total}`;
-        document.getElementById("winRate").innerText = `${rate}%`;
+        if (document.getElementById("totalBet")) document.getElementById("totalBet").innerText = `$${totalAmt}`;
+        if (document.getElementById("winRate")) document.getElementById("winRate").innerText = `${winRate}%`;
 
-        // 玩家排名邏輯
+        // 玩家表現排名邏輯
         const players = {};
         data.forEach(b => {
             if (!players[b.participant]) players[b.participant] = { count: 0, wins: 0 };
@@ -227,37 +430,91 @@
             if (b.is_win) players[b.participant].wins++;
         });
 
-        const sortedPlayers = Object.entries(players).sort((a,b) => b[1].wins - a[1].wins);
-        document.querySelector("#playerRankTable tbody").innerHTML = sortedPlayers.map(([name, stat]) => `
-            <tr><td>${name}</td><td>${stat.count}</td><td>${stat.wins}</td><td>${(stat.wins/stat.count*100).toFixed(1)}%</td></tr>
-        `).join('');
+        const sortedPlayers = Object.entries(players).sort((a, b) => (b[1].wins / b[1].count) - (a[1].wins / a[1].count));
+        const rankBody = document.querySelector("#playerRankTable tbody");
+        if (rankBody) {
+            rankBody.innerHTML = sortedPlayers.map(([name, stat]) => `
+                <tr>
+                    <td>${name}</td>
+                    <td>${stat.count}</td>
+                    <td>${stat.wins}</td>
+                    <td>${((stat.wins / stat.count) * 100).toFixed(1)}%</td>
+                </tr>
+            `).join('');
+        }
     }
 
-    // --- 4. 操作交互 ---
-    document.getElementById("betForm").onsubmit = async (e) => {
-        e.preventDefault();
-        const entry = {
-            participant: document.getElementById("betParticipantSelect").value,
-            race_date: document.getElementById("betRaceDate").value,
-            race_no: parseInt(document.getElementById("betRaceNo").value),
-            bet_type: document.getElementById("betBetType").value,
-            bet_detail: document.getElementById("betDetail").value,
-            amount: parseInt(document.getElementById("betAmount").value),
-            reason: document.getElementById("betReason").value,
-            is_win: false
-        };
-        await supabase.from('bets').insert([entry]);
-        alert("投注已儲存");
-        switchPage('home');
+    // --- 5. 事件監聽與表單處理 ---
+    window.handleWin = async (id, curStatus) => {
+        await supabase.from('bets').update({ is_win: !curStatus }).eq('id', id);
+        refreshManage();
     };
 
-    window.handleWin = async (id, cur) => { await supabase.from('bets').update({is_win: !cur}).eq('id', id); refreshManage(); };
-    window.handleDel = async (id) => { if(confirm("確定刪除?")) { await supabase.from('bets').delete().eq('id', id); refreshManage(); } };
+    window.handleDel = async (id) => {
+        if (confirm("確定要刪除這筆紀錄嗎？")) {
+            await supabase.from('bets').delete().eq('id', id);
+            refreshManage();
+        }
+    };
 
-    // --- 5. 啟動 ---
+    // 子玩法連動顯示邏輯
+    const betTypeEl = document.getElementById('betBetType');
+    if (betTypeEl) {
+        betTypeEl.addEventListener('change', function() {
+            const specialTypes = ["二重彩", "三重彩", "四重彩"];
+            const subGroup = document.getElementById('subBetTypeGroup');
+            if (specialTypes.includes(this.value)) {
+                subGroup.style.display = 'flex';
+            } else {
+                subGroup.style.display = 'none';
+                document.getElementById('betSubType').value = "";
+            }
+        });
+    }
+
+    // 表單提交
+    const betForm = document.getElementById("betForm");
+    if (betForm) {
+        betForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const entry = {
+                participant: document.getElementById("betParticipantSelect").value,
+                race_date: document.getElementById("betRaceDate").value,
+                race_no: parseInt(document.getElementById("betRaceNo").value),
+                bet_type: document.getElementById("betBetType").value,
+                sub_bet_type: document.getElementById("betSubType").value,
+                bet_detail: document.getElementById("betDetail").value,
+                amount: parseInt(document.getElementById("betAmount").value),
+                reason: document.getElementById("betReason").value,
+                is_win: false,
+                created_at: new Date().toISOString()
+            };
+
+            const { error } = await supabase.from('bets').insert([entry]);
+            if (error) {
+                alert("儲存失敗: " + error.message);
+            } else {
+                alert("✅ 投注已成功儲存！");
+                betForm.reset();
+                document.getElementById('subBetTypeGroup').style.display = 'none';
+                switchPage('home');
+            }
+        };
+    }
+
+    // --- 6. 系統初始化啟動 ---
     window.onload = async () => {
-        document.querySelectorAll(".tab-btn").forEach(btn => btn.onclick = () => switchPage(btn.dataset.page));
+        console.log("系統啟動中...");
+        
+        // 綁定標籤按鈕
+        document.querySelectorAll(".tab-btn").forEach(btn => {
+            btn.onclick = () => switchPage(btn.dataset.page);
+        });
+
+        // 預加載基礎數據
         await loadBasics();
+        
+        // 預設進入主頁
         switchPage('home');
     };
 </script>
