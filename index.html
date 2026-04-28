@@ -59,7 +59,8 @@
         <div class="card">
             <h2>✍️ 新增投注</h2>
             <form id="betForm">
-                <div class="form-row"><label>參賽者</label><input type="text" id="betParticipant" required placeholder="姓名"></div>
+                <!-- 這裡改為下拉選單 -->
+                <div class="form-row"><label>參賽者</label><select id="betParticipantSelect" required><option value="">-- 請選擇 --</option></select></div>
                 <div class="form-row"><label>賽日</label><select id="betRaceDate"></select></div>
                 <div class="form-row"><label>場次</label><select id="betRaceNo"></select></div>
                 <div class="form-row"><label>投注詳情</label><input type="text" id="betDetail" required placeholder="例: 獨贏 1號馬"></div>
@@ -82,7 +83,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // 使用獨特變數名稱避免衝突
     const MY_SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
     const MY_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     
@@ -106,6 +106,12 @@
         if (error) { console.error("參賽者錯誤:", error); return; }
         if (data) participantsList = data.map(p => p.name);
         document.getElementById("participantList").innerHTML = participantsList.map(p => `<span class="badge">${p} <button onclick="removeParticipant('${p}')">刪除</button></span>`).join('');
+        
+        // 更新投注頁面的參賽者下拉選單
+        const betSelect = document.getElementById("betParticipantSelect");
+        if (betSelect) {
+            betSelect.innerHTML = '<option value="">-- 請選擇 --</option>' + participantsList.map(p => `<option value="${p}">${p}</option>`).join('');
+        }
     }
     
     window.removeParticipant = async function(name) {
@@ -194,15 +200,16 @@
         document.getElementById("refreshHomeBtn").onclick = refreshHomePage;
         document.getElementById("betForm").onsubmit = async (e) => {
             e.preventDefault();
-            let participant = document.getElementById("betParticipant").value.trim();
-            if (!participant) return alert("請輸入參賽者");
-            let raceDate = document.getElementById("betRaceDate").value;
-            let raceNo = parseInt(document.getElementById("betRaceNo").value);
-            let detail = document.getElementById("betDetail").value.trim();
-            let amount = parseInt(document.getElementById("betAmount").value);
-            let reason = document.getElementById("betReason").value;
+            // 從下拉選單取得參賽者
+            const participant = document.getElementById("betParticipantSelect").value;
+            if (!participant) return alert("請選擇參賽者");
+            const raceDate = document.getElementById("betRaceDate").value;
+            const raceNo = parseInt(document.getElementById("betRaceNo").value);
+            const detail = document.getElementById("betDetail").value.trim();
+            const amount = parseInt(document.getElementById("betAmount").value);
+            const reason = document.getElementById("betReason").value;
             if (!raceDate || !detail) return alert("請完整填寫");
-            let { error } = await sbClient.from('bets').insert([{ participant, race_date: raceDate, race_no: raceNo, bet_detail: detail, amount, reason, is_win: false }]);
+            const { error } = await sbClient.from('bets').insert([{ participant, race_date: raceDate, race_no: raceNo, bet_detail: detail, amount, reason, is_win: false }]);
             if (error) alert("儲存失敗: " + error.message);
             else { alert("投注成功"); e.target.reset(); await refreshHomePage(); await refreshMonthSelector(); }
         };
