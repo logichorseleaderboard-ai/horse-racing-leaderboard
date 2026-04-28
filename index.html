@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
         body { background: #f4f7fc; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
-        .tabs { display: flex; gap: 8px; margin-bottom: 28px; border-bottom: 2px solid #cbd5e1; padding-bottom: 6px; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 28px; border-bottom: 2px solid #cbd5e1; padding-bottom: 6px; flex-wrap: wrap; }
         .tab-btn { background: transparent; border: none; font-size: 1rem; font-weight: 600; padding: 8px 20px; border-radius: 40px; cursor: pointer; color: #2c3e50; }
         .tab-btn.active { background: #1e6f3f; color: white; }
         .page { display: none; }
@@ -20,7 +20,7 @@
         select, input, textarea, button { border: 1px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; font-size: 0.9rem; }
         button { background: #1e6f3f; color: white; border: none; font-weight: 600; cursor: pointer; }
         button.secondary { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; overflow-x: auto; display: block; }
         th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
         th { background: #f1f5f9; }
         .badge { background: #e6f7ec; color: #0b5e2e; padding: 4px 10px; border-radius: 30px; display: inline-block; margin: 4px; }
@@ -60,8 +60,25 @@
             font-size: 0.8rem;
             margin-top: 10px;
         }
-        .admin-locked .admin-content {
+        .sub-bet-type-group {
             display: none;
+            background: #f8fafc;
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin-left: 116px;
+        }
+        .sub-bet-type-group label {
+            width: auto;
+            margin-right: 12px;
+        }
+        .sub-bet-type-group select {
+            width: auto;
+            min-width: 150px;
+        }
+        @media (max-width: 768px) {
+            .form-row label { width: 80px; }
+            .card { padding: 16px; }
+            .sub-bet-type-group { margin-left: 0; }
         }
     </style>
 </head>
@@ -82,7 +99,7 @@
                 <div class="filter-group"><label>參賽者</label><select id="homeParticipantSelect"><option value="all">全部</option></select></div>
                 <div><button id="refreshHomeBtn">🔄 刷新</button></div>
             </div>
-            <div><table id="homeBetTable"><thead><tr><th>場次</th><th>參賽者</th><th>投注詳情</th><th>金額</th><th>原因</th></tr></thead><tbody><tr><td colspan="5" class="loading">載入中...</td></tr></tbody></table></div>
+            <div style="overflow-x: auto;"><table id="homeBetTable"><thead>汽<th>場次</th><th>參賽者</th><th>玩法</th><th>投注詳情</th><th>金額</th><th>原因</th></thead><tbody><tr><td colspan="6" class="loading">載入中...</td></tr></tbody></table></div>
         </div>
     </div>
 
@@ -93,9 +110,41 @@
                 <div class="form-row"><label>參賽者</label><select id="betParticipantSelect" required><option value="">-- 請選擇 --</option></select></div>
                 <div class="form-row"><label>賽日</label><select id="betRaceDate"></select></div>
                 <div class="form-row"><label>場次</label><select id="betRaceNo"></select></div>
-                <div class="form-row"><label>投注詳情</label><input type="text" id="betDetail" required placeholder="例: 獨贏 1號馬"></div>
+                <div class="form-row"><label>玩法</label><select id="betBetType" required>
+                    <option value="">-- 請選擇 --</option>
+                    <option value="獨贏">獨贏</option>
+                    <option value="位置">位置</option>
+                    <option value="獨贏及位置">獨贏及位置</option>
+                    <option value="連贏">連贏</option>
+                    <option value="位置Q">位置Q</option>
+                    <option value="連贏及位置Q">連贏及位置Q</option>
+                    <option value="二重彩">二重彩</option>
+                    <option value="三重彩">三重彩</option>
+                    <option value="單T">單T</option>
+                    <option value="四連環">四連環</option>
+                    <option value="四重彩">四重彩</option>
+                    <option value="孖寶">孖寶</option>
+                    <option value="三寶">三寶</option>
+                    <option value="孖T">孖T</option>
+                    <option value="三T">三T</option>
+                    <option value="六環彩">六環彩</option>
+                    <option value="過關">過關</option>
+                </select></div>
+                <!-- 二重彩/三重彩/四重彩 子玩法 -->
+                <div id="subBetTypeGroup" class="sub-bet-type-group">
+                    <label>子玩法</label>
+                    <select id="betSubType">
+                        <option value="">-- 請選擇 --</option>
+                        <option value="單式">單式</option>
+                        <option value="複式">複式</option>
+                        <option value="單式馬膽">單式馬膽</option>
+                        <option value="複式馬膽">複式馬膽</option>
+                        <option value="指定位置馬膽">指定位置馬膽</option>
+                    </select>
+                </div>
+                <div class="form-row"><label>投注詳情</label><input type="text" id="betDetail" required placeholder="例: 1號馬 / 1號馬 2號馬 3號馬"></div>
                 <div class="form-row"><label>金額 ($)</label><input type="number" id="betAmount" required min="10" step="10" value="100"></div>
-                <div class="form-row"><label>原因</label><textarea id="betReason" rows="2"></textarea></div>
+                <div class="form-row"><label>原因</label><textarea id="betReason" rows="2" placeholder="臨場狀態、檔位、騎師..."></textarea></div>
                 <div class="inline-buttons"><button type="submit">💾 儲存</button><button type="button" id="clearBetForm" class="secondary">清除</button></div>
             </form>
         </div>
@@ -115,11 +164,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // ==================== 密碼設定 ====================
-    // 請在這裡修改你的管理密碼（預設為 admin123）
-    const ADMIN_PASSWORD = "logiclbsetting";
-    // =================================================
-    
+    // ==================== 設定 ====================
+    const ADMIN_PASSWORD = "admin123";
     const MY_SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
     const MY_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     
@@ -127,8 +173,12 @@
     
     let participantsList = [];
     let raceDaysList = [];
-    let adminUnlocked = false;  // 管理頁面是否已解鎖
+    let adminUnlocked = false;
     
+    // 需要顯示子玩法的玩法列表
+    const betTypesWithSub = ["二重彩", "三重彩", "四重彩"];
+    
+    // ==================== 初始化 ====================
     window.addEventListener('DOMContentLoaded', function() {
         console.log("開始載入資料...");
         loadAllParticipants();
@@ -137,31 +187,45 @@
         refreshSelectors();
         refreshMonthSelector();
         bindEvents();
-        setupAdminLock();  // 設定管理頁面密碼鎖
+        setupAdminLock();
+        setupSubBetTypeListener();
     });
     
-    // ==================== 管理頁面密碼鎖功能 ====================
+    // 監聽玩法選擇，顯示/隱藏子玩法選項
+    function setupSubBetTypeListener() {
+        const betTypeSelect = document.getElementById("betBetType");
+        const subGroup = document.getElementById("subBetTypeGroup");
+        
+        betTypeSelect.addEventListener("change", function() {
+            const selectedValue = this.value;
+            if (betTypesWithSub.includes(selectedValue)) {
+                subGroup.style.display = "block";
+                document.getElementById("betSubType").required = true;
+            } else {
+                subGroup.style.display = "none";
+                document.getElementById("betSubType").required = false;
+                document.getElementById("betSubType").value = "";
+            }
+        });
+    }
+    
+    // ==================== 管理頁面密碼鎖 ====================
     function setupAdminLock() {
         const adminPage = document.getElementById("admin-page");
         
-        // 檢查 sessionStorage 是否已解鎖
         if (sessionStorage.getItem("adminUnlocked") === "true") {
             adminUnlocked = true;
             adminPage.classList.remove("admin-locked");
-            // 移除可能殘留的遮罩
             const existingOverlay = document.querySelector(".password-overlay");
             if (existingOverlay) existingOverlay.remove();
             return;
         }
         
-        // 監聽管理頁籤點擊
         const adminTab = document.querySelector('.tab-btn[data-page="admin"]');
-        const originalClick = adminTab.onclick;
         
         adminTab.onclick = (e) => {
             e.preventDefault();
             if (adminUnlocked || sessionStorage.getItem("adminUnlocked") === "true") {
-                // 已解鎖，正常切換
                 adminUnlocked = true;
                 document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
                 adminTab.classList.add("active");
@@ -171,12 +235,9 @@
                 loadAllRaceDays();
                 return;
             }
-            
-            // 未解鎖，顯示密碼輸入框
             showPasswordModal(adminTab);
         };
         
-        // 保留原本其他頁籤的功能
         const otherTabs = document.querySelectorAll('.tab-btn:not([data-page="admin"])');
         otherTabs.forEach(btn => {
             btn.onclick = () => {
@@ -191,7 +252,6 @@
     }
     
     function showPasswordModal(adminTab) {
-        // 移除已存在的遮罩
         const existingOverlay = document.querySelector(".password-overlay");
         if (existingOverlay) existingOverlay.remove();
         
@@ -212,11 +272,9 @@
         document.getElementById("submitPasswordBtn").onclick = () => {
             const inputPw = document.getElementById("adminPasswordInput").value;
             if (inputPw === ADMIN_PASSWORD) {
-                // 密碼正確
                 adminUnlocked = true;
                 sessionStorage.setItem("adminUnlocked", "true");
                 overlay.remove();
-                // 切換到管理頁面
                 document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
                 adminTab.classList.add("active");
                 document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
@@ -232,13 +290,12 @@
             overlay.remove();
         };
         
-        // 按 Enter 也可以提交
         document.getElementById("adminPasswordInput").onkeypress = (e) => {
             if (e.key === "Enter") document.getElementById("submitPasswordBtn").click();
         };
     }
-    // ==================== 密碼鎖功能結束 ====================
     
+    // ==================== 資料庫操作 ====================
     async function loadAllParticipants() {
         const { data, error } = await sbClient.from('participants').select('name');
         if (error) { console.error("參賽者錯誤:", error); return; }
@@ -288,8 +345,19 @@
         if (raceFilter !== 'all') filtered = filtered.filter(b => b.race_no == raceFilter);
         if (personFilter !== 'all') filtered = filtered.filter(b => b.participant === personFilter);
         const tbody = document.querySelector("#homeBetTable tbody");
-        if (filtered.length === 0) { tbody.innerHTML = "<tr><td colspan='5'>暫無投注紀錄</td></tr>"; return; }
-        tbody.innerHTML = filtered.map(b => `<tr><td>第 ${b.race_no} 場</td><td>${b.participant}</td><td>${b.bet_detail}</td><td>$${b.amount}</td><td>${b.reason || '-'}</td></tr>`).join('');
+        if (filtered.length === 0) { tbody.innerHTML = "<tr><td colspan='6'>暫無投注紀錄</td></tr>"; return; }
+        tbody.innerHTML = filtered.map(b => {
+            let displayBetType = b.bet_type || '-';
+            if (b.bet_sub_type) displayBetType = `${displayBetType} (${b.bet_sub_type})`;
+            return `<tr>
+                <td>第 ${b.race_no} 場</td>
+                <td>${b.participant}</td>
+                <td>${displayBetType}</td>
+                <td>${b.bet_detail}</td>
+                <td>$${b.amount}</td>
+                <td>${b.reason || '-'}</td>
+            </tr>`;
+        }).join('');
     }
     
     async function refreshSelectors() {
@@ -333,6 +401,7 @@
         document.getElementById("monthlyStatsContainer").innerHTML = html;
     }
     
+    // ==================== 事件綁定 ====================
     function bindEvents() {
         document.getElementById("refreshHomeBtn").onclick = refreshHomePage;
         document.getElementById("betForm").onsubmit = async (e) => {
@@ -341,11 +410,34 @@
             if (!participant) return alert("請選擇參賽者");
             const raceDate = document.getElementById("betRaceDate").value;
             const raceNo = parseInt(document.getElementById("betRaceNo").value);
+            const betType = document.getElementById("betBetType").value;
+            if (!betType) return alert("請選擇玩法");
+            
+            let betSubType = "";
+            if (betTypesWithSub.includes(betType)) {
+                betSubType = document.getElementById("betSubType").value;
+                if (!betSubType) return alert("請選擇子玩法（單式/複式/馬膽等）");
+            }
+            
             const detail = document.getElementById("betDetail").value.trim();
             const amount = parseInt(document.getElementById("betAmount").value);
             const reason = document.getElementById("betReason").value;
             if (!raceDate || !detail) return alert("請完整填寫");
-            const { error } = await sbClient.from('bets').insert([{ participant, race_date: raceDate, race_no: raceNo, bet_detail: detail, amount, reason, is_win: false }]);
+            
+            const insertData = { 
+                participant, 
+                race_date: raceDate, 
+                race_no: raceNo, 
+                bet_type: betType,
+                bet_detail: detail, 
+                amount, 
+                reason, 
+                is_win: false 
+            };
+            
+            if (betSubType) insertData.bet_sub_type = betSubType;
+            
+            const { error } = await sbClient.from('bets').insert([insertData]);
             if (error) alert("儲存失敗: " + error.message);
             else { alert("投注成功"); e.target.reset(); await refreshHomePage(); await refreshMonthSelector(); }
         };
@@ -367,7 +459,6 @@
             }
         };
         document.getElementById("refreshDataBtn").onclick = () => displayMonthlyStats(document.getElementById("monthSelector").value);
-        
         document.getElementById("clearBetForm").onclick = () => document.getElementById("betForm").reset();
     }
 </script>
