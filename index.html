@@ -206,7 +206,7 @@
     const MY_SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
     const MY_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     
-    const sbClient = window.supabase.createClient(MY_SB_URL, MY_SB_KEY);
+    const sb = window.supabase.createClient(SB_URL, SB_KEY);
     
     let participantsList = [];
     let raceDaysList = [];
