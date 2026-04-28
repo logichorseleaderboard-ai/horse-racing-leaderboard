@@ -32,6 +32,37 @@
         .form-row input, .form-row select, .form-row textarea { flex: 1; min-width: 200px; }
         .inline-buttons { display: flex; gap: 10px; margin-top: 10px; }
         .loading { text-align: center; padding: 40px; color: #1e6f3f; }
+        .password-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .password-box {
+            background: white;
+            padding: 30px;
+            border-radius: 24px;
+            text-align: center;
+            min-width: 300px;
+        }
+        .password-box input {
+            width: 100%;
+            margin: 15px 0;
+        }
+        .error-msg {
+            color: #b91c1c;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        .admin-locked .admin-content {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -59,7 +90,6 @@
         <div class="card">
             <h2>✍️ 新增投注</h2>
             <form id="betForm">
-                <!-- 這裡改為下拉選單 -->
                 <div class="form-row"><label>參賽者</label><select id="betParticipantSelect" required><option value="">-- 請選擇 --</option></select></div>
                 <div class="form-row"><label>賽日</label><select id="betRaceDate"></select></div>
                 <div class="form-row"><label>場次</label><select id="betRaceNo"></select></div>
@@ -72,8 +102,10 @@
     </div>
 
     <div id="admin-page" class="page">
-        <div class="card"><h2>👥 參賽者管理</h2><div class="form-row"><label>新增</label><input type="text" id="newParticipantName" placeholder="姓名"><button id="addParticipantBtn">➕ 加入</button></div><div id="participantList" style="margin-top:20px;"></div></div>
-        <div class="card"><h2>📅 賽日管理</h2><div class="form-row"><label>新增賽日</label><input type="date" id="newRaceDate"><button id="addRaceDateBtn">📅 加入</button></div><ul id="raceDateList" style="margin-top:16px;"></ul></div>
+        <div class="admin-content">
+            <div class="card"><h2>👥 參賽者管理</h2><div class="form-row"><label>新增</label><input type="text" id="newParticipantName" placeholder="姓名"><button id="addParticipantBtn">➕ 加入</button></div><div id="participantList" style="margin-top:20px;"></div></div>
+            <div class="card"><h2>📅 賽日管理</h2><div class="form-row"><label>新增賽日</label><input type="date" id="newRaceDate"><button id="addRaceDateBtn">📅 加入</button></div><ul id="raceDateList" style="margin-top:16px;"></ul></div>
+        </div>
     </div>
 
     <div id="data-page" class="page">
@@ -83,6 +115,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+    // ==================== 密碼設定 ====================
+    // 請在這裡修改你的管理密碼（預設為 admin123）
+    const ADMIN_PASSWORD = "logiclbsetting";
+    // =================================================
+    
     const MY_SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
     const MY_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     
@@ -90,6 +127,7 @@
     
     let participantsList = [];
     let raceDaysList = [];
+    let adminUnlocked = false;  // 管理頁面是否已解鎖
     
     window.addEventListener('DOMContentLoaded', function() {
         console.log("開始載入資料...");
@@ -99,7 +137,107 @@
         refreshSelectors();
         refreshMonthSelector();
         bindEvents();
+        setupAdminLock();  // 設定管理頁面密碼鎖
     });
+    
+    // ==================== 管理頁面密碼鎖功能 ====================
+    function setupAdminLock() {
+        const adminPage = document.getElementById("admin-page");
+        
+        // 檢查 sessionStorage 是否已解鎖
+        if (sessionStorage.getItem("adminUnlocked") === "true") {
+            adminUnlocked = true;
+            adminPage.classList.remove("admin-locked");
+            // 移除可能殘留的遮罩
+            const existingOverlay = document.querySelector(".password-overlay");
+            if (existingOverlay) existingOverlay.remove();
+            return;
+        }
+        
+        // 監聽管理頁籤點擊
+        const adminTab = document.querySelector('.tab-btn[data-page="admin"]');
+        const originalClick = adminTab.onclick;
+        
+        adminTab.onclick = (e) => {
+            e.preventDefault();
+            if (adminUnlocked || sessionStorage.getItem("adminUnlocked") === "true") {
+                // 已解鎖，正常切換
+                adminUnlocked = true;
+                document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+                adminTab.classList.add("active");
+                document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
+                adminPage.classList.add("active-page");
+                loadAllParticipants();
+                loadAllRaceDays();
+                return;
+            }
+            
+            // 未解鎖，顯示密碼輸入框
+            showPasswordModal(adminTab);
+        };
+        
+        // 保留原本其他頁籤的功能
+        const otherTabs = document.querySelectorAll('.tab-btn:not([data-page="admin"])');
+        otherTabs.forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
+                document.getElementById(`${btn.dataset.page}-page`).classList.add("active-page");
+                if (btn.dataset.page === "data") refreshMonthSelector();
+                if (btn.dataset.page === "home") refreshHomePage();
+            };
+        });
+    }
+    
+    function showPasswordModal(adminTab) {
+        // 移除已存在的遮罩
+        const existingOverlay = document.querySelector(".password-overlay");
+        if (existingOverlay) existingOverlay.remove();
+        
+        const overlay = document.createElement("div");
+        overlay.className = "password-overlay";
+        overlay.innerHTML = `
+            <div class="password-box">
+                <h3>🔐 管理員驗證</h3>
+                <p>請輸入密碼以進入管理頁面</p>
+                <input type="password" id="adminPasswordInput" placeholder="請輸入密碼">
+                <div id="passwordError" class="error-msg"></div>
+                <button id="submitPasswordBtn">確認</button>
+                <button id="cancelPasswordBtn" class="secondary">取消</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        document.getElementById("submitPasswordBtn").onclick = () => {
+            const inputPw = document.getElementById("adminPasswordInput").value;
+            if (inputPw === ADMIN_PASSWORD) {
+                // 密碼正確
+                adminUnlocked = true;
+                sessionStorage.setItem("adminUnlocked", "true");
+                overlay.remove();
+                // 切換到管理頁面
+                document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+                adminTab.classList.add("active");
+                document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
+                document.getElementById("admin-page").classList.add("active-page");
+                loadAllParticipants();
+                loadAllRaceDays();
+            } else {
+                document.getElementById("passwordError").innerText = "密碼錯誤，請重試";
+            }
+        };
+        
+        document.getElementById("cancelPasswordBtn").onclick = () => {
+            overlay.remove();
+        };
+        
+        // 按 Enter 也可以提交
+        document.getElementById("adminPasswordInput").onkeypress = (e) => {
+            if (e.key === "Enter") document.getElementById("submitPasswordBtn").click();
+        };
+    }
+    // ==================== 密碼鎖功能結束 ====================
     
     async function loadAllParticipants() {
         const { data, error } = await sbClient.from('participants').select('name');
@@ -107,7 +245,6 @@
         if (data) participantsList = data.map(p => p.name);
         document.getElementById("participantList").innerHTML = participantsList.map(p => `<span class="badge">${p} <button onclick="removeParticipant('${p}')">刪除</button></span>`).join('');
         
-        // 更新投注頁面的參賽者下拉選單
         const betSelect = document.getElementById("betParticipantSelect");
         if (betSelect) {
             betSelect.innerHTML = '<option value="">-- 請選擇 --</option>' + participantsList.map(p => `<option value="${p}">${p}</option>`).join('');
@@ -200,7 +337,6 @@
         document.getElementById("refreshHomeBtn").onclick = refreshHomePage;
         document.getElementById("betForm").onsubmit = async (e) => {
             e.preventDefault();
-            // 從下拉選單取得參賽者
             const participant = document.getElementById("betParticipantSelect").value;
             if (!participant) return alert("請選擇參賽者");
             const raceDate = document.getElementById("betRaceDate").value;
@@ -231,17 +367,7 @@
             }
         };
         document.getElementById("refreshDataBtn").onclick = () => displayMonthlyStats(document.getElementById("monthSelector").value);
-        document.querySelectorAll(".tab-btn").forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-                document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
-                document.getElementById(`${btn.dataset.page}-page`).classList.add("active-page");
-                if (btn.dataset.page === "data") refreshMonthSelector();
-                if (btn.dataset.page === "home") refreshHomePage();
-                if (btn.dataset.page === "admin") { loadAllParticipants(); loadAllRaceDays(); }
-            };
-        });
+        
         document.getElementById("clearBetForm").onclick = () => document.getElementById("betForm").reset();
     }
 </script>
