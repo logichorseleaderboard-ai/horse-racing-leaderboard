@@ -205,8 +205,7 @@
     const ADMIN_PASSWORD = "LBadmin";
     const MY_SUPABASE_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
     const MY_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";    
-    const mySbClient = window.supabase.createClient(MY_SUPABASE_URL, MY_SUPABASE_ANON_KEY);
-    
+    const supabaseClient = window.supabase.createClient(MY_SUPABASE_URL, MY_SUPABASE_ANON_KEY);
     let participantsList = [];
     let raceDaysList = [];
     let allBets = [];
@@ -225,9 +224,9 @@
         if (!participantsList.length) return;
         const ym = getCurrentYearMonth();
         for (const p of participantsList) {
-            const { data, error } = await sbClient.from('monthly_capital').select('*').eq('participant', p).eq('year_month', ym);
+            const { data, error } = await supabaseClient.from('monthly_capital').select('*').eq('participant', p).eq('year_month', ym);
             if (!error && (!data || data.length === 0)) {
-                await sbClient.from('monthly_capital').insert([{ participant: p, year_month: ym, capital_amount: 1000 }]);
+                await supabaseClient.from('monthly_capital').insert([{ participant: p, year_month: ym, capital_amount: 1000 }]);
                 console.log(`為 ${p} 建立 ${ym} 本金 $1000`);
             }
         }
@@ -236,9 +235,9 @@
     // ========== 計算可用本金 ==========
     async function calculateAvailableCapital(participant) {
         const ym = getCurrentYearMonth();
-        const { data: capitalData } = await sbClient.from('monthly_capital').select('capital_amount').eq('participant', participant).eq('year_month', ym);
+        const { data: capitalData } = await supabaseClient.from('monthly_capital').select('capital_amount').eq('participant', participant).eq('year_month', ym);
         const startCapital = (capitalData && capitalData[0]) ? capitalData[0].capital_amount : 1000;
-        const { data: betsData } = await sbClient.from('bets').select('amount').eq('participant', participant).ilike('race_date', `${ym}%`);
+        const { data: betsData } = await supabaseClient.from('bets').select('amount').eq('participant', participant).ilike('race_date', `${ym}%`);
         const totalStaked = betsData ? betsData.reduce((sum, b) => sum + b.amount, 0) : 0;
         return startCapital - totalStaked;
     }
@@ -257,7 +256,7 @@
     
     // ========== 載入參賽者 ==========
     async function loadAllParticipants() {
-        const { data, error } = await sbClient.from('participants').select('name');
+        const { data, error } = await supabaseClient.from('participants').select('name');
         if (!error && data) participantsList = data.map(p => p.name);
         document.getElementById("participantList").innerHTML = participantsList.map(p => `<span class="badge">${p} <button onclick="removeParticipant('${p}')">刪除</button></span>`).join('');
         const selectors = ["betParticipantSelect", "manageParticipantFilter"];
@@ -271,14 +270,14 @@
     
     window.removeParticipant = async function(name) {
         if (!confirm("刪除?")) return;
-        await sbClient.from('participants').delete().eq('name', name);
+        await supabaseClient.from('participants').delete().eq('name', name);
         await loadAllParticipants();
         await refreshSelectors();
     };
     
     // ========== 載入賽日 ==========
     async function loadAllRaceDays() {
-        const { data, error } = await sbClient.from('race_days').select('race_date').order('race_date');
+        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date');
         if (!error && data) raceDaysList = data.map(d => d.race_date);
         document.getElementById("raceDateList").innerHTML = raceDaysList.map(d => `<li>📅 ${d} <button class="secondary" onclick="removeRaceDay('${d}')">刪除</button></li>`).join('');
         const dateSelect = document.getElementById("betRaceDate");
@@ -291,7 +290,7 @@
     
     window.removeRaceDay = async function(date) {
         if (!confirm("刪除賽日?")) return;
-        await sbClient.from('race_days').delete().eq('race_date', date);
+        await supabaseClient.from('race_days').delete().eq('race_date', date);
         await loadAllRaceDays();
         await refreshSelectors();
     };
@@ -307,7 +306,7 @@
         const raceFilter = document.getElementById("homeRaceSelect").value;
         const personFilter = document.getElementById("homeParticipantSelect").value;
         const targetDay = await findNextRaceDay();
-        const { data, error } = await sbClient.from('bets').select('*').eq('race_date', targetDay);
+        const { data, error } = await supabaseClient.from('bets').select('*').eq('race_date', targetDay);
         if (error) { console.error(error); return; }
         let filtered = data || [];
         if (raceFilter !== 'all') filtered = filtered.filter(b => b.race_no == raceFilter);
@@ -338,7 +337,7 @@
     
     // ========== 投注紀錄管理 ==========
     async function loadAllBetsForManage() {
-        const { data, error } = await sbClient.from('bets').select('*').order('race_date', { ascending: false });
+        const { data, error } = await supabaseClient.from('bets').select('*').order('race_date', { ascending: false });
         if (error) { console.error(error); return; }
         allBets = data || [];
         applyManageFilters();
@@ -385,7 +384,7 @@
     }
     
     async function toggleBetWin(id, newWinStatus) {
-        const { error } = await sbClient.from('bets').update({ is_win: newWinStatus }).eq('id', id);
+        const { error } = await supabaseClient.from('bets').update({ is_win: newWinStatus }).eq('id', id);
         if (error) alert("更新失敗: " + error.message);
         else await loadAllBetsForManage();
     }
@@ -399,21 +398,21 @@
         const newAmount = prompt("編輯金額:", bet.amount);
         if (newAmount === null) return;
         
-        const { error } = await sbClient.from('bets').update({ bet_detail: newDetail, amount: parseInt(newAmount) }).eq('id', id);
+        const { error } = await supabaseClient.from('bets').update({ bet_detail: newDetail, amount: parseInt(newAmount) }).eq('id', id);
         if (error) alert("更新失敗: " + error.message);
         else await loadAllBetsForManage();
     };
     
     window.deleteBet = async function(id) {
         if (!confirm("確定刪除這筆投注？")) return;
-        const { error } = await sbClient.from('bets').delete().eq('id', id);
+        const { error } = await supabaseClient.from('bets').delete().eq('id', id);
         if (error) alert("刪除失敗: " + error.message);
         else await loadAllBetsForManage();
     };
     
     // ========== 每月數據 ==========
     async function refreshMonthSelector() {
-        const { data } = await sbClient.from('bets').select('race_date');
+        const { data } = await supabaseClient.from('bets').select('race_date');
         if (!data) return;
         let months = [...new Set(data.map(b => b.race_date.slice(0,7)))].sort().reverse();
         let selector = document.getElementById("monthSelector");
@@ -422,7 +421,7 @@
     }
     
     async function displayMonthlyStats(month) {
-        const { data } = await sbClient.from('bets').select('*').ilike('race_date', `${month}%`);
+        const { data } = await supabaseClient.from('bets').select('*').ilike('race_date', `${month}%`);
         if (!data || !data.length) { document.getElementById("monthlyStatsContainer").innerHTML = "<div>無資料</div>"; return; }
         let stats = new Map();
         data.forEach(b => {
@@ -573,7 +572,7 @@
             if (!raceDate || !detail) return alert("請完整填寫");
             const insertData = { participant, race_date: raceDate, race_no: raceNo, bet_type: betType, bet_detail: detail, amount, reason, is_win: false };
             if (betSubType) insertData.bet_sub_type = betSubType;
-            const { error } = await sbClient.from('bets').insert([insertData]);
+            const { error } = await supabaseClient.from('bets').insert([insertData]);
             if (error) alert("儲存失敗: " + error.message);
             else { alert("投注成功"); e.target.reset(); await refreshHomePage(); await refreshMonthSelector(); await loadAllBetsForManage(); await updateCapitalDisplay(participant); }
         };
@@ -581,7 +580,7 @@
         document.getElementById("addParticipantBtn").onclick = async () => {
             let name = document.getElementById("newParticipantName").value.trim();
             if (name && !participantsList.includes(name)) {
-                await sbClient.from('participants').insert([{ name }]);
+                await supabaseClient.from('participants').insert([{ name }]);
                 await loadAllParticipants();
                 await ensureMonthlyCapital();
                 await refreshSelectors();
@@ -592,7 +591,7 @@
         document.getElementById("addRaceDateBtn").onclick = async () => {
             let date = document.getElementById("newRaceDate").value;
             if (date && !raceDaysList.includes(date)) {
-                await sbClient.from('race_days').insert([{ race_date: date }]);
+                await supabaseClient.from('race_days').insert([{ race_date: date }]);
                 await loadAllRaceDays();
                 await refreshSelectors();
             }
