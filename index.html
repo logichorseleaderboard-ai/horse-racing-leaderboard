@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>賽馬龍虎榜 - 雲端版</title>
-    <!-- 不使用 Google Fonts，改用系統字體 -->
+    <title>賽馬龍虎榜</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
         body { background: #f4f7fc; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
         .tabs { display: flex; gap: 8px; margin-bottom: 28px; border-bottom: 2px solid #cbd5e1; padding-bottom: 6px; }
@@ -24,7 +23,7 @@
         table { width: 100%; border-collapse: collapse; margin-top: 16px; }
         th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
         th { background: #f1f5f9; }
-        .badge { background: #e6f7ec; color: #0b5e2e; padding: 4px 10px; border-radius: 30px; }
+        .badge { background: #e6f7ec; color: #0b5e2e; padding: 4px 10px; border-radius: 30px; display: inline-block; margin: 4px; }
         .stat-cards { display: flex; gap: 20px; flex-wrap: wrap; }
         .stat-item { background: #f0f9f4; padding: 16px; border-radius: 20px; flex: 1; min-width: 180px; }
         .stat-value { font-size: 1.8rem; font-weight: 700; color: #1e6f3f; }
@@ -83,107 +82,107 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // 你的 Supabase 設定
-    const MY_SUPABASE_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
-    const MY_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
+    // 使用獨特變數名稱避免衝突
+    const MY_SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
+    const MY_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     
-    const supabase = window.supabase.createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY);
+    const sbClient = window.supabase.createClient(MY_SB_URL, MY_SB_KEY);
     
-    let participants = [];
-    let raceDates = [];
+    let participantsList = [];
+    let raceDaysList = [];
     
-    window.onload = async function() {
-        console.log("頁面載入完成，開始載入資料...");
-        await loadParticipants();
-        await loadRaceDates();
-        await refreshHome();
-        await updateSelectors();
-        await updateMonthList();
-        setupEvents();
-    };
+    window.addEventListener('DOMContentLoaded', function() {
+        console.log("開始載入資料...");
+        loadAllParticipants();
+        loadAllRaceDays();
+        refreshHomePage();
+        refreshSelectors();
+        refreshMonthSelector();
+        bindEvents();
+    });
     
-    async function loadParticipants() {
-        const { data, error } = await supabase.from('participants').select('name');
-        if (error) { console.error("載入參賽者錯誤:", error); return; }
-        if (data) participants = data.map(p => p.name);
-        document.getElementById("participantList").innerHTML = participants.map(p => `<span class="badge">${p} <button onclick="deleteParticipant('${p}')">刪除</button></span>`).join('');
+    async function loadAllParticipants() {
+        const { data, error } = await sbClient.from('participants').select('name');
+        if (error) { console.error("參賽者錯誤:", error); return; }
+        if (data) participantsList = data.map(p => p.name);
+        document.getElementById("participantList").innerHTML = participantsList.map(p => `<span class="badge">${p} <button onclick="removeParticipant('${p}')">刪除</button></span>`).join('');
     }
     
-    window.deleteParticipant = async function(name) {
+    window.removeParticipant = async function(name) {
         if (!confirm("刪除?")) return;
-        await supabase.from('participants').delete().eq('name', name);
-        await loadParticipants();
-        await updateSelectors();
+        await sbClient.from('participants').delete().eq('name', name);
+        await loadAllParticipants();
+        await refreshSelectors();
     };
     
-    async function loadRaceDates() {
-        const { data, error } = await supabase.from('race_days').select('race_date').order('race_date');
-        if (error) { console.error("載入賽日錯誤:", error); return; }
-        if (data) raceDates = data.map(d => d.race_date);
-        document.getElementById("raceDateList").innerHTML = raceDates.map(d => `<li>📅 ${d} <button class="secondary" onclick="deleteRaceDate('${d}')">刪除</button></li>`).join('');
+    async function loadAllRaceDays() {
+        const { data, error } = await sbClient.from('race_days').select('race_date').order('race_date');
+        if (error) { console.error("賽日錯誤:", error); return; }
+        if (data) raceDaysList = data.map(d => d.race_date);
+        document.getElementById("raceDateList").innerHTML = raceDaysList.map(d => `<li>📅 ${d} <button class="secondary" onclick="removeRaceDay('${d}')">刪除</button></li>`).join('');
     }
     
-    window.deleteRaceDate = async function(date) {
+    window.removeRaceDay = async function(date) {
         if (!confirm("刪除賽日?")) return;
-        await supabase.from('race_days').delete().eq('race_date', date);
-        await loadRaceDates();
-        await updateSelectors();
+        await sbClient.from('race_days').delete().eq('race_date', date);
+        await loadAllRaceDays();
+        await refreshSelectors();
     };
     
-    async function getNextRaceDay() {
+    async function findNextRaceDay() {
         const today = new Date().toISOString().slice(0,10);
-        let next = raceDates.find(d => d >= today);
-        return next || raceDates[0] || today;
+        let next = raceDaysList.find(d => d >= today);
+        return next || raceDaysList[0] || today;
     }
     
-    async function refreshHome() {
-        const raceNo = document.getElementById("homeRaceSelect").value;
-        const participant = document.getElementById("homeParticipantSelect").value;
-        const nextDay = await getNextRaceDay();
-        const { data, error } = await supabase.from('bets').select('*').eq('race_date', nextDay);
-        if (error) { console.error("載入投注錯誤:", error); return; }
+    async function refreshHomePage() {
+        const raceFilter = document.getElementById("homeRaceSelect").value;
+        const personFilter = document.getElementById("homeParticipantSelect").value;
+        const targetDay = await findNextRaceDay();
+        const { data, error } = await sbClient.from('bets').select('*').eq('race_date', targetDay);
+        if (error) { console.error("投注錯誤:", error); return; }
         let filtered = data || [];
-        if (raceNo !== 'all') filtered = filtered.filter(b => b.race_no == raceNo);
-        if (participant !== 'all') filtered = filtered.filter(b => b.participant === participant);
+        if (raceFilter !== 'all') filtered = filtered.filter(b => b.race_no == raceFilter);
+        if (personFilter !== 'all') filtered = filtered.filter(b => b.participant === personFilter);
         const tbody = document.querySelector("#homeBetTable tbody");
         if (filtered.length === 0) { tbody.innerHTML = "<tr><td colspan='5'>暫無投注紀錄</td></tr>"; return; }
         tbody.innerHTML = filtered.map(b => `<tr><td>第 ${b.race_no} 場</td><td>${b.participant}</td><td>${b.bet_detail}</td><td>$${b.amount}</td><td>${b.reason || '-'}</td></tr>`).join('');
     }
     
-    async function updateSelectors() {
-        const races = '<option value="all">全部</option>' + Array.from({length:12}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
-        document.getElementById("homeRaceSelect").innerHTML = races;
-        document.getElementById("betRaceNo").innerHTML = races.replace('value="all"', 'value="1"');
-        document.getElementById("homeParticipantSelect").innerHTML = '<option value="all">全部</option>' + participants.map(p => `<option value="${p}">${p}</option>`).join('');
-        document.getElementById("betRaceDate").innerHTML = raceDates.map(d => `<option value="${d}">${d}</option>`).join('');
-        let next = await getNextRaceDay();
-        if (next) document.getElementById("betRaceDate").value = next;
+    async function refreshSelectors() {
+        const raceOptions = '<option value="all">全部</option>' + Array.from({length:12}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
+        document.getElementById("homeRaceSelect").innerHTML = raceOptions;
+        document.getElementById("betRaceNo").innerHTML = raceOptions.replace('value="all"', 'value="1"');
+        document.getElementById("homeParticipantSelect").innerHTML = '<option value="all">全部</option>' + participantsList.map(p => `<option value="${p}">${p}</option>`).join('');
+        document.getElementById("betRaceDate").innerHTML = raceDaysList.map(d => `<option value="${d}">${d}</option>`).join('');
+        let nextDay = await findNextRaceDay();
+        if (nextDay) document.getElementById("betRaceDate").value = nextDay;
     }
     
-    async function updateMonthList() {
-        const { data } = await supabase.from('bets').select('race_date');
+    async function refreshMonthSelector() {
+        const { data } = await sbClient.from('bets').select('race_date');
         if (!data) return;
         let months = [...new Set(data.map(b => b.race_date.slice(0,7)))].sort().reverse();
-        let sel = document.getElementById("monthSelector");
-        sel.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
-        if (months.length) await showMonthlyStats(months[0]);
+        let selector = document.getElementById("monthSelector");
+        selector.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+        if (months.length) await displayMonthlyStats(months[0]);
     }
     
-    async function showMonthlyStats(month) {
-        const { data } = await supabase.from('bets').select('*').ilike('race_date', `${month}%`);
+    async function displayMonthlyStats(month) {
+        const { data } = await sbClient.from('bets').select('*').ilike('race_date', `${month}%`);
         if (!data || !data.length) { document.getElementById("monthlyStatsContainer").innerHTML = "<div>無資料</div>"; return; }
         let stats = new Map();
         data.forEach(b => {
-            if (!stats.has(b.participant)) stats.set(b.participant, { stake:0, profit:0, win:0, total:0 });
+            if (!stats.has(b.participant)) stats.set(b.participant, { stake:0, profit:0, winCount:0, total:0 });
             let s = stats.get(b.participant);
             s.total++;
             s.stake += b.amount;
-            if (b.is_win) { s.profit += b.amount; s.win++; }
+            if (b.is_win) { s.profit += b.amount; s.winCount++; }
             else s.profit -= b.amount;
         });
         let html = '<div class="stat-cards">';
         for (let [name, s] of stats) {
-            let winRate = s.total ? (s.win/s.total*100).toFixed(1) : 0;
+            let winRate = s.total ? (s.winCount/s.total*100).toFixed(1) : 0;
             let roi = s.stake ? (s.profit/s.stake*100).toFixed(1) : 0;
             html += `<div class="stat-item"><div class="stat-label">${name}</div><div class="stat-value">${winRate}%</div><div>勝率</div><div>回報率 ${roi}%</div><div>總投注:$${s.stake} | 淨利:$${s.profit}</div></div>`;
         }
@@ -191,49 +190,49 @@
         document.getElementById("monthlyStatsContainer").innerHTML = html;
     }
     
-    function setupEvents() {
-        document.getElementById("refreshHomeBtn").onclick = refreshHome;
+    function bindEvents() {
+        document.getElementById("refreshHomeBtn").onclick = refreshHomePage;
         document.getElementById("betForm").onsubmit = async (e) => {
             e.preventDefault();
             let participant = document.getElementById("betParticipant").value.trim();
             if (!participant) return alert("請輸入參賽者");
             let raceDate = document.getElementById("betRaceDate").value;
-            let race_no = parseInt(document.getElementById("betRaceNo").value);
-            let bet_detail = document.getElementById("betDetail").value.trim();
+            let raceNo = parseInt(document.getElementById("betRaceNo").value);
+            let detail = document.getElementById("betDetail").value.trim();
             let amount = parseInt(document.getElementById("betAmount").value);
             let reason = document.getElementById("betReason").value;
-            if (!raceDate || !bet_detail) return alert("請完整填寫");
-            let { error } = await supabase.from('bets').insert([{ participant, race_date: raceDate, race_no, bet_detail, amount, reason, is_win: false }]);
+            if (!raceDate || !detail) return alert("請完整填寫");
+            let { error } = await sbClient.from('bets').insert([{ participant, race_date: raceDate, race_no: raceNo, bet_detail: detail, amount, reason, is_win: false }]);
             if (error) alert("儲存失敗: " + error.message);
-            else { alert("投注成功"); e.target.reset(); await refreshHome(); await updateMonthList(); }
+            else { alert("投注成功"); e.target.reset(); await refreshHomePage(); await refreshMonthSelector(); }
         };
         document.getElementById("addParticipantBtn").onclick = async () => {
             let name = document.getElementById("newParticipantName").value.trim();
-            if (name && !participants.includes(name)) {
-                await supabase.from('participants').insert([{ name }]);
-                await loadParticipants();
-                await updateSelectors();
+            if (name && !participantsList.includes(name)) {
+                await sbClient.from('participants').insert([{ name }]);
+                await loadAllParticipants();
+                await refreshSelectors();
                 document.getElementById("newParticipantName").value = "";
             }
         };
         document.getElementById("addRaceDateBtn").onclick = async () => {
             let date = document.getElementById("newRaceDate").value;
-            if (date && !raceDates.includes(date)) {
-                await supabase.from('race_days').insert([{ race_date: date }]);
-                await loadRaceDates();
-                await updateSelectors();
+            if (date && !raceDaysList.includes(date)) {
+                await sbClient.from('race_days').insert([{ race_date: date }]);
+                await loadAllRaceDays();
+                await refreshSelectors();
             }
         };
-        document.getElementById("refreshDataBtn").onclick = () => showMonthlyStats(document.getElementById("monthSelector").value);
+        document.getElementById("refreshDataBtn").onclick = () => displayMonthlyStats(document.getElementById("monthSelector").value);
         document.querySelectorAll(".tab-btn").forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
                 btn.classList.add("active");
                 document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
                 document.getElementById(`${btn.dataset.page}-page`).classList.add("active-page");
-                if (btn.dataset.page === "data") updateMonthList();
-                if (btn.dataset.page === "home") refreshHome();
-                if (btn.dataset.page === "admin") { loadParticipants(); loadRaceDates(); }
+                if (btn.dataset.page === "data") refreshMonthSelector();
+                if (btn.dataset.page === "home") refreshHomePage();
+                if (btn.dataset.page === "admin") { loadAllParticipants(); loadAllRaceDays(); }
             };
         });
         document.getElementById("clearBetForm").onclick = () => document.getElementById("betForm").reset();
