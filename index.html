@@ -3,465 +3,507 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Logic Horse龍虎榜</title>
+    <title>邏輯馬會 - 龍虎榜</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #1e6f3f; --secondary: #475569; --bg: #f8fafc; }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-        body { background: var(--bg); color: #1e293b; padding-bottom: 50px; }
-        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; padding-bottom: 70px; }
         
-        /* 導覽列 */
-        .nav { display: flex; gap: 5px; overflow-x: auto; padding: 10px; background: white; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .nav button { padding: 8px 15px; border-radius: 20px; border: 1px solid #e2e8f0; background: white; white-space: nowrap; cursor: pointer; font-weight: 600; color: var(--secondary); }
-        .nav button.active { background: var(--primary); color: white; border-color: var(--primary); }
-
-        /* 卡片與通用樣式 */
-        .card { background: white; border-radius: 12px; padding: 15px; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        h2 { font-size: 1.1rem; margin-bottom: 15px; border-left: 4px solid var(--primary); padding-left: 10px; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: var(--secondary); }
-        select, input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
-        .btn-main { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-main:disabled { background: #94a3b8; cursor: not-allowed; }
-
-        /* 棒形圖樣式 */
-        .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .bar-label { width: 30px; font-weight: bold; }
-        .bar-container { flex: 1; background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; }
-        .bar-fill { background: var(--primary); height: 100%; transition: width 0.5s; }
+        /* 底部導航欄 */
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            border-top: 1px solid #e2e8f0;
+            z-index: 100;
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            font-size: 0.75rem;
+            color: #64748b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+        .nav-btn.active { color: #1e6f3f; font-weight: bold; }
+        .nav-btn span:first-child { font-size: 1.4rem; }
         
+        .container { max-width: 600px; margin: 0 auto; padding: 16px 12px 80px 12px; }
         .page { display: none; }
-        .active-page { display: block; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-        .locked-msg { background: #fee2e2; color: #b91c1c; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; }
+        .page.active-page { display: block; }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid #eef2f6;
+        }
+        h2 { font-size: 1.3rem; margin-bottom: 12px; color: #0f172a; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 0.8rem; font-weight: 500; color: #334155; margin-bottom: 4px; }
+        select, input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 0.9rem; background: white; }
+        button { width: 100%; padding: 12px; background: #1e6f3f; color: white; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        .badge { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; margin: 4px 4px 0 0; }
+        .bar-chart { margin: 12px 0; }
+        .bar-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .bar-label { width: 45px; font-weight: 500; }
+        .bar-bg { flex: 1; background: #e2e8f0; border-radius: 20px; height: 24px; overflow: hidden; }
+        .bar-fill { background: #1e6f3f; height: 100%; width: 0%; transition: width 0.2s; }
+        .bar-count { width: 35px; text-align: right; font-size: 0.8rem; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center; }
+        .stat-card { background: #f8fafc; padding: 12px; border-radius: 16px; }
+        .stat-number { font-size: 1.6rem; font-weight: bold; color: #1e6f3f; }
+        .lock-msg { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 12px; text-align: center; margin-bottom: 12px; }
+        .inline-flex { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     </style>
 </head>
 <body>
 
-<div class="nav" id="mainNav">
-    <button onclick="showPage('chart')" data-page="chart" class="active">📊 排位表</button>
-    <button onclick="showPage('detail')" data-page="detail">🔍 投注詳情</button>
-    <button onclick="showPage('input')" data-page="input">✍️ 參賽者輸入</button>
-    <button onclick="showPage('result')" data-page="result">🏁 賽果輸入</button>
-    <button onclick="showPage('stats')" data-page="stats">📈 數據分析</button>
-    <button onclick="showPage('admin')" data-page="admin">⚙️ 管理</button>
-</div>
-
-<div class="container">
-    <div id="chart-page" class="page active-page">
+<div class="container" id="app">
+    <!-- 動態頁面會透過 JS 切換 -->
+    <div id="ranking-page" class="page active-page">
         <div class="card">
             <h2>📊 排位熱度</h2>
-            <select id="chartRaceNo" onchange="loadChartData()"></select>
-            <div id="chartList" style="margin-top:15px;"></div>
+            <div class="form-group">
+                <label>場次</label>
+                <select id="rankRaceNo"></select>
+            </div>
+            <div id="rankChart"></div>
         </div>
     </div>
 
     <div id="detail-page" class="page">
         <div class="card">
-            <h2>🔎 個人投注紀錄</h2>
-            <select id="detailUserSelect" onchange="loadUserBets()"></select>
-            <div id="userBetsList" style="margin-top:15px;"></div>
+            <h2>🔍 參賽者投注詳情</h2>
+            <div class="form-group">
+                <label>參賽者</label>
+                <select id="detailUserSelect"></select>
+            </div>
+            <div id="detailList"></div>
         </div>
     </div>
 
     <div id="input-page" class="page">
-        <div id="inputLockMsg" style="display:none; background:#fff1f2; color:#be123c; padding:10px; border-radius:6px; text-align:center; margin-bottom:10px;">🔒 已封盤</div>
+        <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
         <div class="card">
-            <h2>✍️ 提交投注 ($80)</h2>
+            <h2>✍️ 新增投注 (每場 $80)</h2>
             <form id="betForm">
-                <div class="form-group">
-                    <label>參賽者</label>
-                    <select id="inputUserSelect" required><option value="">載入中...</option></select>
-                </div>
-                <div class="form-group">
-                    <label>賽日</label>
-                    <input type="text" id="inputRaceDate" readonly>
-                </div>
-                <div class="form-group">
-                    <label>場次</label>
-                    <select id="inputRaceNo"></select>
-                </div>
-                <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
-                    <div class="form-group"><label>膽 (1個)</label><input type="number" id="banker" required min="1" max="14"></div>
-                    <div class="form-group"><label>腳 (2個，逗號分隔)</label><input type="text" id="legs" placeholder="例如: 5,8" required></div>
-                </div>
-                <button type="submit" id="submitBtn" class="btn">確認提交</button>
+                <div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div>
+                <div class="form-group"><label>賽日</label><input type="text" id="inputRaceDate" readonly></div>
+                <div class="form-group"><label>場次</label><select id="inputRaceNo"></select></div>
+                <div class="form-group"><label>膽馬 (1匹)</label><select id="bankerSelect"><option value="">-- 請選擇 --</option></select></div>
+                <div class="form-group"><label>腳馬 (2匹，可重複)</label><select id="leg1Select"></select> <select id="leg2Select"></select></div>
+                <button type="submit" id="submitBtn">確認提交 $80</button>
             </form>
         </div>
     </div>
 
-<div id="result-page" class="page">
+    <div id="result-page" class="page">
         <div class="card">
-            <h2>輸入賽果及派彩 (每$10)</h2>
-            <div class="form-group"><label>場次</label><select id="resRaceNo"></select></div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                <div class="form-group"><label>第一名</label><input type="number" id="p1"></div>
-                <div class="form-group"><label>第二名</label><input type="number" id="p2"></div>
-                <div class="form-group"><label>第三名</label><input type="number" id="p3"></div>
+            <h2>🏁 賽果與派彩輸入</h2>
+            <div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <input type="number" id="first" placeholder="第一名馬號">
+                <input type="number" id="second" placeholder="第二名">
+                <input type="number" id="third" placeholder="第三名">
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
-                <div class="form-group"><label>獨贏</label><input type="number" id="dWin"></div>
-                <div class="form-group"><label>連贏 (Q)</label><input type="number" id="dQ"></div>
-                <div class="form-group"><label>位置Q 1-2</label><input type="number" id="dQp12"></div>
-                <div class="form-group"><label>位置Q 1-3</label><input type="number" id="dQp13"></div>
-                <div class="form-group"><label>位置Q 2-3</label><input type="number" id="dQp23"></div>
-                <div class="form-group"><label>位置 (1)</label><input type="number" id="dP1"></div>
-                <div class="form-group"><label>位置 (2)</label><input type="number" id="dP2"></div>
-                <div class="form-group"><label>位置 (3)</label><input type="number" id="dP3"></div>
+            <h3 style="margin:15px 0 8px 0; font-size:1rem;">派彩 (每$10)</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <input type="number" id="div_win" placeholder="獨贏">
+                <input type="number" id="div_q" placeholder="連贏">
+                <input type="number" id="div_pla1" placeholder="位置(1)">
+                <input type="number" id="div_qp12" placeholder="位置Q 1-2">
+                <input type="number" id="div_pla2" placeholder="位置(2)">
+                <input type="number" id="div_qp13" placeholder="位置Q 1-3">
+                <input type="number" id="div_pla3" placeholder="位置(3)">
+                <input type="number" id="div_qp23" placeholder="位置Q 2-3">
             </div>
-            <button class="btn-main" onclick="saveResult()">🏁 儲存並執行自動結算</button>
+            <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
         </div>
     </div>
 
     <div id="stats-page" class="page">
         <div class="card">
-            <h2>📈 數據分析</h2>
-            <select id="statsUserSelect" onchange="loadStats()"></select>
-            <div id="statsOutput" style="margin-top:15px;"></div>
+            <h2>📈 數據分析 (當月)</h2>
+            <div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div>
+            <div id="statsDisplay"></div>
         </div>
     </div>
 
     <div id="admin-page" class="page">
         <div id="adminAuth" class="card">
-            <input type="password" id="adminPwd" placeholder="管理員密碼">
-            <button onclick="verifyAdmin()" class="btn" style="margin-top:10px;">驗證</button>
+            <input type="password" id="adminPwd" placeholder="管理密碼">
+            <button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button>
         </div>
-        <div id="adminContent" style="display:none;">
+        <div id="adminPanel" style="display:none;">
             <div class="card">
-                <button id="toggleInputBtn" onclick="toggleInput()" class="btn">切換封盤狀態</button>
+                <button id="toggleInputBtn" onclick="toggleInputLock()">切換封盤</button>
             </div>
             <div class="card">
                 <h3>人員管理</h3>
-                <input type="text" id="newUserName" placeholder="新姓名">
-                <button onclick="addUser()" class="btn" style="margin-top:5px; background:#475569;">新增人員</button>
+                <input type="text" id="newUserName" placeholder="新參賽者姓名">
+                <button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button>
                 <div id="participantList" style="margin-top:10px;"></div>
             </div>
             <div class="card">
                 <h3>賽日管理</h3>
-                <input type="date" id="newDate">
-                <button onclick="addDate()" class="btn" style="margin-top:5px; background:#475569;">更新賽日</button>
-                <div id="raceDateList" style="margin-top:10px;"></div>
+                <input type="date" id="newRaceDate">
+                <button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增賽日</button>
+                <div id="raceDayList" style="margin-top:10px;"></div>
+            </div>
+            <div class="card">
+                <h3>所有投注紀錄</h3>
+                <div id="adminBetsList" style="max-height:300px; overflow:auto;"></div>
             </div>
         </div>
     </div>
 </div>
 
+<div class="nav-bottom">
+    <button class="nav-btn" data-page="ranking"><span>📊</span><span>排位</span></button>
+    <button class="nav-btn" data-page="detail"><span>🔍</span><span>詳情</span></button>
+    <button class="nav-btn" data-page="input"><span>✍️</span><span>投注</span></button>
+    <button class="nav-btn" data-page="result"><span>🏁</span><span>賽果</span></button>
+    <button class="nav-btn" data-page="stats"><span>📈</span><span>分析</span></button>
+    <button class="nav-btn" data-page="admin"><span>⚙️</span><span>管理</span></button>
+</div>
+
 <script>
-// --- 1. 初始化 Supabase ---
-const SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
-const sb = supabase.createClient(SB_URL, SB_KEY);
+    // ---------- Supabase 初始化 ----------
+    const SUPABASE_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- 輔助函數：更新所有參賽者下拉選單 ---
-async function refreshAllParticipantSelects() {
-    const { data: users, error } = await sb.from('participants').select('name').order('name');
-    if (error) {
-        console.error("刷新參賽者選單失敗:", error);
-        return;
+    // ---------- 全域變數 ----------
+    let participants = [];
+    let raceDays = [];
+    let currentRaceDate = null;
+    let adminUnlocked = false;
+
+    // 初始化所有下拉選單 (馬號 1-14)
+    function initHorseSelects() {
+        const horseOptions = '<option value="">-- 請選擇 --</option>' + Array.from({length:14}, (_,i) => `<option value="${i+1}">${i+1} 號馬</option>`).join('');
+        document.getElementById('bankerSelect').innerHTML = horseOptions;
+        document.getElementById('leg1Select').innerHTML = horseOptions;
+        document.getElementById('leg2Select').innerHTML = horseOptions;
     }
-    const optionsHtml = (users || []).map(u => `<option value="${u.name}">${u.name}</option>`).join('');
-    const selects = ['inputUserSelect', 'detailUserSelect', 'statsUserSelect'];
-    selects.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = optionsHtml;
-    });
-}
 
-// --- 輔助函數：刷新賽日輸入框（取得最新賽日）---
-async function refreshLatestRaceDate() {
-    const { data, error } = await sb.from('race_days').select('race_date').order('race_date', { ascending: false }).limit(1);
-    if (!error && data && data[0]) {
+    // 載入參賽者並更新所有相關下拉選單
+    async function loadParticipants() {
+        const { data, error } = await supabase.from('participants').select('*').order('name');
+        if (error) console.error(error);
+        participants = data || [];
+        const optionHtml = participants.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        document.getElementById('inputUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml;
+        document.getElementById('detailUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml;
+        document.getElementById('statsUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml;
+        // 管理頁標籤列表
+        document.getElementById('participantList').innerHTML = participants.map(p => `<span class="badge">${p.name} <b onclick="deleteParticipant(${p.id})" style="cursor:pointer; color:red;">✖</b></span>`).join(' ');
+    }
+
+    // 載入賽日，並設定投注頁的預設日期 (下個賽日)
+    async function loadRaceDays() {
+        const { data, error } = await supabase.from('race_days').select('*').order('race_date', { ascending: true });
+        if (error) console.error(error);
+        raceDays = data || [];
+        // 找出下個賽日 ( >= 今天 )
+        const today = new Date().toISOString().slice(0,10);
+        const nextRace = raceDays.find(d => d.race_date >= today);
+        currentRaceDate = nextRace ? nextRace.race_date : (raceDays.length ? raceDays[0].race_date : null);
         const dateInput = document.getElementById('inputRaceDate');
-        if (dateInput) dateInput.value = data[0].race_date;
-    }
-}
+        if (dateInput && currentRaceDate) dateInput.value = currentRaceDate;
 
-// --- 2. 核心初始化 (同步所有選單與日期) ---
-async function init() {
-    try {
-        await refreshAllParticipantSelects();
-        await refreshLatestRaceDate();
-        
-        // 初始化所有場次選單 (1-12場)
-        const raceSelects = ['chartRaceNo', 'inputRaceNo', 'resRaceNo'];
-        raceSelects.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1} 場</option>`).join('');
-            }
+        // 管理頁賽日列表
+        document.getElementById('raceDayList').innerHTML = raceDays.map(d => `<span class="badge">${d.race_date} <b onclick="deleteRaceDay(${d.id})" style="cursor:pointer; color:red;">✖</b></span>`).join(' ');
+    }
+
+    // 場次選單初始化 (1-12場)
+    function initRaceNoSelects() {
+        const races = Array.from({length:12}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
+        document.getElementById('rankRaceNo').innerHTML = races;
+        document.getElementById('inputRaceNo').innerHTML = races;
+        document.getElementById('resultRaceNo').innerHTML = races;
+        // 預設選第一場
+        ['rankRaceNo', 'inputRaceNo', 'resultRaceNo'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = 1; });
+    }
+
+    // ---------- 1. 排位表 (棒形圖) ----------
+    async function loadRankingChart() {
+        const raceNo = document.getElementById('rankRaceNo').value;
+        if (!currentRaceDate) return;
+        const { data, error } = await supabase.from('bets').select('banker, legs').eq('race_date', currentRaceDate).eq('race_no', raceNo);
+        if (error) return;
+        let countMap = {};
+        data.forEach(bet => {
+            let banker = bet.banker;
+            let legs = bet.legs.split(',').map(s => s.trim());
+            countMap[banker] = (countMap[banker] || 0) + 1;
+            legs.forEach(leg => { if(leg) countMap[leg] = (countMap[leg] || 0) + 1; });
         });
-        
-        await checkInputStatus();
-        await loadAdminData();  // 確保管理頁面顯示最新的人員列表
-    } catch (err) {
-        console.error("初始化失敗:", err.message);
-    }
-}
-
-// --- 3. 頁面切換控制 ---
-function showPage(id) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
-    
-    const target = document.getElementById(id + '-page');
-    if (target) {
-        target.classList.add('active-page');
-        const navBtn = document.querySelector(`[data-page="${id}"]`);
-        if (navBtn) navBtn.classList.add('active');
-    }
-
-    // 切換時自動重新載入該頁數據
-    if (id === 'input') checkInputStatus();
-    if (id === 'chart') loadChartData();
-    if (id === 'detail') loadUserBets();
-    if (id === 'admin' && document.getElementById('adminContent').style.display !== 'none') loadAdminData();
-}
-
-// --- 4. 管理功能 (新增/刪除/狀態) ---
-function verifyAdmin() {
-    if (document.getElementById('adminPwd').value === 'LBadmin') {
-        document.getElementById('adminAuth').style.display = 'none';
-        document.getElementById('adminContent').style.display = 'block';
-        loadAdminData();
-    } else { alert("密碼錯誤"); }
-}
-
-async function addUser() {
-    const input = document.getElementById('newUserName');
-    const name = input.value.trim();
-    if (!name) return;
-
-    const { error } = await sb.from('participants').insert([{ name: name }]);
-    if (error) {
-        alert(error.code === '23505' ? "⚠️ 此人已在名單中" : "新增失敗: " + error.message);
-    } else {
-        input.value = "";
-        // 關鍵：立即刷新所有參賽者下拉選單
-        await refreshAllParticipantSelects();
-        // 同時刷新管理頁的人員標籤列表
-        await loadAdminData();
-        alert("✅ 參賽者新增成功，現在輸入區可以選擇該人員了");
-    }
-}
-
-async function addDate() {
-    const input = document.getElementById('newDate');
-    const d = input.value;
-    if (!d) return;
-
-    const { error } = await sb.from('race_days').insert([{ race_date: d }]);
-    if (error) {
-        alert(error.code === '23505' ? "⚠️ 此賽日已存在" : "新增失敗: " + error.message);
-    } else {
-        await refreshLatestRaceDate();   // 更新輸入區的日期顯示
-        await loadAdminData();
-        alert("✅ 賽日更新成功");
-    }
-}
-
-async function loadAdminData() {
-    // 刷新人員標籤
-    const { data: p } = await sb.from('participants').select('*').order('name');
-    const pList = document.getElementById('participantList');
-    if (pList) pList.innerHTML = (p || []).map(x => `
-        <span class="badge">${x.name} <b onclick="deleteAdminItem('participants', ${x.id})" style="cursor:pointer; color:red; margin-left:5px;">×</b></span>
-    `).join(' ');
-
-    // 刷新日期標籤
-    const { data: d } = await sb.from('race_days').select('*').order('race_date', { ascending: false });
-    const dList = document.getElementById('raceDateList');
-    if (dList) dList.innerHTML = (d || []).map(x => `
-        <span class="badge">${x.race_date} <b onclick="deleteAdminItem('race_days', ${x.id})" style="cursor:pointer; color:red; margin-left:5px;">×</b></span>
-    `).join(' ');
-
-    // 刷新投注紀錄 (簡表)
-    const { data: b } = await sb.from('bets').select('*').order('created_at', { ascending: false }).limit(20);
-    let bHtml = '<table style="width:100%"><tr><th>參賽者</th><th>場次</th><th>派彩</th><th>操作</th></tr>';
-    (b || []).forEach(x => {
-        bHtml += `<tr><td>${x.participant}</td><td>${x.race_no}</td><td style="color:${x.payout > 0 ? '#16a34a' : '#64748b'}">$${x.payout || 0}</td><td><button onclick="deleteAdminItem('bets', ${x.id})" style="color:red; border:none; background:none;">刪除</button></td></tr>`;
-    });
-    bHtml += '</table>';
-    const existingTable = document.getElementById('adminBetsTableBody');
-    if (existingTable) existingTable.innerHTML = bHtml;
-    else {
-        // 如果不存在該容器，動態建立一個
-        let container = document.getElementById('adminBetsContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'adminBetsContainer';
-            document.getElementById('adminContent').appendChild(container);
+        const maxCount = Math.max(...Object.values(countMap), 1);
+        let html = '<div class="bar-chart">';
+        for(let i=1; i<=14; i++) {
+            let cnt = countMap[i] || 0;
+            let percent = (cnt / maxCount) * 100;
+            html += `<div class="bar-item">
+                        <div class="bar-label">${i} 號</div>
+                        <div class="bar-bg"><div class="bar-fill" style="width: ${percent}%;"></div></div>
+                        <div class="bar-count">${cnt}</div>
+                    </div>`;
         }
-        container.innerHTML = `<h3>最新投注紀錄</h3>${bHtml}`;
+        html += '</div>';
+        document.getElementById('rankChart').innerHTML = html;
     }
-}
 
-async function deleteAdminItem(table, id) {
-    if (confirm("確定刪除嗎？")) {
-        await sb.from(table).delete().eq('id', id);
-        if (table === 'participants') await refreshAllParticipantSelects();
-        if (table === 'race_days') await refreshLatestRaceDate();
-        await loadAdminData();
+    // ---------- 2. 投注詳情 (顯示某參賽者的所有投注) ----------
+    async function loadUserBets() {
+        const user = document.getElementById('detailUserSelect').value;
+        if (!user) { document.getElementById('detailList').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
+        const { data, error } = await supabase.from('bets').select('*').eq('participant', user).order('race_date', { ascending: false });
+        if (error) return;
+        if (!data.length) { document.getElementById('detailList').innerHTML = '<div class="card">無投注紀錄</div>'; return; }
+        let html = '';
+        for(let bet of data) {
+            html += `<div class="card" style="border-left: 4px solid ${bet.payout>0 ? '#16a34a' : '#cbd5e1'};">
+                        <div><strong>${bet.race_date} 第 ${bet.race_no} 場</strong></div>
+                        <div>膽: ${bet.banker} / 腳: ${bet.legs}</div>
+                        <div>派彩: $${bet.payout || 0}</div>
+                    </div>`;
+        }
+        document.getElementById('detailList').innerHTML = html;
     }
-}
 
-async function toggleInput() {
-    const { data } = await sb.from('sys_config').select('value').eq('key', 'is_input_enabled').maybeSingle();
-    const next = (data && data.value === 'true') ? 'false' : 'true';
-    await sb.from('sys_config').update({ value: next }).eq('key', 'is_input_enabled');
-    await checkInputStatus();
-}
-
-async function checkInputStatus() {
-    try {
-        const { data } = await sb.from('sys_config').select('value').eq('key', 'is_input_enabled').maybeSingle();
+    // ---------- 3. 投注提交 (限制每人每賽日2場、封盤開關) ----------
+    async function checkInputLock() {
+        const { data } = await supabase.from('sys_config').select('value').eq('key', 'is_input_enabled').single();
         const isEnabled = data ? data.value === 'true' : true;
+        document.getElementById('inputLockMsg').style.display = isEnabled ? 'none' : 'block';
+        document.getElementById('submitBtn').disabled = !isEnabled;
+        return isEnabled;
+    }
+
+    document.getElementById('betForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const enabled = await checkInputLock();
+        if (!enabled) { alert("目前封盤中，無法投注"); return; }
+        const participant = document.getElementById('inputUserSelect').value;
+        if (!participant) return alert("請選擇參賽者");
+        const raceDate = document.getElementById('inputRaceDate').value;
+        const raceNo = parseInt(document.getElementById('inputRaceNo').value);
+        const banker = parseInt(document.getElementById('bankerSelect').value);
+        const leg1 = parseInt(document.getElementById('leg1Select').value);
+        const leg2 = parseInt(document.getElementById('leg2Select').value);
+        if (!banker || !leg1 || !leg2) return alert("請完整選擇膽馬與兩匹腳馬");
+        if (leg1 === leg2 || banker === leg1 || banker === leg2) return alert("膽馬與腳馬號碼不可重複");
         
-        const lockMsg = document.getElementById('inputLockMsg');
-        const submitBtn = document.getElementById('submitBtn');
-        const toggleBtn = document.getElementById('toggleInputBtn');
-
-        if (lockMsg) lockMsg.style.display = isEnabled ? 'none' : 'block';
-        if (submitBtn) submitBtn.disabled = !isEnabled;
-        if (toggleBtn) {
-            toggleBtn.innerText = isEnabled ? "🔴 暫停輸入 (封盤中)" : "🟢 開放輸入";
-            toggleBtn.style.background = isEnabled ? "#be123c" : "#1e6f3f";
-        }
-    } catch (e) { console.error(e); }
-}
-
-// --- 5. 投注與結算邏輯 ---
-document.getElementById('betForm').onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-
-    const user = document.getElementById('inputUserSelect').value;
-    const date = document.getElementById('inputRaceDate').value;
-
-    const { data: existing } = await sb.from('bets').select('id').eq('participant', user).eq('race_date', date);
-    if (existing && existing.length >= 2) {
-        alert("⚠️ 錯誤：每人每賽日限投 2 場！");
-        btn.disabled = false;
-        return;
-    }
-
-    const entry = {
-        participant: user,
-        race_date: date,
-        race_no: parseInt(document.getElementById('inputRaceNo').value),
-        banker: document.getElementById('banker').value.trim(),
-        legs: document.getElementById('legs').value.trim(),
-        amount: 80
-    };
-
-    const { error } = await sb.from('bets').insert([entry]);
-    if (error) alert("提交失敗: " + error.message);
-    else { alert("✅ 投注成功！"); e.target.reset(); showPage('chart'); }
-    btn.disabled = false;
-};
-
-async function saveResult() {
-    const res = {
-        race_date: document.getElementById('inputRaceDate').value,
-        race_no: parseInt(document.getElementById('resRaceNo').value),
-        p1: document.getElementById('p1').value.trim(),
-        p2: document.getElementById('p2').value.trim(),
-        p3: document.getElementById('p3').value.trim(),
-        div_win: parseFloat(document.getElementById('dWin').value) || 0,
-        div_q: parseFloat(document.getElementById('dQ').value) || 0,
-        div_qp12: parseFloat(document.getElementById('dQp12').value) || 0,
-        div_qp13: parseFloat(document.getElementById('dQp13').value) || 0,
-        div_qp23: parseFloat(document.getElementById('dQp23').value) || 0,
-        div_pla1: parseFloat(document.getElementById('dP1').value) || 0,
-        div_pla2: parseFloat(document.getElementById('dP2').value) || 0,
-        div_pla3: parseFloat(document.getElementById('dP3').value) || 0
-    };
-
-    if(!res.p1 || !res.p2 || !res.p3) return alert("請輸入完整賽果馬號");
-
-    const { error: resErr } = await sb.from('race_results').upsert([res]);
-    if(resErr) return alert("賽果儲存失敗");
-
-    const { data: bets } = await sb.from('bets').select('*').eq('race_date', res.race_date).eq('race_no', res.race_no);
-    
-    for(let b of (bets || [])) {
-        let win = 0;
-        const banker = b.banker.trim();
-        const legs = b.legs.split(',').map(l => l.trim());
-
-        if(banker === res.p1) win += res.div_win; // 獨贏 (1注)
-        if(banker === res.p1) win += (res.div_pla1 * 3); // 位置 (3注)
-        else if(banker === res.p2) win += (res.div_pla2 * 3);
-        else if(banker === res.p3) win += (res.div_pla3 * 3);
-
-        legs.forEach(leg => {
-            if((banker===res.p1 && leg===res.p2) || (banker===res.p2 && leg===res.p1)) win += res.div_q; // Q
-            const c = [banker, leg];
-            if(c.includes(res.p1) && c.includes(res.p2)) win += res.div_qp12; // QP
-            else if(c.includes(res.p1) && c.includes(res.p3)) win += res.div_qp13;
-            else if(c.includes(res.p2) && c.includes(res.p3)) win += res.div_qp23;
-        });
-        await sb.from('bets').update({ payout: win }).eq('id', b.id);
-    }
-    alert(`✅ 第 ${res.race_no} 場結算完成！`);
-}
-
-// --- 6. 統計圖與個人查詢 ---
-async function loadChartData() {
-    const rNo = document.getElementById('chartRaceNo').value;
-    const date = document.getElementById('inputRaceDate').value;
-    const { data } = await sb.from('bets').select('banker, legs').eq('race_date', date).eq('race_no', rNo);
-    
-    let stats = {};
-    (data || []).forEach(b => {
-        [b.banker, ...b.legs.split(',')].forEach(n => {
-            let num = n.trim();
-            if(num) stats[num] = (stats[num] || 0) + 1;
-        });
+        // 檢查該參賽者當日已投注場次
+        const { data: existing } = await supabase.from('bets').select('id').eq('participant', participant).eq('race_date', raceDate);
+        if (existing && existing.length >= 2) return alert("每人每賽日最多只能投注2場");
+        
+        const legsStr = `${leg1},${leg2}`;
+        const { error } = await supabase.from('bets').insert([{
+            participant, race_date: raceDate, race_no: raceNo,
+            banker, legs: legsStr, payout: 0
+        }]);
+        if (error) alert("投注失敗: " + error.message);
+        else { alert("✅ 投注成功！"); loadRankingChart(); loadUserBets(); }
     });
 
-    const max = Math.max(...Object.values(stats), 1);
-    let html = '';
-    for(let i=1; i<=14; i++) {
-        let count = stats[i] || 0;
-        html += `<div class="bar-row"><div class="bar-label">${i}號</div><div class="bar-container"><div class="bar-fill" style="width:${(count/max)*100}%"></div></div><div style="width:25px; text-align:right;">${count}</div></div>`;
+    // ---------- 4. 賽果輸入與自動結算 ----------
+    async function saveRaceResult() {
+        const raceNo = parseInt(document.getElementById('resultRaceNo').value);
+        const first = parseInt(document.getElementById('first').value);
+        const second = parseInt(document.getElementById('second').value);
+        const third = parseInt(document.getElementById('third').value);
+        if (!first || !second || !third) return alert("請完整輸入前三名馬號");
+        const winDiv = parseFloat(document.getElementById('div_win').value) || 0;
+        const qDiv = parseFloat(document.getElementById('div_q').value) || 0;
+        const qp12 = parseFloat(document.getElementById('div_qp12').value) || 0;
+        const qp13 = parseFloat(document.getElementById('div_qp13').value) || 0;
+        const qp23 = parseFloat(document.getElementById('div_qp23').value) || 0;
+        const p1 = parseFloat(document.getElementById('div_pla1').value) || 0;
+        const p2 = parseFloat(document.getElementById('div_pla2').value) || 0;
+        const p3 = parseFloat(document.getElementById('div_pla3').value) || 0;
+
+        const { error: resError } = await supabase.from('race_results').upsert({
+            race_date: currentRaceDate, race_no: raceNo,
+            first, second, third,
+            win_div: winDiv, qin_div: qDiv,
+            qin_place_div12: qp12, qin_place_div13: qp13, qin_place_div23: qp23,
+            place_div1: p1, place_div2: p2, place_div3: p3
+        });
+        if (resError) return alert("儲存賽果失敗: " + resError.message);
+
+        // 自動結算該場所有投注
+        const { data: bets } = await supabase.from('bets').select('*').eq('race_date', currentRaceDate).eq('race_no', raceNo);
+        for (let bet of bets) {
+            let payout = 0;
+            const banker = bet.banker;
+            const [leg1, leg2] = bet.legs.split(',').map(Number);
+            // 獨贏
+            if (banker === first) payout += winDiv;
+            // 位置 (3注)
+            if (banker === first) payout += p1 * 3;
+            else if (banker === second) payout += p2 * 3;
+            else if (banker === third) payout += p3 * 3;
+            // 連贏 (膽+每一腳)
+            if ((banker===first && leg1===second) || (banker===second && leg1===first)) payout += qDiv;
+            if ((banker===first && leg2===second) || (banker===second && leg2===first)) payout += qDiv;
+            // 位置Q
+            const pair12 = [banker, leg1];
+            const pair13 = [banker, leg2];
+            if (pair12.includes(first) && pair12.includes(second)) payout += qp12;
+            if (pair12.includes(first) && pair12.includes(third)) payout += qp13;
+            if (pair12.includes(second) && pair12.includes(third)) payout += qp23;
+            if (pair13.includes(first) && pair13.includes(second)) payout += qp12;
+            if (pair13.includes(first) && pair13.includes(third)) payout += qp13;
+            if (pair13.includes(second) && pair13.includes(third)) payout += qp23;
+            await supabase.from('bets').update({ payout }).eq('id', bet.id);
+        }
+        alert(`第 ${raceNo} 場結算完成！`);
+        loadRankingChart();
+        loadUserBets();
     }
-    document.getElementById('chartList').innerHTML = html;
-}
 
-async function loadUserBets() {
-    const user = document.getElementById('detailUserSelect').value;
-    const date = document.getElementById('inputRaceDate').value;
-    if (!user) return;
-    const { data } = await sb.from('bets').select('*').eq('participant', user).eq('race_date', date).order('race_no');
-    
-    document.getElementById('userBetsList').innerHTML = (data && data.length > 0) ? data.map(x => `
-        <div class="card" style="border-left: 5px solid ${x.payout > 0 ? '#16a34a' : '#cbd5e1'};">
-            <b>第 ${x.race_no} 場</b> | 派彩: <span style="color:#1e6f3f">$${x.payout || 0}</span><br>
-            <small>膽: ${x.banker} | 腳: ${x.legs}</small>
-        </div>
-    `).join('') : "本日無紀錄";
-}
+    // ---------- 5. 數據分析 (當月勝率&回報率) ----------
+    async function loadStats() {
+        const user = document.getElementById('statsUserSelect').value;
+        if (!user) { document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
+        const now = new Date();
+        const yearMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const { data, error } = await supabase.from('bets').select('payout').eq('participant', user).ilike('race_date', `${yearMonth}%`);
+        if (error) return;
+        const totalStake = (data || []).length * 80;
+        const totalPayout = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
+        const roi = totalStake === 0 ? 0 : (totalPayout / totalStake * 100).toFixed(1);
+        const winCount = (data || []).filter(b => b.payout > 80).length; // 淨盈利場次 > 0
+        const winRate = (data?.length || 0) === 0 ? 0 : (winCount / data.length * 100).toFixed(1);
+        document.getElementById('statsDisplay').innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div>
+                <div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div>
+                <div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div>
+                <div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div>
+            </div>
+        `;
+    }
 
-async function loadStats() {
-    const user = document.getElementById('statsUserSelect').value;
-    const { data } = await sb.from('bets').select('payout').eq('participant', user);
-    const totalCost = (data || []).length * 80;
-    const totalWin = (data || []).reduce((s, x) => s + (x.payout || 0), 0);
-    const roi = totalCost > 0 ? ((totalWin / totalCost) * 100).toFixed(1) : 0;
+    // ---------- 6. 管理功能 ----------
+    function verifyAdmin() {
+        const pwd = document.getElementById('adminPwd').value;
+        if (pwd === "LBadmin") {
+            adminUnlocked = true;
+            document.getElementById('adminAuth').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            loadAdminBets();
+        } else alert("密碼錯誤");
+    }
 
-    document.getElementById('statsOutput').innerHTML = `
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; text-align:center;">
-            <div class="card">本金<br><b>$${totalCost}</b></div>
-            <div class="card">派彩<br><b>$${totalWin}</b></div>
-            <div class="card" style="grid-column: span 2; background:${roi>=100?'#f0fdf4':'#fff1f2'}">回報率: <b>${roi}%</b></div>
-        </div>
-    `;
-}
+    async function loadAdminBets() {
+        const { data } = await supabase.from('bets').select('*').order('created_at', { ascending: false }).limit(50);
+        if (!data) return;
+        let html = '<table style="width:100%; font-size:0.8rem;"><tr><th>參賽者</th><th>賽日/場</th><th>膽腳</th><th>派彩</th><th></th></tr>';
+        data.forEach(b => {
+            html += `<tr><td>${b.participant}</td><td>${b.race_date}/${b.race_no}</td><td>${b.banker}/${b.legs}</td><td>${b.payout}</td>
+                        <td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`;
+        });
+        html += '</table>';
+        document.getElementById('adminBetsList').innerHTML = html;
+    }
 
-window.onload = init;
+    window.deleteBet = async (id) => {
+        if(confirm("確定刪除此投注？")) {
+            await supabase.from('bets').delete().eq('id', id);
+            loadAdminBets();
+            loadRankingChart();
+        }
+    };
+    window.deleteParticipant = async (id) => {
+        if(confirm("刪除參賽者會一併刪除其所有投注，確定？")) {
+            await supabase.from('bets').delete().eq('participant', participants.find(p=>p.id===id)?.name);
+            await supabase.from('participants').delete().eq('id', id);
+            loadParticipants();
+            loadAdminBets();
+            loadRankingChart();
+        }
+    };
+    window.deleteRaceDay = async (id) => {
+        if(confirm("刪除賽日，該日的所有投注將被刪除？")) {
+            const dateObj = raceDays.find(d=>d.id===id);
+            if(dateObj) await supabase.from('bets').delete().eq('race_date', dateObj.race_date);
+            await supabase.from('race_days').delete().eq('id', id);
+            loadRaceDays();
+            loadAdminBets();
+        }
+    };
+    async function addParticipant() {
+        const name = document.getElementById('newUserName').value.trim();
+        if(!name) return;
+        const { error } = await supabase.from('participants').insert([{ name }]);
+        if(error) alert(error.message);
+        else { document.getElementById('newUserName').value = ''; loadParticipants(); }
+    }
+    async function addRaceDay() {
+        const date = document.getElementById('newRaceDate').value;
+        if(!date) return;
+        const { error } = await supabase.from('race_days').insert([{ race_date: date }]);
+        if(error) alert(error.message);
+        else { loadRaceDays(); }
+    }
+    async function toggleInputLock() {
+        const { data } = await supabase.from('sys_config').select('value').eq('key', 'is_input_enabled').single();
+        const newVal = data.value === 'true' ? 'false' : 'true';
+        await supabase.from('sys_config').update({ value: newVal }).eq('key', 'is_input_enabled');
+        checkInputLock();
+        const btn = document.getElementById('toggleInputBtn');
+        btn.innerText = newVal === 'true' ? "🔴 暫停輸入" : "🟢 開放輸入";
+        btn.style.background = newVal === 'true' ? "#be123c" : "#1e6f3f";
+    }
+
+    // ---------- 頁面切換與事件綁定 ----------
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+        document.getElementById(`${pageId}-page`).classList.add('active-page');
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.nav-btn[data-page="${pageId}"]`).classList.add('active');
+        if (pageId === 'ranking') loadRankingChart();
+        if (pageId === 'detail') loadUserBets();
+        if (pageId === 'admin' && adminUnlocked) loadAdminBets();
+        if (pageId === 'stats') loadStats();
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => showPage(btn.dataset.page));
+    });
+
+    document.getElementById('rankRaceNo').addEventListener('change', loadRankingChart);
+    document.getElementById('detailUserSelect').addEventListener('change', loadUserBets);
+    document.getElementById('statsUserSelect').addEventListener('change', loadStats);
+    document.getElementById('inputUserSelect').addEventListener('change', () => checkInputLock());
+
+    // 啟動系統
+    window.onload = async () => {
+        initHorseSelects();
+        initRaceNoSelects();
+        await loadParticipants();
+        await loadRaceDays();
+        await loadRankingChart();
+        await checkInputLock();
+        // 預設顯示排位頁
+        showPage('ranking');
+    };
 </script>
 </body>
 </html>
