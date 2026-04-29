@@ -163,12 +163,12 @@
             first, second, third, 
             win_div: Number(document.getElementById('div_win').value) || 0, 
             qin_div: Number(document.getElementById('div_q').value) || 0, 
-            place_div1: Number(document.getElementById('div_pla1').value) || 0, 
             qin_place_div12: Number(document.getElementById('div_qp12').value) || 0, 
-            place_div2: Number(document.getElementById('div_pla2').value) || 0,
             qin_place_div13: Number(document.getElementById('div_qp13').value) || 0, 
-            place_div3: Number(document.getElementById('div_pla3').value) || 0 
             qin_place_div23: Number(document.getElementById('div_qp23').value) || 0, 
+            place_div1: Number(document.getElementById('div_pla1').value) || 0, 
+            place_div2: Number(document.getElementById('div_pla2').value) || 0, 
+            place_div3: Number(document.getElementById('div_pla3').value) || 0 
         };
         await supabaseClient.from('race_results').upsert([d]);
         const { data: bets } = await supabaseClient.from('bets').select('*').eq('race_date', currentRaceDate).eq('race_no', raceNo);
@@ -198,35 +198,32 @@
             document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
             return;
         }
-    
+        
         const now = new Date();
         const year = now.getFullYear();
-        const month = now.getMonth(); // 0-11
-    
-        // 正確計算當月第一天和最後一天
-        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
-    
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const startDate = `${year}-${month}-01`;
+        const endDate = `${year}-${month}-31`;
+        
         const { data, error } = await supabaseClient
             .from('bets')
             .select('payout')
             .eq('participant', user)
             .gte('race_date', startDate)
             .lte('race_date', endDate);
-    
+        
         if (error) {
             console.error("統計查詢錯誤:", error);
             document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>';
             return;
         }
-    
+        
         const totalStake = (data || []).length * 80;
         const totalPayout = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
         const roi = totalStake ? ((totalPayout / totalStake) * 100).toFixed(1) : 0;
         const winCount = (data || []).filter(b => b.payout > 80).length;
         const winRate = data?.length ? ((winCount / data.length) * 100).toFixed(1) : 0;
-    
+        
         document.getElementById('statsDisplay').innerHTML = `
             <div class="stats-grid">
                 <div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div>
