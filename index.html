@@ -31,7 +31,8 @@
         h2 { font-size: 1.3rem; margin-bottom: 12px; color: #0f172a; }
         .form-group { margin-bottom: 14px; }
         label { display: block; font-size: 0.8rem; font-weight: 500; color: #334155; margin-bottom: 4px; }
-        select, input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 0.9rem; background: white; }
+        select, input, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 0.9rem; background: white; }
+        textarea { resize: vertical; }
         button { width: 100%; padding: 12px; background: #1e6f3f; color: white; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; font-size: 1rem; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
         .badge { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; margin: 4px 4px 0 0; }
@@ -64,7 +65,7 @@
             padding: 30px;
             border-radius: 24px;
             text-align: center;
-            min-width: 300px;
+            min-width: 280px;
         }
         .password-box button {
             width: auto;
@@ -73,6 +74,19 @@
             display: inline-block;
         }
         .error-msg { color: #b91c1c; margin-top: 10px; }
+        .secondary {
+            background: #f1f5f9;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+        .info-note {
+            background: #eef2ff;
+            padding: 12px;
+            border-radius: 16px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+        .info-note p { margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -86,13 +100,25 @@
     </div>
     <div id="input-page" class="page">
         <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
-        <div class="card"><h2>✍️ 新增投注 (每場 $80)</h2>
+        <div class="card">
+            <h2>✍️ 新增投注 (每場 $80)</h2>
+            <div class="info-note">
+                <strong>📌 金額分配解析：</strong>
+                <p>• 膽馬獨贏：1注 × $10 = $10</p>
+                <p>• 膽馬位置：3注 × $10 = $30</p>
+                <p>• 連贏 (膽+腳1)：1注 × $10 = $10</p>
+                <p>• 連贏 (膽+腳2)：1注 × $10 = $10</p>
+                <p>• 位置Q (膽+腳1)：1注 × $10 = $10</p>
+                <p>• 位置Q (膽+腳2)：1注 × $10 = $10</p>
+                <p><strong>總計：8注，合共 $80</strong></p>
+            </div>
             <form id="betForm">
                 <div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div>
                 <div class="form-group"><label>賽日</label><input type="text" id="inputRaceDate" readonly></div>
                 <div class="form-group"><label>場次</label><select id="inputRaceNo"></select></div>
                 <div class="form-group"><label>膽馬 (1匹)</label><select id="bankerSelect"><option value="">-- 請選擇 --</option></select></div>
                 <div class="form-group"><label>腳馬 (2匹)</label><select id="leg1Select"></select> <select id="leg2Select"></select></div>
+                <div class="form-group"><label>投注原因 (選填)</label><textarea id="betReason" rows="2" placeholder="例：狀態好、檔位佳、賠率吸引..."></textarea></div>
                 <button type="submit" id="submitBtn">確認提交 $80</button>
             </form>
         </div>
@@ -199,7 +225,7 @@
         if (!user) { document.getElementById('detailList').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
         const { data } = await supabaseClient.from('bets').select('*').eq('participant', user).order('race_date', { ascending: false });
         if (!data || !data.length) { document.getElementById('detailList').innerHTML = '<div class="card">無投注紀錄</div>'; return; }
-        document.getElementById('detailList').innerHTML = data.map(b => `<div class="card" style="border-left:4px solid ${b.payout>0?'#16a34a':'#cbd5e1'}"><strong>${b.race_date} 第 ${b.race_no} 場</strong><br>膽: ${b.banker} / 腳: ${b.legs}<br>派彩: $${b.payout||0}</div>`).join('');
+        document.getElementById('detailList').innerHTML = data.map(b => `<div class="card" style="border-left:4px solid ${b.payout>0?'#16a34a':'#cbd5e1'}"><strong>${b.race_date} 第 ${b.race_no} 場</strong><br>膽: ${b.banker} / 腳: ${b.legs}<br>派彩: $${b.payout||0}<br>${b.reason ? `📝 原因: ${b.reason}` : ''}</div>`).join('');
     }
     
     document.getElementById('betForm').addEventListener('submit', async (e) => {
@@ -212,9 +238,18 @@
         if (!banker || !leg1 || !leg2 || leg1===leg2 || banker===leg1 || banker===leg2) return alert("請檢查膽馬與腳馬 (不可重複)");
         const raceDate = document.getElementById('inputRaceDate').value;
         const raceNo = parseInt(document.getElementById('inputRaceNo').value);
+        const reason = document.getElementById('betReason').value.trim();
         const { data: existing } = await supabaseClient.from('bets').select('id').eq('participant', p).eq('race_date', raceDate);
         if (existing && existing.length >= 2) return alert("每人每賽日限投2場");
-        const { error } = await supabaseClient.from('bets').insert([{ participant:p, race_date:raceDate, race_no:raceNo, banker, legs:`${leg1},${leg2}`, payout:0 }]);
+        const { error } = await supabaseClient.from('bets').insert([{ 
+            participant: p, 
+            race_date: raceDate, 
+            race_no: raceNo, 
+            banker, 
+            legs: `${leg1},${leg2}`, 
+            payout: 0,
+            reason: reason || null
+        }]);
         if (error) alert("投注失敗: " + error.message); else alert("✅ 投注成功！");
         loadRankingChart(); loadUserBets();
     });
@@ -316,7 +351,14 @@
     
     async function loadAdminBets() { 
         const { data } = await supabaseClient.from('bets').select('*').order('created_at', { ascending: false }).limit(50); 
-        if(data) document.getElementById('adminBetsList').innerHTML = `<table><thead><th>參賽者</th><th>賽日/場</th><th>膽腳</th><th>派彩</th><th></th></thead><tbody>${data.map(b => `<tr><td>${b.participant}</td>.html${b.race_date}/${b.race_no} Jetpack.${b.banker}/${b.legs} Jetpack.${b.payout} Jetpack.<button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`).join('')}</tbody></table>`; 
+        if(data) document.getElementById('adminBetsList').innerHTML = `<table><thead><th>參賽者</th><th>賽日/場</th><th>膽腳</th><th>派彩</th><th>原因</th><th></th></thead><tbody>${data.map(b => `<tr>
+                <td>${b.participant}</td>
+                <td>${b.race_date}/${b.race_no}</td>
+                <td>${b.banker}/${b.legs}</td>
+                <td>${b.payout}</td>
+                <td>${b.reason || '-'}</td>
+                <td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td>
+            </td>`).join('')}</tbody></table>`; 
     }
     
     window.deleteBet = async (id) => { 
@@ -388,8 +430,10 @@
                 <h3>🔐 賽果管理驗證</h3>
                 <input type="password" id="resultPwd" placeholder="請輸入密碼">
                 <div id="resultPwdError" class="error-msg"></div>
-                <button id="resultSubmitBtn" style="margin-top:10px;">確認</button>
-                <button id="resultCancelBtn" class="secondary">取消</button>
+                <div style="display: flex; justify-content: center; gap: 15px; margin-top: 15px;">
+                    <button id="resultSubmitBtn" style="width: auto;">確認</button>
+                    <button id="resultCancelBtn" class="secondary" style="width: auto;">取消</button>
+                </div>
             </div>
         `;
         document.body.appendChild(overlay);
@@ -412,7 +456,6 @@
             showResultPasswordModal(() => {
                 resultUnlocked = true;
                 sessionStorage.setItem('resultUnlocked', 'true');
-                // 解鎖後再執行切換
                 doShowPage(pageId);
             });
             return;
