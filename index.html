@@ -3,589 +3,335 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logic Horse龍虎榜</title>
-<style>
-    /* 基礎重設 */
-    * { 
-        margin: 0; 
-        padding: 0; 
-        box-sizing: border-box; 
-        font-family: 'PingFang HK', 'Microsoft JhengHei', system-ui, sans-serif; 
-    }
+    <title>Logic Horse 龍虎榜</title>
+    <style>
+        :root { --primary: #1e6f3f; --secondary: #475569; --bg: #f8fafc; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); color: #1e293b; padding-bottom: 50px; }
+        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
+        
+        /* 導覽列 */
+        .nav { display: flex; gap: 5px; overflow-x: auto; padding: 10px; background: white; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .nav button { padding: 8px 15px; border-radius: 20px; border: 1px solid #e2e8f0; background: white; white-space: nowrap; cursor: pointer; font-weight: 600; color: var(--secondary); }
+        .nav button.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-    body { 
-        background: #f0f2f5; 
-        padding: 15px; 
-        color: #1e293b; 
-        line-height: 1.6;
-    }
+        /* 卡片與通用樣式 */
+        .card { background: white; border-radius: 12px; padding: 15px; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h2 { font-size: 1.1rem; margin-bottom: 15px; border-left: 4px solid var(--primary); padding-left: 10px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: var(--secondary); }
+        select, input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+        .btn-main { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-main:disabled { background: #94a3b8; cursor: not-allowed; }
 
-    .container { 
-        max-width: 1000px; 
-        margin: 0 auto; 
-    }
-
-    /* 頂部導覽標籤 */
-    .tabs { 
-        display: flex; 
-        gap: 8px; 
-        margin-bottom: 20px; 
-        overflow-x: auto; /* 手機版可左右滑動 */
-        padding-bottom: 5px;
-        position: sticky;
-        top: 0;
-        background: #f0f2f5;
-        z-index: 100;
-    }
-
-    .tab-btn { 
-        background: white; 
-        border: 1px solid #cbd5e1; 
-        padding: 10px 18px; 
-        border-radius: 50px; 
-        cursor: pointer; 
-        font-weight: 600; 
-        color: #64748b; 
-        white-space: nowrap;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .tab-btn.active { 
-        background: #1e6f3f; 
-        color: white; 
-        border-color: #14532d;
-    }
-
-    /* 頁面切換內容 */
-    .page { display: none; animation: fadeIn 0.3s ease; }
-    .page.active-page { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* 卡片樣式 */
-    .card { 
-        background: white; 
-        border-radius: 16px; 
-        padding: 20px; 
-        margin-bottom: 20px; 
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e2e8f0;
-    }
-
-    h2 { 
-        font-size: 1.25rem; 
-        margin-bottom: 20px; 
-        color: #0f172a; 
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    h2::before {
-        content: "";
-        width: 4px;
-        height: 1.25rem;
-        background: #1e6f3f;
-        border-radius: 2px;
-    }
-
-    /* 表單樣式 */
-    .form-group { 
-        margin-bottom: 18px; 
-        display: flex; 
-        flex-direction: column; /* 手機版預設垂直 */
-        gap: 8px; 
-    }
-
-    label { 
-        font-weight: 600; 
-        color: #475569; 
-        font-size: 0.95rem;
-    }
-
-    select, input, textarea { 
-        width: 100%; 
-        padding: 12px; 
-        border: 1px solid #cbd5e1; 
-        border-radius: 10px; 
-        font-size: 1rem;
-        outline: none;
-        transition: border-color 0.2s;
-    }
-
-    select:focus, input:focus { border-color: #1e6f3f; }
-
-    /* 子玩法專用樣式 */
-    #subBetTypeGroup {
-        background: #f0fdf4; /* 淡淡的綠色背景 */
-        padding: 15px;
-        border-radius: 12px;
-        border: 2px dashed #bbf7d0;
-        display: none; /* 由 JS 控制 */
-    }
-
-    /* 按鈕樣式 */
-    button[type="submit"] { 
-        background: #1e6f3f; 
-        color: white; 
-        border: none; 
-        padding: 15px; 
-        border-radius: 10px; 
-        font-size: 1.1rem; 
-        font-weight: 700; 
-        cursor: pointer; 
-        width: 100%;
-        margin-top: 10px;
-        transition: background 0.2s;
-    }
-
-    button[type="submit"]:hover { background: #14532d; }
-    button[type="submit"]:disabled { background: #94a3b8; }
-
-    /* 表格樣式 */
-    .table-container { overflow-x: auto; }
-    table { 
-        width: 100%; 
-        border-collapse: collapse; 
-        min-width: 600px;
-    }
-
-    th, td { 
-        padding: 14px; 
-        text-align: left; 
-        border-bottom: 1px solid #f1f5f9; 
-        font-size: 0.95rem;
-    }
-
-    th { background: #f8fafc; color: #64748b; font-weight: 600; }
-
-    .badge { 
-        background: #e2e8f0; 
-        color: #475569; 
-        padding: 4px 10px; 
-        border-radius: 6px; 
-        font-size: 0.85rem; 
-        font-weight: 600;
-    }
-
-    /* 數據統計網格 */
-    .stat-grid { 
-        display: grid; 
-        grid-template-columns: repeat(2, 1fr); 
-        gap: 15px; 
-    }
-
-    .stat-item { 
-        background: #f8fafc; 
-        padding: 15px; 
-        border-radius: 12px; 
-        text-align: center; 
-        border: 1px solid #e2e8f0;
-    }
-
-    .stat-label { font-size: 0.85rem; color: #64748b; margin-bottom: 5px; }
-    .stat-value { font-size: 1.4rem; font-weight: 800; color: #1e6f3f; }
-
-    /* 電腦版優化 (橫向排列) */
-    @media (min-width: 640px) {
-        .form-group { flex-direction: row; align-items: center; }
-        label { width: 100px; margin-bottom: 0; }
-        .stat-grid { grid-template-columns: repeat(4, 1fr); }
-    }
-</style>
+        /* 棒形圖樣式 */
+        .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .bar-label { width: 30px; font-weight: bold; flex-shrink: 0; }
+        .bar-container { flex: 1; background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; }
+        .bar-fill { background: var(--primary); height: 100%; transition: width 0.5s; }
+        
+        .page { display: none; }
+        .active-page { display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        .locked-msg { background: #fee2e2; color: #b91c1c; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; }
+    </style>
 </head>
 <body>
 
+<div class="nav" id="mainNav">
+    <button onclick="showPage('chart')" data-page="chart">📊 排位表</button>
+    <button onclick="showPage('detail')" data-page="detail">🔍 詳情</button>
+    <button onclick="showPage('input')" data-page="input">✍️ 投注</button>
+    <button onclick="showPage('result')" data-page="result">🏁 賽果</button>
+    <button onclick="showPage('stats')" data-page="stats">📈 數據</button>
+    <button onclick="showPage('admin')" data-page="admin">⚙️ 管理</button>
+</div>
+
 <div class="container">
-    <div class="tabs">
-        <button class="tab-btn" data-page="home">🐎 主頁</button>
-        <button class="tab-btn" data-page="enter">✍️ 投注</button>
-        <button class="tab-btn" data-page="bets-manage">📋 管理</button>
-        <button class="tab-btn" data-page="data">📊 數據</button>
-    </div>
-
-    <div id="home-page" class="page">
+    <div id="chart-page" class="page">
         <div class="card">
-            <h2>🐎 下個賽日投注表</h2>
-            <table id="homeBetTable">
-                <thead><tr><th>場次</th><th>參賽者</th><th>玩法</th><th>詳情</th><th>金額</th><th>分析</th></tr></thead>
-                <tbody></tbody>
-            </table>
+            <h2>各場馬匹選擇熱度</h2>
+            <select id="chartRaceNo" onchange="loadChartData()"></select>
+            <div id="chartList" style="margin-top: 20px;"></div>
         </div>
     </div>
 
-<div id="enter-page" class="page">
-    <div class="card">
-        <h2>✍️ 提交投注</h2>
-        <form id="betForm">
-            <div class="form-group">
-                <label>參賽者</label>
-                <select id="betParticipantSelect" required>
-                    <option value="">載入中...</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>賽日</label>
-                <select id="betRaceDate" required></select>
-            </div>
-            <div class="form-group">
-                <label>場次</label>
-                <select id="betRaceNo"></select>
-            </div>
-
-            <div class="form-group">
-                <label>玩法</label>
-                <select id="betBetType" required>
-                    <option value="獨贏">獨贏</option>
-                    <option value="位置">位置</option>
-                    <option value="獨贏及位置">獨贏及位置</option>
-                    <option value="連贏">連贏</option>
-                    <option value="位置Q">位置Q</option>
-                    <option value="連贏及位置Q">連贏及位置Q</option>
-                    <option value="二重彩">二重彩</option>
-                    <option value="三重彩">三重彩</option>
-                    <option value="單T">單T</option>
-                    <option value="四連環">四連環</option>
-                    <option value="四重彩">四重彩</option>
-                    <option value="孖寶">孖寶</option>
-                    <option value="三寶">三寶</option>
-                    <option value="孖T">孖T</option>
-                    <option value="三T">三T</option>
-                    <option value="六環彩">六環彩</option>
-                    <option value="過關">過關</option>
-                </select>
-            </div>
-
-            <div id="subBetTypeGroup" class="form-group" style="display: none;">
-                <label>子玩法</label>
-                <select id="betSubType">
-                    <option value="">-- 請選擇 --</option>
-                    <option value="單式">單式</option>
-                    <option value="複式">複式</option>
-                    <option value="單式馬膽">單式馬膽</option>
-                    <option value="複式馬膽">複式馬膽</option>
-                    <option value="指定位置馬膽">指定位置馬膽</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>馬匹詳情</label>
-                <input type="text" id="betDetail" placeholder="例如: 1, 3, 5" required>
-            </div>
-            <div class="form-group">
-                <label>金額 ($)</label>
-                <input type="number" id="betAmount" value="100" min="10" required>
-            </div>
-
-            <div class="form-group">
-                <label>分析原因</label>
-                <textarea id="betReason" rows="2" placeholder="選填..."></textarea>
-            </div>
-
-            <button type="submit" id="submitBetBtn" style="width: 100%; height: 50px; font-size: 1.1rem; background: #1e6f3f;">
-                💾 儲存投注
-            </button>
-        </form>
-    </div>
-</div>
-    
-<div id="admin-page" class="page">
-    <div id="admin-auth" class="card" style="text-align: center; padding: 40px 20px;">
-        <h2>🔐 管理員驗證</h2>
-        <div style="max-width: 300px; margin: 0 auto;">
-            <input type="password" id="adminPassword" placeholder="輸入管理員密碼..." style="margin-bottom: 15px; text-align: center;">
-            <button onclick="checkAdminAuth()" style="width: 100%;">驗證進入</button>
+    <div id="detail-page" class="page">
+        <div class="card">
+            <h2>個人投注查詢</h2>
+            <select id="detailUserSelect" onchange="loadUserBets()"></select>
+            <div id="userBetsList"></div>
         </div>
     </div>
 
-    <div id="admin-content" style="display: none;">
+    <div id="input-page" class="page">
+        <div id="inputLockMsg" class="locked-msg" style="display:none; margin-bottom: 20px;">
+            ⚠️ 系統已由管理員暫停輸入，目前無法提交投注。
+        </div>
+
         <div class="card">
-            <h2>👤 參賽者管理</h2>
-            <div class="form-group" style="display: flex; gap: 10px;">
-                <input type="text" id="newParticipantName" placeholder="輸入姓名...">
-                <button onclick="addParticipant()" style="white-space: nowrap; width: auto; padding: 0 20px;">新增</button>
-            </div>
-            <div id="participantList" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+            <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                ✍️ 提交投注
+                <span style="font-size: 0.75rem; background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px;">每場 $80</span>
+            </h2>
+
+            <div style="background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                <p style="font-size: 0.85rem; color: #475569; font-weight: 600; margin-bottom: 5px;">1膽2腳分配：</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.75rem; color: #64748b;">
+                    <div>• 獨贏 x1 ($10)</div>
+                    <div>• 連贏 x2 ($20)</div>
+                    <div>• 位置 x3 ($30)</div>
+                    <div>• 位置Q x2 ($20)</div>
                 </div>
-        </div>
-
-        <div class="card">
-            <h2>📅 賽日管理</h2>
-            <div class="form-group" style="display: flex; gap: 10px;">
-                <input type="date" id="newRaceDate">
-                <button onclick="addRaceDay()" style="white-space: nowrap; width: auto; padding: 0 20px;">新增日期</button>
             </div>
-            <div id="raceDateList" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+
+            <form id="betForm">
+                <div class="form-group">
+                    <label>👤 選擇參賽者</label>
+                    <select id="inputUserSelect" required><option value="">載入中...</option></select>
                 </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>📅 賽日</label>
+                        <input type="text" id="inputRaceDate" readonly style="background: #f1f5f9; color: #64748b;">
+                    </div>
+                    <div class="form-group">
+                        <label>🏇 場次</label>
+                        <select id="inputRaceNo" required></select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>🎯 膽 (1匹)</label>
+                        <input type="number" id="banker" min="1" max="14" placeholder="號碼" required>
+                    </div>
+                    <div class="form-group">
+                        <label>🐾 腳 (2匹)</label>
+                        <input type="text" id="legs" placeholder="例如: 5, 12" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-main" id="submitBtn">確認提交投注 ($80)</button>
+            </form>
         </div>
     </div>
-</div>
 
-    <div id="data-page" class="page">
+    <div id="result-page" class="page">
         <div class="card">
-            <h2>📊 每月表現統計</h2>
-            <div id="statsContent" class="stat-grid">
-                <div class="stat-item"><div>總投注額</div><div class="stat-value" id="totalBet">0</div></div>
-                <div class="stat-item"><div>勝率</div><div class="stat-value" id="winRate">0%</div></div>
-                <div class="stat-item"><div>淨損益</div><div class="stat-value" id="netProfit">$0</div></div>
+            <h2>🏁 輸入賽果及派彩 (每$10計)</h2>
+            <div class="form-group"><label>場次</label><select id="resRaceNo"></select></div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom: 15px;">
+                <div class="form-group"><label>第一名</label><input type="number" id="p1" placeholder="馬號"></div>
+                <div class="form-group"><label>第二名</label><input type="number" id="p2" placeholder="馬號"></div>
+                <div class="form-group"><label>第三名</label><input type="number" id="p3" placeholder="馬號"></div>
             </div>
-            <h3 style="margin-top:20px;">玩家表現排名</h3>
-            <table id="playerRankTable">
-                <thead><tr><th>參賽者</th><th>次數</th><th>勝場</th><th>勝率</th></tr></thead>
-                <tbody></tbody>
-            </table>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div><label>獨贏</label><input type="number" id="dWin" placeholder="獨贏"></div>
+                <div><label>連贏 (Q)</label><input type="number" id="dQ" placeholder="連贏"></div>
+                <div><label>位置Q (1-2)</label><input type="number" id="dQp12" placeholder="派彩"></div>
+                <div><label>位置Q (1-3)</label><input type="number" id="dQp13" placeholder="派彩"></div>
+                <div><label>位置Q (2-3)</label><input type="number" id="dQp23" placeholder="派彩"></div>
+                <div><label>位置 (1)</label><input type="number" id="dP1" placeholder="派彩"></div>
+                <div><label>位置 (2)</label><input type="number" id="dP2" placeholder="派彩"></div>
+                <div><label>位置 (3)</label><input type="number" id="dP3" placeholder="派彩"></div>
+            </div>
+            
+            <button class="btn-main" id="resBtn" onclick="saveResult()">儲存賽果並自動結算</button>
+        </div>
+    </div>
+
+    <div id="stats-page" class="page">
+        <div class="card">
+            <h2>個人回報率分析</h2>
+            <select id="statsUserSelect" onchange="loadStats()"></select>
+            <div id="statsOutput" style="margin-top:15px;"></div>
+        </div>
+    </div>
+
+    <div id="admin-page" class="page">
+        <div id="adminAuth">
+            <div class="card"><h2>管理員驗證</h2><input type="password" id="adminPwd"><button class="btn-main" onclick="verifyAdmin()">進入</button></div>
+        </div>
+        <div id="adminContent" style="display:none;">
+            <div class="card">
+                <h2>系統控制</h2>
+                <button class="btn-main" style="background:#475569" onclick="toggleInput()">切換輸入狀態 (開/關)</button>
+                <hr style="margin:20px 0;">
+                <div class="form-group"><label>新增參賽者</label><input type="text" id="newUserName"><button class="btn-main" onclick="addUser()">新增</button></div>
+                <div class="form-group"><label>新增賽日 (YYYY-MM-DD)</label><input type="date" id="newDate"><button class="btn-main" onclick="addDate()">新增</button></div>
+            </div>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // --- 1. 配置與核心初始化 (使用 var 避免重複宣告報錯) ---
-    var CONFIG = {
+    const CONFIG = {
         URL: "https://dmgauesvjpelufjrnlzf.supabase.co",
         KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4",
-        PASS: "LBadmin" // 管理頁面密碼
+        ADMIN_PASS: "LBadmin"
     };
+    const sb = supabase.createClient(CONFIG.URL, CONFIG.KEY);
 
-    // 檢查全域實體，防止重複建立 Client
-    if (!window.supabaseInstance) {
-        window.supabaseInstance = window.supabase.createClient(CONFIG.URL, CONFIG.KEY);
-    }
-    var supabase = window.supabaseInstance;
-
-    // --- 2. 頁面切換系統 ---
-    function switchPage(pageId) {
-        console.log("切換至頁面:", pageId);
-
-        // 如果進入管理頁，強制重設驗證狀態
-        if (pageId === 'admin') {
-            const authDiv = document.getElementById("admin-auth");
-            const contentDiv = document.getElementById("admin-content");
-            if (authDiv) authDiv.style.display = "block";
-            if (contentDiv) contentDiv.style.display = "none";
-            const pwdInput = document.getElementById("adminPassword");
-            if (pwdInput) pwdInput.value = "";
-        }
-
-        // 切換顯示狀態
-        document.querySelectorAll(".page").forEach(p => p.classList.remove("active-page"));
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        
-        const targetPage = document.getElementById(pageId + "-page");
-        const targetBtn = document.querySelector(`[data-page="${pageId}"]`);
-        
-        if (targetPage) targetPage.classList.add("active-page");
-        if (targetBtn) targetBtn.classList.add("active");
-
-        // 進入頁面時自動刷新數據
-        if (pageId === 'home') refreshHome();
-        if (pageId === 'bets-manage') refreshManage();
-        if (pageId === 'data') refreshStats();
+    // --- 核心功能 ---
+    function showPage(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+        document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById(id + '-page').classList.add('active-page');
+        document.querySelector(`[data-page="${id}"]`).classList.add('active');
+        if (id === 'input') checkInputStatus();
+        if (id === 'chart') loadChartData();
+        if (id === 'detail') loadUserBets();
+        if (id === 'stats') loadStats();
     }
 
-    // --- 3. 基礎數據加載 (下拉選單同步) ---
-    async function loadBasics() {
-        // 1. 生成場次 (1-12場)
-        const raceNoEl = document.getElementById("betRaceNo");
-        if (raceNoEl) {
-            raceNoEl.innerHTML = Array.from({length: 12}, (_, i) => `<option value="${i + 1}">${i + 1} 場</option>`).join('');
-        }
-
-        // 2. 加載參賽者
-        const { data: pData } = await supabase.from('participants').select('name');
-        const pSelect = document.getElementById("betParticipantSelect");
-        if (pSelect && pData) {
-            pSelect.innerHTML = pData.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-        }
-
-        // 3. 加載賽日
-        const { data: dData } = await supabase.from('race_days').select('race_date').order('race_date', {ascending: false});
-        const dSelect = document.getElementById("betRaceDate");
-        if (dSelect && dData) {
-            dSelect.innerHTML = dData.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
-        }
-    }
-
-    // --- 4. 管理員驗證與管理功能 ---
-    function checkAdminAuth() {
-        const pwd = document.getElementById("adminPassword").value;
-        if (pwd === CONFIG.PASS) {
-            document.getElementById("admin-auth").style.display = "none";
-            document.getElementById("admin-content").style.display = "block";
-            loadAdminData(); 
-        } else {
-            alert("密碼錯誤！");
-        }
-    }
-
-    async function loadAdminData() {
-        // 渲染人員列表
-        const { data: pData } = await supabase.from('participants').select('*');
-        const pList = document.getElementById("participantList");
-        if (pList && pData) {
-            pList.innerHTML = pData.map(p => `
-                <span class="badge" style="display:flex; align-items:center; gap:8px;">
-                    ${p.name} <b style="color:#be123c; cursor:pointer;" onclick="deleteAdminItem('participants', ${p.id})">×</b>
-                </span>
-            `).join('');
-        }
-
-        // 渲染賽日列表
-        const { data: dData } = await supabase.from('race_days').select('*').order('race_date', {ascending: false});
-        const dList = document.getElementById("raceDateList");
-        if (dList && dData) {
-            dList.innerHTML = dData.map(d => `
-                <span class="badge" style="display:flex; align-items:center; gap:8px;">
-                    ${d.race_date} <b style="color:#be123c; cursor:pointer;" onclick="deleteAdminItem('race_days', ${d.id})">×</b>
-                </span>
-            `).join('');
-        }
-    }
-
-    async function addParticipant() {
-        const nameInput = document.getElementById("newParticipantName");
-        if (!nameInput.value) return;
-        await supabase.from('participants').insert([{ name: nameInput.value }]);
-        nameInput.value = "";
-        loadAdminData();
-        loadBasics(); // 同步更新投注頁下拉選單
-    }
-
-    async function addRaceDay() {
-        const dateInput = document.getElementById("newRaceDate");
-        if (!dateInput.value) return;
-        await supabase.from('race_days').insert([{ race_date: dateInput.value }]);
-        loadAdminData();
-        loadBasics(); // 同步更新投注頁下拉選單
-    }
-
-    async function deleteAdminItem(table, id) {
-        if (confirm("確定要刪除嗎？")) {
-            await supabase.from(table).delete().eq('id', id);
-            loadAdminData();
-            loadBasics();
-        }
-    }
-
-    // --- 5. 數據呈現 (主頁、統計、紀錄) ---
-    async function refreshHome() {
-        const tbody = document.querySelector("#homeBetTable tbody");
-        if (!tbody) return;
-        tbody.innerHTML = "<tr><td colspan='6'>載入中...</td></tr>";
-        const { data } = await supabase.from('bets').select('*').order('id', {ascending: false});
-        tbody.innerHTML = (data || []).map(b => `
-            <tr>
-                <td>${b.race_no}場</td>
-                <td><span class="badge">${b.participant}</span></td>
-                <td>${b.bet_type}${b.sub_bet_type ? ' ('+b.sub_bet_type+')' : ''}</td>
-                <td>${b.bet_detail}</td>
-                <td>$${b.amount}</td>
-                <td>${b.reason || '-'}</td>
-            </tr>
-        `).join('') || "<tr><td colspan='6'>暫無最新投注</td></tr>";
-    }
-
-    async function refreshManage() {
-        const tbody = document.querySelector("#manageBetsTable tbody");
-        if (!tbody) return;
-        const { data } = await supabase.from('bets').select('*').order('id', {ascending: false});
-        tbody.innerHTML = (data || []).map(b => `
-            <tr>
-                <td>${b.participant}</td>
-                <td>${b.race_date}</td>
-                <td>$${b.amount}</td>
-                <td><button style="background:${b.is_win ? '#22c55e' : '#94a3b8'}; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;" 
-                    onclick="handleWin(${b.id}, ${b.is_win})">${b.is_win ? '已贏' : '未勝'}</button></td>
-                <td><button style="background:#be123c; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;" 
-                    onclick="handleDel(${b.id})">刪除</button></td>
-            </tr>
-        `).join('');
-    }
-
-    async function refreshStats() {
-        const { data } = await supabase.from('bets').select('*');
-        if (!data) return;
-        const totalAmt = data.reduce((sum, b) => sum + b.amount, 0);
-        const winCount = data.filter(b => b.is_win).length;
-        const winRate = data.length > 0 ? (winCount / data.length * 100).toFixed(1) : 0;
-
-        if (document.getElementById("totalBet")) document.getElementById("totalBet").innerText = `$${totalAmt}`;
-        if (document.getElementById("winRate")) document.getElementById("winRate").innerText = `${winRate}%`;
-
-        const players = {};
-        data.forEach(b => {
-            if (!players[b.participant]) players[b.participant] = { count: 0, wins: 0 };
-            players[b.participant].count++;
-            if (b.is_win) players[b.participant].wins++;
+    async function initSystem() {
+        const { data: users } = await sb.from('participants').select('name');
+        ['inputUserSelect', 'detailUserSelect', 'statsUserSelect'].forEach(s => {
+            const el = document.getElementById(s);
+            if (el) el.innerHTML = users.map(u => `<option value="${u.name}">${u.name}</option>`).join('');
         });
 
-        const sortedPlayers = Object.entries(players).sort((a, b) => (b[1].wins/b[1].count) - (a[1].wins/a[1].count));
-        const rankBody = document.querySelector("#playerRankTable tbody");
-        if (rankBody) {
-            rankBody.innerHTML = sortedPlayers.map(([name, stat]) => `
-                <tr><td>${name}</td><td>${stat.count}</td><td>${stat.wins}</td><td>${((stat.wins/stat.count)*100).toFixed(1)}%</td></tr>
-            `).join('');
-        }
-    }
+        const { data: date } = await sb.from('race_days').select('race_date').order('race_date', {ascending: false}).limit(1);
+        if (date && date[0]) document.getElementById('inputRaceDate').value = date[0].race_date;
 
-    window.handleWin = async (id, curStatus) => {
-        await supabase.from('bets').update({ is_win: !curStatus }).eq('id', id);
-        refreshManage();
-    };
-
-    window.handleDel = async (id) => {
-        if (confirm("確定刪除這筆紀錄？")) {
-            await supabase.from('bets').delete().eq('id', id);
-            refreshManage();
-        }
-    };
-
-    // --- 6. 事件綁定 (子玩法與表單) ---
-    // 子玩法連動
-    const betTypeEl = document.getElementById('betBetType');
-    if (betTypeEl) {
-        betTypeEl.addEventListener('change', function() {
-            const specialTypes = ["二重彩", "三重彩", "四重彩"];
-            const subGroup = document.getElementById('subBetTypeGroup');
-            if (specialTypes.includes(this.value)) {
-                subGroup.style.display = 'flex';
-            } else {
-                subGroup.style.display = 'none';
-                document.getElementById('betSubType').value = "";
-            }
+        ['chartRaceNo', 'inputRaceNo', 'resRaceNo'].forEach(s => {
+            const el = document.getElementById(s);
+            if (el) el.innerHTML = Array.from({length: 12}, (_, i) => `<option value="${i + 1}">${i + 1}場</option>`).join('');
         });
+        showPage('chart');
     }
 
-    // 投注表單提交
-    const betForm = document.getElementById("betForm");
-    if (betForm) {
-        betForm.onsubmit = async (e) => {
-            e.preventDefault();
-            const entry = {
-                participant: document.getElementById("betParticipantSelect").value,
-                race_date: document.getElementById("betRaceDate").value,
-                race_no: parseInt(document.getElementById("betRaceNo").value),
-                bet_type: document.getElementById("betBetType").value,
-                sub_bet_type: document.getElementById("betSubType").value,
-                bet_detail: document.getElementById("betDetail").value,
-                amount: parseInt(document.getElementById("betAmount").value),
-                reason: document.getElementById("betReason").value,
-                is_win: false,
-                created_at: new Date().toISOString()
-            };
-            const { error } = await supabase.from('bets').insert([entry]);
-            if (error) alert("失敗: " + error.message);
-            else { alert("✅ 提交成功！"); betForm.reset(); document.getElementById('subBetTypeGroup').style.display = 'none'; switchPage('home'); }
+    // --- 投注提交 ($80 邏輯) ---
+    document.getElementById('betForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        const user = document.getElementById('inputUserSelect').value;
+        const date = document.getElementById('inputRaceDate').value;
+        const raceNo = parseInt(document.getElementById('inputRaceNo').value);
+        const banker = document.getElementById('banker').value.trim();
+        const legs = document.getElementById('legs').value.split(/[,， ]+/).filter(l => l !== "").map(l => l.trim());
+
+        if (legs.length !== 2) return alert("請輸入剛好 2 隻腳");
+        if (legs.includes(banker) || legs[0] === legs[1]) return alert("馬號不能重複");
+
+        btn.disabled = true;
+        const { data: existing } = await sb.from('bets').select('id').eq('participant', user).eq('race_date', date);
+        if (existing && existing.length >= 2) {
+            alert("今日投注額度已滿 (上限 2 場)");
+            btn.disabled = false; return;
+        }
+
+        const { error } = await sb.from('bets').insert([{ participant: user, race_date: date, race_no: raceNo, banker, legs: legs.join(','), amount: 80 }]);
+        if (error) alert("失敗: " + error.message);
+        else { alert("✅ 投注成功 ($80)"); e.target.reset(); initSystem(); }
+        btn.disabled = false;
+    };
+
+    // --- 自動結算 ($80 結構: 1獨贏/3位置/2連贏/2位置Q) ---
+    async function saveResult() {
+        const raceDate = document.getElementById('inputRaceDate').value;
+        const raceNo = parseInt(document.getElementById('resRaceNo').value);
+        const res = {
+            race_date: raceDate, race_no: raceNo,
+            p1: document.getElementById('p1').value, p2: document.getElementById('p2').value, p3: document.getElementById('p3').value,
+            div_win: parseFloat(document.getElementById('dWin').value) || 0,
+            div_q: parseFloat(document.getElementById('dQ').value) || 0,
+            div_qp12: parseFloat(document.getElementById('dQp12').value) || 0,
+            div_qp13: parseFloat(document.getElementById('dQp13').value) || 0,
+            div_qp23: parseFloat(document.getElementById('dQp23').value) || 0,
+            div_pla1: parseFloat(document.getElementById('dP1').value) || 0,
+            div_pla2: parseFloat(document.getElementById('dP2').value) || 0,
+            div_pla3: parseFloat(document.getElementById('dP3').value) || 0
         };
+
+        if (!res.p1 || !res.p2 || !res.p3) return alert("請完整輸入前三名");
+        const btn = document.getElementById('resBtn');
+        btn.disabled = true;
+
+        try {
+            await sb.from('race_results').upsert([res]);
+            const { data: bets } = await sb.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
+
+            for (let b of bets) {
+                let totalPayout = 0;
+                const banker = b.banker;
+                const legs = b.legs.split(',');
+
+                // 1. 獨贏 ($10)
+                if (banker === res.p1) totalPayout += res.div_win;
+                // 2. 位置 ($30) - 膽中一個位置即派三倍彩金
+                if (banker === res.p1) totalPayout += (res.div_pla1 * 3);
+                else if (banker === res.p2) totalPayout += (res.div_pla2 * 3);
+                else if (banker === res.p3) totalPayout += (res.div_pla3 * 3);
+                // 3. 連贏 & 位置Q (各2注)
+                legs.forEach(leg => {
+                    const combo = [banker, leg];
+                    if (combo.includes(res.p1) && combo.includes(res.p2)) {
+                        totalPayout += res.div_q; // 連贏
+                        totalPayout += res.div_qp12; // 位置Q
+                    } else if (combo.includes(res.p1) && combo.includes(res.p3)) {
+                        totalPayout += res.div_qp13;
+                    } else if (combo.includes(res.p2) && combo.includes(res.p3)) {
+                        totalPayout += res.div_qp23;
+                    }
+                });
+                await sb.from('bets').update({ payout: totalPayout }).eq('id', b.id);
+            }
+            alert("✅ 結算完成");
+        } catch (err) { alert("出錯: " + err.message); }
+        btn.disabled = false;
     }
 
-    // --- 7. 初始化 ---
-    window.onload = async () => {
-        document.querySelectorAll(".tab-btn").forEach(btn => btn.onclick = () => switchPage(btn.dataset.page));
-        await loadBasics();
-        switchPage('home');
-    };
+    // --- 數據加載與查詢 ---
+    async function loadChartData() {
+        const rNo = document.getElementById('chartRaceNo').value;
+        const date = document.getElementById('inputRaceDate').value;
+        const { data: bets } = await sb.from('bets').select('banker, legs').eq('race_date', date).eq('race_no', rNo);
+        let stats = {};
+        (bets || []).forEach(b => { [b.banker, ...b.legs.split(',')].forEach(num => stats[num] = (stats[num] || 0) + 1); });
+        const max = Math.max(...Object.values(stats), 1);
+        let html = '';
+        for (let i = 1; i <= 14; i++) {
+            const count = stats[i] || 0;
+            html += `<div class="bar-row"><div class="bar-label">${i}</div><div class="bar-container"><div class="bar-fill" style="width:${(count/max)*100}%"></div></div><div style="width:20px;text-align:right;">${count}</div></div>`;
+        }
+        document.getElementById('chartList').innerHTML = html;
+    }
+
+    async function loadUserBets() {
+        const user = document.getElementById('detailUserSelect').value;
+        const { data: bets } = await sb.from('bets').select('*').eq('participant', user).order('race_no', { ascending: true });
+        let html = '<table><tr><th>場次</th><th>組合</th><th>結果</th></tr>';
+        (bets || []).forEach(b => {
+            const status = b.payout > 0 ? `<b style="color:red;">+$${b.payout}</b>` : (b.payout === 0 ? '未中獎' : '待結算');
+            html += `<tr><td>第${b.race_no}場</td><td>膽:${b.banker}<br>腳:${b.legs}</td><td>${status}</td></tr>`;
+        });
+        document.getElementById('userBetsList').innerHTML = html + '</table>';
+    }
+
+    async function loadStats() {
+        const user = document.getElementById('statsUserSelect').value;
+        const { data: bets } = await sb.from('bets').select('*').eq('participant', user);
+        if (!bets) return;
+        const invest = bets.length * 80;
+        const payout = bets.reduce((sum, b) => sum + (b.payout || 0), 0);
+        document.getElementById('statsOutput').innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"><div class="card" style="text-align:center;">收益: <b style="color:red;">$${payout.toFixed(0)}</b></div><div class="card" style="text-align:center;">回報: <b style="color:green;">${invest>0?((payout/invest)*100).toFixed(1):0}%</b></div></div>`;
+    }
+
+    // --- 管理功能 ---
+    function verifyAdmin() { if (document.getElementById('adminPwd').value === CONFIG.ADMIN_PASS) { document.getElementById('adminAuth').style.display = 'none'; document.getElementById('adminContent').style.display = 'block'; } else alert("密碼錯誤"); }
+    async function checkInputStatus() { const { data } = await sb.from('sys_config').select('value').eq('key', 'is_input_enabled').single(); const isLocked = data?.value === 'false'; document.getElementById('inputLockMsg').style.display = isLocked ? 'block' : 'none'; document.getElementById('submitBtn').disabled = isLocked; }
+    async function toggleInput() { const { data } = await sb.from('sys_config').select('value').eq('key', 'is_input_enabled').single(); const newVal = data.value === 'true' ? 'false' : 'true'; await sb.from('sys_config').update({ value: newVal }).eq('key', 'is_input_enabled'); alert("已切換"); checkInputStatus(); }
+    async function addUser() { const name = document.getElementById('newUserName').value.trim(); if (name) await sb.from('participants').insert([{ name }]); alert("完成"); location.reload(); }
+    async function addDate() { const date = document.getElementById('newDate').value; if (date) await sb.from('race_days').insert([{ race_date: date }]); alert("完成"); location.reload(); }
+
+    window.onload = initSystem;
 </script>
 </body>
 </html>
