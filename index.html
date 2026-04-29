@@ -151,32 +151,37 @@ const SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
 const sb = supabase.createClient(SB_URL, SB_KEY);
 
-// --- 2. 核心初始化 (負責同步所有選單與日期) ---
+// --- 輔助函數：更新所有參賽者下拉選單 ---
+async function refreshAllParticipantSelects() {
+    const { data: users, error } = await sb.from('participants').select('name').order('name');
+    if (error) {
+        console.error("刷新參賽者選單失敗:", error);
+        return;
+    }
+    const optionsHtml = (users || []).map(u => `<option value="${u.name}">${u.name}</option>`).join('');
+    const selects = ['inputUserSelect', 'detailUserSelect', 'statsUserSelect'];
+    selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = optionsHtml;
+    });
+}
+
+// --- 輔助函數：刷新賽日輸入框（取得最新賽日）---
+async function refreshLatestRaceDate() {
+    const { data, error } = await sb.from('race_days').select('race_date').order('race_date', { ascending: false }).limit(1);
+    if (!error && data && data[0]) {
+        const dateInput = document.getElementById('inputRaceDate');
+        if (dateInput) dateInput.value = data[0].race_date;
+    }
+}
+
+// --- 2. 核心初始化 (同步所有選單與日期) ---
 async function init() {
     try {
-        // A. 載入參賽者名單並刷新所有 Select 選單
-        const { data: users, error: uErr } = await sb.from('participants').select('*').order('name');
-        if (uErr) throw uErr;
-
-        const selectIds = ['inputUserSelect', 'detailUserSelect', 'statsUserSelect'];
-        selectIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.innerHTML = (users || []).map(u => `<option value="${u.name}">${u.name}</option>`).join('');
-            }
-        });
-
-        // B. 載入最新賽日並填入「輸入區」
-        const { data: dateData, error: dErr } = await sb.from('race_days').select('race_date').order('race_date', { ascending: false }).limit(1);
-        if (dErr) throw dErr;
-
-        if (dateData && dateData[0]) {
-            const latestDate = dateData[0].race_date;
-            const dateInput = document.getElementById('inputRaceDate');
-            if (dateInput) dateInput.value = latestDate;
-        }
-
-        // C. 初始化所有場次選單 (1-12場)
+        await refreshAllParticipantSelects();
+        await refreshLatestRaceDate();
+        
+        // 初始化所有場次選單 (1-12場)
         const raceSelects = ['chartRaceNo', 'inputRaceNo', 'resRaceNo'];
         raceSelects.forEach(id => {
             const el = document.getElementById(id);
@@ -184,8 +189,9 @@ async function init() {
                 el.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1} 場</option>`).join('');
             }
         });
-
-        checkInputStatus();
+        
+        await checkInputStatus();
+        await loadAdminData();  // 確保管理頁面顯示最新的人員列表
     } catch (err) {
         console.error("初始化失敗:", err.message);
     }
@@ -229,9 +235,11 @@ async function addUser() {
         alert(error.code === '23505' ? "⚠️ 此人已在名單中" : "新增失敗: " + error.message);
     } else {
         input.value = "";
-        await init(); // 關鍵：立即重新抓取名單刷新 Select
-        await loadAdminData(); // 刷新管理頁標籤
-        alert("✅ 參賽者新增成功");
+        // 關鍵：立即刷新所有參賽者下拉選單
+        await refreshAllParticipantSelects();
+        // 同時刷新管理頁的人員標籤列表
+        await loadAdminData();
+        alert("✅ 參賽者新增成功，現在輸入區可以選擇該人員了");
     }
 }
 
@@ -244,7 +252,7 @@ async function addDate() {
     if (error) {
         alert(error.code === '23505' ? "⚠️ 此賽日已存在" : "新增失敗: " + error.message);
     } else {
-        await init(); // 關鍵：立即更新輸入區的顯示日期
+        await refreshLatestRaceDate();   // 更新輸入區的日期顯示
         await loadAdminData();
         alert("✅ 賽日更新成功");
     }
@@ -265,23 +273,32 @@ async function loadAdminData() {
         <span class="badge">${x.race_date} <b onclick="deleteAdminItem('race_days', ${x.id})" style="cursor:pointer; color:red; margin-left:5px;">×</b></span>
     `).join(' ');
 
-    // 刷新投注紀錄
+    // 刷新投注紀錄 (簡表)
     const { data: b } = await sb.from('bets').select('*').order('created_at', { ascending: false }).limit(20);
-    const bTable = document.getElementById('adminBetsTableBody');
-    if (bTable) bTable.innerHTML = (b || []).map(x => `
-        <tr>
-            <td>${x.participant}</td>
-            <td>${x.race_no}</td>
-            <td style="color:${x.payout > 0 ? '#16a34a' : '#64748b'}">$${x.payout || 0}</td>
-            <td><button onclick="deleteAdminItem('bets', ${x.id})" style="color:red; border:none; background:none; cursor:pointer;">刪除</button></td>
-        </tr>
-    `).join('');
+    let bHtml = '<table style="width:100%"><tr><th>參賽者</th><th>場次</th><th>派彩</th><th>操作</th></tr>';
+    (b || []).forEach(x => {
+        bHtml += `<tr><td>${x.participant}</td><td>${x.race_no}</td><td style="color:${x.payout > 0 ? '#16a34a' : '#64748b'}">$${x.payout || 0}</td><td><button onclick="deleteAdminItem('bets', ${x.id})" style="color:red; border:none; background:none;">刪除</button></td></tr>`;
+    });
+    bHtml += '</table>';
+    const existingTable = document.getElementById('adminBetsTableBody');
+    if (existingTable) existingTable.innerHTML = bHtml;
+    else {
+        // 如果不存在該容器，動態建立一個
+        let container = document.getElementById('adminBetsContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'adminBetsContainer';
+            document.getElementById('adminContent').appendChild(container);
+        }
+        container.innerHTML = `<h3>最新投注紀錄</h3>${bHtml}`;
+    }
 }
 
 async function deleteAdminItem(table, id) {
     if (confirm("確定刪除嗎？")) {
         await sb.from(table).delete().eq('id', id);
-        await init();
+        if (table === 'participants') await refreshAllParticipantSelects();
+        if (table === 'race_days') await refreshLatestRaceDate();
         await loadAdminData();
     }
 }
@@ -290,7 +307,7 @@ async function toggleInput() {
     const { data } = await sb.from('sys_config').select('value').eq('key', 'is_input_enabled').maybeSingle();
     const next = (data && data.value === 'true') ? 'false' : 'true';
     await sb.from('sys_config').update({ value: next }).eq('key', 'is_input_enabled');
-    checkInputStatus();
+    await checkInputStatus();
 }
 
 async function checkInputStatus() {
@@ -311,7 +328,7 @@ async function checkInputStatus() {
     } catch (e) { console.error(e); }
 }
 
-// --- 5. 投注與結算邏輯 ($80 結構) ---
+// --- 5. 投注與結算邏輯 ---
 document.getElementById('betForm').onsubmit = async (e) => {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
@@ -414,6 +431,7 @@ async function loadChartData() {
 async function loadUserBets() {
     const user = document.getElementById('detailUserSelect').value;
     const date = document.getElementById('inputRaceDate').value;
+    if (!user) return;
     const { data } = await sb.from('bets').select('*').eq('participant', user).eq('race_date', date).order('race_no');
     
     document.getElementById('userBetsList').innerHTML = (data && data.length > 0) ? data.map(x => `
@@ -426,7 +444,7 @@ async function loadUserBets() {
 
 async function loadStats() {
     const user = document.getElementById('statsUserSelect').value;
-    const { data } = await sb.from('bets').select('payout');
+    const { data } = await sb.from('bets').select('payout').eq('participant', user);
     const totalCost = (data || []).length * 80;
     const totalWin = (data || []).reduce((s, x) => s + (x.payout || 0), 0);
     const roi = totalCost > 0 ? ((totalWin / totalCost) * 100).toFixed(1) : 0;
