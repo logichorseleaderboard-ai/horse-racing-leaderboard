@@ -200,10 +200,8 @@
         const { data, error } = await supabaseClient.from('participants').select('*').order('name');
         if (!error) participants = data || [];
         const optionHtml = participants.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-        // 輸入頁與統計頁不支援全部
         document.getElementById('inputUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml;
         document.getElementById('statsUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml;
-        // 詳情頁加入「全部參賽者」
         document.getElementById('detailUserSelect').innerHTML = '<option value="all">全部參賽者</option>' + optionHtml;
         document.getElementById('participantList').innerHTML = participants.map(p => `<span class="badge">${p.name} <b onclick="deleteParticipant(${p.id})" style="cursor:pointer; color:red;">✖</b></span>`).join(' ');
     }
@@ -221,7 +219,6 @@
     function initRaceNoSelects() {
         const opts = Array.from({length:11}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
         ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => { let el = document.getElementById(id); if(el) el.innerHTML = '<option value="all">全部場次</option>' + opts; });
-        // 預設選中第一場或全部（可保持全部）
         const detailRaceNo = document.getElementById('detailRaceNo');
         if(detailRaceNo) detailRaceNo.value = 'all';
     }
@@ -244,7 +241,6 @@
         document.getElementById('rankChart').innerHTML = html + '</div>';
     }
     
-    // 修改後的 loadUserBets，支援參賽者（全部或特定）及場次（全部或特定）
     async function loadUserBets() {
         const user = document.getElementById('detailUserSelect').value;
         const raceNo = document.getElementById('detailRaceNo').value;
@@ -381,6 +377,37 @@
         `;
     }
     
+    // ========== 封盤狀態初始化與切換 ==========
+    async function applyInputLockStatus() {
+        try {
+            const { data, error } = await supabaseClient.from('sys_config').select('value').eq('key', 'is_input_enabled').single();
+            if (error) throw error;
+            const isEnabled = data.value === 'true';
+            const submitBtn = document.getElementById('submitBtn');
+            const lockMsg = document.getElementById('inputLockMsg');
+            const toggleBtn = document.getElementById('toggleInputBtn');
+            if (submitBtn) submitBtn.disabled = !isEnabled;
+            if (lockMsg) lockMsg.style.display = isEnabled ? 'none' : 'block';
+            if (toggleBtn) {
+                toggleBtn.innerText = isEnabled ? "🔴 暫停輸入" : "🟢 開放輸入";
+                toggleBtn.style.background = isEnabled ? "#be123c" : "#1e6f3f";
+            }
+        } catch (err) {
+            console.error("讀取封盤狀態失敗", err);
+        }
+    }
+    
+    window.toggleInputLock = async () => {
+        try {
+            const { data } = await supabaseClient.from('sys_config').select('value').eq('key', 'is_input_enabled').single();
+            const newVal = data.value === 'true' ? 'false' : 'true';
+            await supabaseClient.from('sys_config').update({ value: newVal }).eq('key', 'is_input_enabled');
+            await applyInputLockStatus(); // 重新套用 UI
+        } catch (err) {
+            console.error("切換封盤失敗", err);
+        }
+    };
+    
     // ========== 管理功能 ==========
     window.verifyAdmin = function() { 
         if(document.getElementById('adminPwd').value === 'LBadmin') { 
@@ -400,7 +427,7 @@
                 <td>${b.payout}</td>
                 <td>${b.reason || '-'}</td>
                 <td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td>
-            </td>`).join('')}</tbody></table>`; 
+            </tr>`).join('')}</tbody></table>`; 
     }
     
     window.deleteBet = async (id) => { 
@@ -451,19 +478,6 @@
             await supabaseClient.from('race_days').insert([{ race_date: date }]); 
             loadRaceDays(); 
         } 
-    };
-    
-    window.toggleInputLock = async () => { 
-        const { data } = await supabaseClient.from('sys_config').select('value').eq('key', 'is_input_enabled').single(); 
-        const newVal = data.value === 'true' ? 'false' : 'true'; 
-        await supabaseClient.from('sys_config').update({ value: newVal }).eq('key', 'is_input_enabled'); 
-        const btn = document.getElementById('toggleInputBtn'); 
-        btn.innerText = newVal === 'true' ? "🔴 暫停輸入" : "🟢 開放輸入"; 
-        btn.style.background = newVal === 'true' ? "#be123c" : "#1e6f3f"; 
-        const submitBtn = document.getElementById('submitBtn');
-        if(submitBtn) submitBtn.disabled = (newVal === 'false');
-        const lockMsg = document.getElementById('inputLockMsg');
-        if(lockMsg) lockMsg.style.display = (newVal === 'false') ? 'block' : 'none';
     };
     
     // ========== 賽果頁面密碼保護 ==========
@@ -532,6 +546,7 @@
         await loadParticipants(); 
         await loadRaceDays(); 
         await loadRankingChart(); 
+        await applyInputLockStatus();  // 關鍵：讀取封盤狀態並套用 UI
         showPage('ranking'); 
     };
     
