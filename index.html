@@ -52,12 +52,50 @@
 <body>
 
 <div class="container" id="app">
-    <div id="ranking-page" class="page active-page"><div class="card"><h2>📊 排位熱度</h2><div class="form-group"><label>場次</label><select id="rankRaceNo"></select></div><div id="rankChart"></div></div></div>
-    <div id="detail-page" class="page"><div class="card"><h2>🔍 參賽者投注詳情</h2><div class="form-group"><label>參賽者</label><select id="detailUserSelect"></select></div><div id="detailList"></div></div></div>
-    <div id="input-page" class="page"><div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div><div class="card"><h2>✍️ 新增投注 (每場 $80)</h2><form id="betForm"><div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div><div class="form-group"><label>賽日</label><input type="text" id="inputRaceDate" readonly></div><div class="form-group"><label>場次</label><select id="inputRaceNo"></select></div><div class="form-group"><label>膽馬 (1匹)</label><select id="bankerSelect"><option value="">-- 請選擇 --</option></select></div><div class="form-group"><label>腳馬 (2匹)</label><select id="leg1Select"></select> <select id="leg2Select"></select></div><button type="submit" id="submitBtn">確認提交 $80</button></form></div></div>
-    <div id="result-page" class="page"><div class="card"><h2>🏁 賽果與派彩輸入</h2><div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名馬號"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div><h3 style="margin:15px 0 8px 0; font-size:1rem;">派彩 (每$10)</h3><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;"><input type="number" id="div_win" placeholder="獨贏"><input type="number" id="div_q" placeholder="連贏"><input type="number" id="div_qp12" placeholder="位置Q 1-2"><input type="number" id="div_qp13" placeholder="位置Q 1-3"><input type="number" id="div_qp23" placeholder="位置Q 2-3"><input type="number" id="div_pla1" placeholder="位置(1)"><input type="number" id="div_pla2" placeholder="位置(2)"><input type="number" id="div_pla3" placeholder="位置(3)"></div><button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button></div></div>
-    <div id="stats-page" class="page"><div class="card"><h2>📈 數據分析 (當月)</h2><div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div><div id="statsDisplay"></div></div></div>
-    <div id="admin-page" class="page"><div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div><div id="adminPanel" style="display:none;"><div class="card"><button id="toggleInputBtn" onclick="toggleInputLock()">切換封盤</button></div><div class="card"><h3>人員管理</h3><input type="text" id="newUserName" placeholder="新參賽者姓名"><button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button><div id="participantList" style="margin-top:10px;"></div></div><div class="card"><h3>賽日管理</h3><input type="date" id="newRaceDate"><button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增賽日</button><div id="raceDayList" style="margin-top:10px;"></div></div><div class="card"><h3>所有投注紀錄</h3><div id="adminBetsList"></div></div></div></div>
+    <div id="ranking-page" class="page active-page">
+        <div class="card"><h2>📊 排位熱度</h2><div class="form-group"><label>場次</label><select id="rankRaceNo"></select></div><div id="rankChart"></div></div>
+    </div>
+    <div id="detail-page" class="page">
+        <div class="card"><h2>🔍 參賽者投注詳情</h2><div class="form-group"><label>參賽者</label><select id="detailUserSelect"></select></div><div id="detailList"></div></div>
+    </div>
+    <div id="input-page" class="page">
+        <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
+        <div class="card"><h2>✍️ 新增投注 (每場 $80)</h2>
+            <form id="betForm">
+                <div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div>
+                <div class="form-group"><label>賽日</label><input type="text" id="inputRaceDate" readonly></div>
+                <div class="form-group"><label>場次</label><select id="inputRaceNo"></select></div>
+                <div class="form-group"><label>膽馬 (1匹)</label><select id="bankerSelect"><option value="">-- 請選擇 --</option></select></div>
+                <div class="form-group"><label>腳馬 (2匹)</label><select id="leg1Select"></select> <select id="leg2Select"></select></div>
+                <button type="submit" id="submitBtn">確認提交 $80</button>
+            </form>
+        </div>
+    </div>
+    <div id="result-page" class="page">
+        <div class="card"><h2>🏁 賽果與派彩輸入</h2>
+            <div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名馬號"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div>
+            <h3 style="margin:15px 0 8px 0; font-size:1rem;">派彩 (每$10)</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <input type="number" id="div_win" placeholder="獨贏"><input type="number" id="div_q" placeholder="連贏">
+                <input type="number" id="div_qp12" placeholder="位置Q 1-2"><input type="number" id="div_qp13" placeholder="位置Q 1-3"><input type="number" id="div_qp23" placeholder="位置Q 2-3">
+                <input type="number" id="div_pla1" placeholder="位置(1)"><input type="number" id="div_pla2" placeholder="位置(2)"><input type="number" id="div_pla3" placeholder="位置(3)">
+            </div>
+            <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
+        </div>
+    </div>
+    <div id="stats-page" class="page">
+        <div class="card"><h2>📈 數據分析 (當月)</h2><div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div><div id="statsDisplay"></div></div>
+    </div>
+    <div id="admin-page" class="page">
+        <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
+        <div id="adminPanel" style="display:none;">
+            <div class="card"><button id="toggleInputBtn" onclick="toggleInputLock()">切換封盤</button></div>
+            <div class="card"><h3>人員管理</h3><input type="text" id="newUserName" placeholder="新參賽者姓名"><button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button><div id="participantList" style="margin-top:10px;"></div></div>
+            <div class="card"><h3>賽日管理</h3><input type="date" id="newRaceDate"><button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增賽日</button><div id="raceDayList" style="margin-top:10px;"></div></div>
+            <div class="card"><h3>所有投注紀錄</h3><div id="adminBetsList"></div></div>
+        </div>
+    </div>
 </div>
 
 <div class="nav-bottom">
@@ -70,7 +108,7 @@
 </div>
 
 <script>
-    // ========== 唯一正確的 Supabase 初始化 ==========
+    // ========== Supabase 初始化 ==========
     const SUPABASE_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -191,7 +229,7 @@
         loadRankingChart(); loadUserBets();
     }
     
-    // ========== 修正後的數據分析 (使用日期範圍) ==========
+    // ========== 數據分析 (正確計算當月最後一天) ==========
     async function loadStats() {
         const user = document.getElementById('statsUserSelect').value;
         if (!user) {
@@ -201,9 +239,10 @@
         
         const now = new Date();
         const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const startDate = `${year}-${month}-01`;
-        const endDate = `${year}-${month}-31`;
+        const month = now.getMonth();
+        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
         
         const { data, error } = await supabaseClient
             .from('bets')
@@ -246,7 +285,7 @@
     
     async function loadAdminBets() { 
         const { data } = await supabaseClient.from('bets').select('*').order('created_at', { ascending: false }).limit(50); 
-        if(data) document.getElementById('adminBetsList').innerHTML = `<table><thead><th>參賽者</th><th>賽日/場</th><th>膽腳</th><th>派彩</th><th></th></thead><tbody>${data.map(b => `<tr><td>${b.participant}</td><td>${b.race_date}/${b.race_no}</td><td>${b.banker}/${b.legs}</td><td>${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`).join('')}</tbody></table>`; 
+        if(data) document.getElementById('adminBetsList').innerHTML = `<table><thead><th>參賽者</th><th>賽日/場</th><th>膽腳</th><th>派彩</th><th></th></thead><tbody>${data.map(b => `<tr><td>${b.participant}</td>.html${b.race_date}/${b.race_no} Jetpack.${b.banker}/${b.legs} Jetpack.${b.payout} Jetpack.<button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`).join('')}</tbody></table>`; 
     }
     
     window.deleteBet = async (id) => { 
