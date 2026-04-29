@@ -144,92 +144,11 @@
 </div>
 
 <script>
-const SB_URL = "https://dmgauesvjpelufjrnlzf.supabase.co";
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
-const sb = supabase.createClient(SB_URL, SB_KEY);
-
-async function init() {
-    try {
-        const { data: users } = await sb.from('participants').select('*').order('name');
-        ['inputUserSelect', 'detailUserSelect', 'statsUserSelect'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                let html = '<option value="" disabled selected>選擇姓名</option>';
-                html += (users || []).map(u => `<option value="${u.name}">${u.name}</option>`).join('');
-                el.innerHTML = html;
-            }
-        });
-
-        const { data: d } = await sb.from('race_days').select('race_date').order('race_date', { ascending: false }).limit(1);
-        if (d && d[0]) document.getElementById('inputRaceDate').value = d[0].race_date;
-
-        ['chartRaceNo', 'inputRaceNo', 'resRaceNo'].forEach(id => {
-            document.getElementById(id).innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1} 場</option>`).join('');
-        });
-        checkInputStatus();
-    } catch (e) { console.error(e); }
-}
-
-function showPage(id) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-    document.querySelectorAll('#mainNav button').forEach(b => b.classList.remove('active'));
-    document.getElementById(id + '-page').classList.add('active-page');
-    document.querySelector(`[data-page="${id}"]`).classList.add('active');
-
-    if (id === 'input') checkInputStatus();
-    if (id === 'chart') loadChartData();
-    if (id === 'detail') loadUserBets();
-    if (id === 'admin' && document.getElementById('adminContent').style.display !== 'none') loadAdminData();
-}
-
-// 投注功能
-document.getElementById('betForm').onsubmit = async (e) => {
-    e.preventDefault();
-    const user = document.getElementById('inputUserSelect').value;
-    const date = document.getElementById('inputRaceDate').value;
-    if(!user) return alert("請選擇參賽者");
-
-    const entry = {
-        participant: user, race_date: date,
-        race_no: parseInt(document.getElementById('inputRaceNo').value),
-        banker: document.getElementById('banker').value,
-        legs: document.getElementById('legs').value, amount: 80
-    };
-
-    const { error } = await sb.from('bets').insert([entry]);
-    if (error) alert(error.message); else { alert("成功！"); e.target.reset(); showPage('chart'); }
-};
-
-// 剩下的核心邏輯 (addUser, addDate, saveResult 等) 與之前相同，確保 init() 被呼叫刷新介面即可。
-async function addUser() {
-    const n = document.getElementById('newUserName').value.trim();
-    if(n) { await sb.from('participants').insert([{name:n}]); await init(); loadAdminData(); }
-}
-async function addDate() {
-    const d = document.getElementById('newDate').value;
-    if(d) { await sb.from('race_days').insert([{race_date:d}]); await init(); loadAdminData(); }
-}
-async function verifyAdmin() {
-    if(document.getElementById('adminPwd').value === 'LBadmin') {
-        document.getElementById('adminAuth').style.display = 'none';
-        document.getElementById('adminContent').style.display = 'block';
-        loadAdminData();
-    }
-}
-async function loadAdminData() {
-    const { data: p } = await sb.from('participants').select('*').order('name');
-    document.getElementById('participantList').innerHTML = (p||[]).map(x => `<span class="badge">${x.name}</span>`).join('');
-    const { data: d } = await sb.from('race_days').select('*').order('race_date',{ascending:false});
-    document.getElementById('raceDateList').innerHTML = (d||[]).map(x => `<span class="badge">${x.race_date}</span>`).join('');
-}
-async function checkInputStatus() {
-    const { data } = await sb.from('sys_config').select('value').eq('key', 'is_input_enabled').maybeSingle();
-    const isEnabled = data ? data.value === 'true' : true;
-    document.getElementById('inputLockMsg').style.display = isEnabled ? 'none' : 'block';
-    document.getElementById('submitBtn').disabled = !isEnabled;
-}
-
-window.onload = init;
+Uncaught ReferenceError: loadUserBets is not defined
+    at showPage (horse-racing-leaderboard/:181:26)
+    at HTMLButtonElement.onclick (horse-racing-leaderboard/:42:61)
+dmgauesvjpelufjrnlzf.supabase.co/rest/v1/participants?columns=%22name%22:1  Failed to load resource: the server responded with a status of 409 ()
+dmgauesvjpelufjrnlzf.supabase.co/rest/v1/participants?columns=%22name%22:1  Failed to load resource: the server responded with a status of 409 ()
 </script>
 </body>
 </html>
