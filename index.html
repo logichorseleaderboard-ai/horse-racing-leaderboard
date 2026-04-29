@@ -6,33 +6,36 @@
     <title>Logic Horse龍虎榜</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #1e293b; --accent: #1e6f3f; --bg: #f8fafc; --card: #ffffff; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--primary); }
+        :root { --primary: #1e6f3f; --secondary: #475569; --bg: #f8fafc; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); color: #1e293b; padding-bottom: 50px; }
+        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
         
-        /* 導航欄樣式 */
-        .nav { background: var(--primary); display: flex; flex-wrap: wrap; justify-content: space-around; padding: 10px; position: sticky; top: 0; z-index: 100; }
-        .nav button { background: none; border: none; color: #94a3b8; font-weight: bold; cursor: pointer; font-size: 0.85rem; padding: 8px 5px; }
-        .nav button.active { color: white; border-bottom: 2px solid white; }
+        /* 導覽列 */
+        .nav { display: flex; gap: 5px; overflow-x: auto; padding: 10px; background: white; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .nav button { padding: 8px 15px; border-radius: 20px; border: 1px solid #e2e8f0; background: white; white-space: nowrap; cursor: pointer; font-weight: 600; color: var(--secondary); }
+        .nav button.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* 卡片與通用樣式 */
+        .card { background: white; border-radius: 12px; padding: 15px; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h2 { font-size: 1.1rem; margin-bottom: 15px; border-left: 4px solid var(--primary); padding-left: 10px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: var(--secondary); }
+        select, input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+        .btn-main { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-main:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        /* 棒形圖樣式 */
+        .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .bar-label { width: 30px; font-weight: bold; }
+        .bar-container { flex: 1; background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; }
+        .bar-fill { background: var(--primary); height: 100%; transition: width 0.5s; }
         
-        .container { padding: 15px; max-width: 600px; margin: auto; }
         .page { display: none; }
         .active-page { display: block; }
-        
-        .card { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 4px; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
-        input[readonly] { background: #f1f5f9; }
-        
-        .btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .btn:disabled { background: #cbd5e1; }
-        
-        .badge { display: inline-block; background: #e2e8f0; padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; margin: 2px; }
-        .bar-row { display: flex; align-items: center; margin-bottom: 8px; }
-        .bar-container { flex-grow: 1; background: #f1f5f9; height: 12px; border-radius: 6px; overflow: hidden; margin: 0 10px; }
-        .bar-fill { background: var(--accent); height: 100%; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #f1f5f9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        .locked-msg { background: #fee2e2; color: #b91c1c; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; }
     </style>
 </head>
 <body>
