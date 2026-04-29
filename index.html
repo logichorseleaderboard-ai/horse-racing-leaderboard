@@ -89,24 +89,26 @@
         </div>
     </div>
 
-    <div id="result-page" class="page">
+<div id="result-page" class="page">
         <div class="card">
-            <h2>🏁 賽果結算</h2>
-            <div class="form-group"><label>選擇場次</label><select id="resRaceNo"></select></div>
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin-bottom:10px;">
-                <input type="number" id="p1" placeholder="第一名">
-                <input type="number" id="p2" placeholder="第二名">
-                <input type="number" id="p3" placeholder="第三名">
+            <h2>輸入賽果及派彩 (每$10)</h2>
+            <div class="form-group"><label>場次</label><select id="resRaceNo"></select></div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                <div class="form-group"><label>第一名</label><input type="number" id="p1"></div>
+                <div class="form-group"><label>第二名</label><input type="number" id="p2"></div>
+                <div class="form-group"><label>第三名</label><input type="number" id="p3"></div>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">
-                <input type="number" id="dWin" placeholder="獨贏派彩">
-                <input type="number" id="dQ" placeholder="連贏Q派彩">
-                <input type="number" id="dP1" placeholder="位置P1">
-                <input type="number" id="dP2" placeholder="位置P2">
-                <input type="number" id="dP3" placeholder="位置P3">
-                <input type="number" id="dQp12" placeholder="位置Q 1-2">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                <div class="form-group"><label>獨贏</label><input type="number" id="dWin"></div>
+                <div class="form-group"><label>連贏 (Q)</label><input type="number" id="dQ"></div>
+                <div class="form-group"><label>位置Q 1-2</label><input type="number" id="dQp12"></div>
+                <div class="form-group"><label>位置Q 1-3</label><input type="number" id="dQp13"></div>
+                <div class="form-group"><label>位置Q 2-3</label><input type="number" id="dQp23"></div>
+                <div class="form-group"><label>位置 (1)</label><input type="number" id="dP1"></div>
+                <div class="form-group"><label>位置 (2)</label><input type="number" id="dP2"></div>
+                <div class="form-group"><label>位置 (3)</label><input type="number" id="dP3"></div>
             </div>
-            <button onclick="saveResult()" class="btn" style="margin-top:10px; background:#16a34a;">儲存並自動結算</button>
+            <button class="btn-main" onclick="saveResult()">🏁 儲存並執行自動結算</button>
         </div>
     </div>
 
