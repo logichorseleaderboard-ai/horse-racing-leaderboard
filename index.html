@@ -47,6 +47,26 @@
         .lock-msg { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 12px; text-align: center; margin-bottom: 12px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; }
+        .password-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .password-box {
+            background: white;
+            padding: 30px;
+            border-radius: 24px;
+            text-align: center;
+            min-width: 300px;
+        }
+        .error-msg { color: #b91c1c; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -71,6 +91,9 @@
             </form>
         </div>
     </div>
+    <div id="stats-page" class="page">
+        <div class="card"><h2>📈 數據分析 (當月)</h2><div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div><div id="statsDisplay"></div></div>
+    </div>
     <div id="result-page" class="page">
         <div class="card"><h2>🏁 賽果與派彩輸入</h2>
             <div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div>
@@ -89,9 +112,6 @@
             <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
         </div>
     </div>
-    <div id="stats-page" class="page">
-        <div class="card"><h2>📈 數據分析 (當月)</h2><div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div><div id="statsDisplay"></div></div>
-    </div>
     <div id="admin-page" class="page">
         <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
         <div id="adminPanel" style="display:none;">
@@ -107,8 +127,8 @@
     <button class="nav-btn" data-page="ranking"><span>📊</span><span>排位</span></button>
     <button class="nav-btn" data-page="detail"><span>🔍</span><span>詳情</span></button>
     <button class="nav-btn" data-page="input"><span>✍️</span><span>投注</span></button>
-    <button class="nav-btn" data-page="result"><span>🏁</span><span>賽果</span></button>
     <button class="nav-btn" data-page="stats"><span>📈</span><span>分析</span></button>
+    <button class="nav-btn" data-page="result"><span>🏁</span><span>賽果</span></button>
     <button class="nav-btn" data-page="admin"><span>⚙️</span><span>管理</span></button>
 </div>
 
@@ -119,7 +139,7 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     // ========== 全域變數 ==========
-    let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false;
+    let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false, resultUnlocked = false;
     
     // ========== 輔助函數 ==========
     function initHorseSelects() {
@@ -353,8 +373,48 @@
         if(lockMsg) lockMsg.style.display = (newVal === 'false') ? 'block' : 'none';
     };
     
-    // ========== 頁面切換 ==========
+    // ========== 賽果頁面密碼保護 ==========
+    function showResultPasswordModal(onSuccess) {
+        const overlay = document.createElement('div');
+        overlay.className = 'password-overlay';
+        overlay.innerHTML = `
+            <div class="password-box">
+                <h3>🔐 賽果管理驗證</h3>
+                <input type="password" id="resultPwd" placeholder="請輸入密碼">
+                <div id="resultPwdError" class="error-msg"></div>
+                <button id="resultSubmitBtn" style="margin-top:10px;">確認</button>
+                <button id="resultCancelBtn" class="secondary">取消</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        document.getElementById('resultSubmitBtn').onclick = () => {
+            const pwd = document.getElementById('resultPwd').value;
+            if (pwd === 'LBadmin') {
+                overlay.remove();
+                if (onSuccess) onSuccess();
+            } else {
+                document.getElementById('resultPwdError').innerText = '密碼錯誤';
+            }
+        };
+        document.getElementById('resultCancelBtn').onclick = () => overlay.remove();
+    }
+    
+    // ========== 頁面切換 (加入賽果密碼檢查) ==========
     function showPage(pageId) { 
+        // 如果是賽果頁面且尚未解鎖，則彈出密碼
+        if (pageId === 'result' && !resultUnlocked && sessionStorage.getItem('resultUnlocked') !== 'true') {
+            showResultPasswordModal(() => {
+                resultUnlocked = true;
+                sessionStorage.setItem('resultUnlocked', 'true');
+                // 解鎖後再執行切換
+                doShowPage(pageId);
+            });
+            return;
+        }
+        doShowPage(pageId);
+    }
+    
+    function doShowPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page')); 
         document.getElementById(`${pageId}-page`).classList.add('active-page'); 
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); 
