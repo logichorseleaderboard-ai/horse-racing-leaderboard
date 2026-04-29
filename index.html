@@ -87,6 +87,16 @@
             margin-bottom: 16px;
         }
         .info-note p { margin: 4px 0; }
+        .flex-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .flex-row .form-group {
+            flex: 1;
+            min-width: 120px;
+        }
     </style>
 </head>
 <body>
@@ -96,7 +106,14 @@
         <div class="card"><h2>📊 排位熱度</h2><div class="form-group"><label>場次</label><select id="rankRaceNo"></select></div><div id="rankChart"></div></div>
     </div>
     <div id="detail-page" class="page">
-        <div class="card"><h2>🔍 參賽者投注詳情</h2><div class="form-group"><label>參賽者</label><select id="detailUserSelect"></select></div><div id="detailList"></div></div>
+        <div class="card">
+            <h2>🔍 投注詳情</h2>
+            <div class="flex-row">
+                <div class="form-group"><label>參賽者</label><select id="detailUserSelect"><option value="all">全部參賽者</option></select></div>
+                <div class="form-group"><label>場次</label><select id="detailRaceNo"><option value="all">全部場次</option></select></div>
+            </div>
+            <div id="detailList"></div>
+        </div>
     </div>
     <div id="input-page" class="page">
         <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
@@ -183,7 +200,11 @@
         const { data, error } = await supabaseClient.from('participants').select('*').order('name');
         if (!error) participants = data || [];
         const optionHtml = participants.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-        ['inputUserSelect', 'detailUserSelect', 'statsUserSelect'].forEach(id => document.getElementById(id).innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml);
+        // 輸入頁與統計頁不支援全部
+        document.getElementById('inputUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml;
+        document.getElementById('statsUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + optionHtml;
+        // 詳情頁加入「全部參賽者」
+        document.getElementById('detailUserSelect').innerHTML = '<option value="all">全部參賽者</option>' + optionHtml;
         document.getElementById('participantList').innerHTML = participants.map(p => `<span class="badge">${p.name} <b onclick="deleteParticipant(${p.id})" style="cursor:pointer; color:red;">✖</b></span>`).join(' ');
     }
     
@@ -198,8 +219,11 @@
     }
     
     function initRaceNoSelects() {
-        const opts = Array.from({length:12}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
-        ['rankRaceNo', 'inputRaceNo', 'resultRaceNo'].forEach(id => { let el = document.getElementById(id); if(el) el.innerHTML = opts; });
+        const opts = Array.from({length:11}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
+        ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => { let el = document.getElementById(id); if(el) el.innerHTML = '<option value="all">全部場次</option>' + opts; });
+        // 預設選中第一場或全部（可保持全部）
+        const detailRaceNo = document.getElementById('detailRaceNo');
+        if(detailRaceNo) detailRaceNo.value = 'all';
     }
     
     async function loadRankingChart() {
@@ -220,12 +244,28 @@
         document.getElementById('rankChart').innerHTML = html + '</div>';
     }
     
+    // 修改後的 loadUserBets，支援參賽者（全部或特定）及場次（全部或特定）
     async function loadUserBets() {
         const user = document.getElementById('detailUserSelect').value;
-        if (!user) { document.getElementById('detailList').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
-        const { data } = await supabaseClient.from('bets').select('*').eq('participant', user).order('race_date', { ascending: false });
-        if (!data || !data.length) { document.getElementById('detailList').innerHTML = '<div class="card">無投注紀錄</div>'; return; }
-        document.getElementById('detailList').innerHTML = data.map(b => `<div class="card" style="border-left:4px solid ${b.payout>0?'#16a34a':'#cbd5e1'}"><strong>${b.race_date} 第 ${b.race_no} 場</strong><br>膽: ${b.banker} / 腳: ${b.legs}<br>派彩: $${b.payout||0}<br>${b.reason ? `📝 原因: ${b.reason}` : ''}</div>`).join('');
+        const raceNo = document.getElementById('detailRaceNo').value;
+        let query = supabaseClient.from('bets').select('*').order('race_date', { ascending: false });
+        if (user && user !== 'all') {
+            query = query.eq('participant', user);
+        }
+        if (raceNo && raceNo !== 'all') {
+            query = query.eq('race_no', parseInt(raceNo));
+        }
+        const { data, error } = await query;
+        if (error) {
+            console.error(error);
+            document.getElementById('detailList').innerHTML = '<div class="card">載入失敗</div>';
+            return;
+        }
+        if (!data || !data.length) {
+            document.getElementById('detailList').innerHTML = '<div class="card">無符合條件的投注紀錄</div>';
+            return;
+        }
+        document.getElementById('detailList').innerHTML = data.map(b => `<div class="card" style="border-left:4px solid ${b.payout>0?'#16a34a':'#cbd5e1'}"><strong>${b.race_date} 第 ${b.race_no} 場</strong><br>參賽者: ${b.participant}<br>膽: ${b.banker} / 腳: ${b.legs}<br>派彩: $${b.payout||0}<br>${b.reason ? `📝 原因: ${b.reason}` : ''}</div>`).join('');
     }
     
     document.getElementById('betForm').addEventListener('submit', async (e) => {
@@ -251,7 +291,8 @@
             reason: reason || null
         }]);
         if (error) alert("投注失敗: " + error.message); else alert("✅ 投注成功！");
-        loadRankingChart(); loadUserBets();
+        loadRankingChart(); 
+        if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
     });
     
     async function saveRaceResult() {
@@ -292,7 +333,8 @@
             await supabaseClient.from('bets').update({ payout: pay }).eq('id', b.id);
         }
         alert(`✅ 第 ${raceNo} 場結算完成！`);
-        loadRankingChart(); loadUserBets();
+        loadRankingChart(); 
+        if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
     }
     
     // ========== 數據分析 (正確計算當月最後一天) ==========
@@ -367,6 +409,7 @@
             loadAdminBets(); 
             loadRankingChart(); 
             loadStats();
+            if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
         } 
     };
     
@@ -378,6 +421,7 @@
             loadParticipants(); 
             loadAdminBets(); 
             loadRankingChart(); 
+            if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
         } 
     };
     
@@ -388,6 +432,7 @@
             await supabaseClient.from('race_days').delete().eq('id', id); 
             loadRaceDays(); 
             loadAdminBets(); 
+            if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
         } 
     };
     
@@ -451,7 +496,6 @@
     
     // ========== 頁面切換 (加入賽果密碼檢查) ==========
     function showPage(pageId) { 
-        // 如果是賽果頁面且尚未解鎖，則彈出密碼
         if (pageId === 'result' && !resultUnlocked && sessionStorage.getItem('resultUnlocked') !== 'true') {
             showResultPasswordModal(() => {
                 resultUnlocked = true;
@@ -478,6 +522,7 @@
     document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
     document.getElementById('rankRaceNo')?.addEventListener('change', loadRankingChart);
     document.getElementById('detailUserSelect')?.addEventListener('change', loadUserBets);
+    document.getElementById('detailRaceNo')?.addEventListener('change', loadUserBets);
     document.getElementById('statsUserSelect')?.addEventListener('change', loadStats);
     
     // ========== 啟動系統 ==========
