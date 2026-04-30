@@ -560,11 +560,20 @@ async function loadUserBets() {
             selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
             allocation = `🎲 分配: 獨贏${units.win||0}注 / 位置${units.place||0}注 / 連贏${units.quinella||0}組 (x${fd.multiplier||1}) / 位置Q${units.quinellaPlace||0}組 (x${fd.multiplier||1})`;
             
-            // 單馬投注退賽（全額退款）
-            if (isSingleHorse && b.refund === true && b.refund_amount > 0) {
-                refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 所選馬匹 ${fd.banker} 退賽，全額退款 $${b.refund_amount}（不計入統計）</div>`;
-                borderColor = '#f59e0b';
-            }
+            // 單馬投注（只有膽馬）且馬匹退賽 → 整筆全額退款
+            if (isSingleHorse && isBankerScratched) {
+                refund = true;
+                refundAmount = amount;  // 120
+                amount = 0;
+                payout = 0;
+                updatedFlexibleData = {
+                ...fd,
+                scratchedReason: `所選馬匹 ${banker} 退賽，整筆退款`,
+                scratchedLegs: [banker],
+                refundAmount: amount,
+                refundUnits: 12
+            };
+        }
             // 多馬投注 - 膽馬退賽（全額退款）
             else if (!isSingleHorse && b.refund === true && b.refund_amount >= (b.amount || 120)) {
                 refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 膽馬 ${fd.banker} 退賽，全額退款 $${b.refund_amount}（不計入統計）</div>`;
