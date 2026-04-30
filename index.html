@@ -847,7 +847,6 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
 let countdownInterval = null;
 let currentCutoffTime = '17:00:00';
 
-// 載入封盤時間設定
 async function loadCutoffTime() {
     try {
         const { data, error } = await supabaseClient
@@ -857,19 +856,21 @@ async function loadCutoffTime() {
             .single();
         if (!error && data) {
             currentCutoffTime = data.value;
-            document.getElementById('cutoffTime').value = currentCutoffTime;
-            document.getElementById('cutoffTimeStatus').innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
+            const timeInput = document.getElementById('cutoffTime');
+            if (timeInput) timeInput.value = currentCutoffTime;
+            const statusDiv = document.getElementById('cutoffTimeStatus');
+            if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
         } else {
-            document.getElementById('cutoffTimeStatus').innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
+            const statusDiv = document.getElementById('cutoffTimeStatus');
+            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
         }
     } catch (e) {
         console.error("載入封盤時間失敗:", e);
     }
 }
 
-// 儲存封盤時間設定
 async function saveCutoffTime() {
-    const newTime = document.getElementById('cutoffTime').value;
+    const newTime = document.getElementById('cutoffTime')?.value;
     if (!newTime) return alert("請輸入時間");
     
     const { error } = await supabaseClient
@@ -881,31 +882,24 @@ async function saveCutoffTime() {
     } else {
         currentCutoffTime = newTime;
         alert("✅ 封盤時間已更新");
-        document.getElementById('cutoffTimeStatus').innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
-        startCountdown(); // 重新啟動倒計時
+        const statusDiv = document.getElementById('cutoffTimeStatus');
+        if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
+        startCountdown();
     }
 }
 
-// 計算距離封盤還有多少秒
 function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
-    // raceDate 格式: YYYY-MM-DD
-    // cutoffTimeStr 格式: HH:MM:SS
     const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}`);
     const now = new Date();
-    
-    if (cutoffDateTime <= now) {
-        return 0; // 已經過了封盤時間
-    }
+    if (cutoffDateTime <= now) return 0;
     return Math.floor((cutoffDateTime - now) / 1000);
 }
 
-// 格式化倒計時顯示
 function formatCountdown(seconds) {
     if (seconds <= 0) return "已封盤";
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
     if (hours > 0) {
         return `${hours}小時 ${minutes}分鐘 ${secs}秒`;
     } else if (minutes > 0) {
@@ -915,23 +909,21 @@ function formatCountdown(seconds) {
     }
 }
 
-// 更新投注頁的倒計時顯示
 function updateCountdownDisplay() {
-    const raceDate = document.getElementById('inputRaceDate').value;
+    const raceDate = document.getElementById('inputRaceDate')?.value;
+    const countdownEl = document.getElementById('countdownDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const lockMsg = document.getElementById('inputLockMsg');
+    
     if (!raceDate) {
-        const countdownEl = document.getElementById('countdownDisplay');
         if (countdownEl) countdownEl.innerHTML = '請選擇賽日';
         return;
     }
     
     const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
-    const countdownEl = document.getElementById('countdownDisplay');
-    const submitBtn = document.getElementById('submitBtn');
-    const lockMsg = document.getElementById('inputLockMsg');
     
     if (countdownEl) {
         countdownEl.innerHTML = formatCountdown(secondsLeft);
-        // 少於60秒時變紅色
         if (secondsLeft <= 60 && secondsLeft > 0) {
             countdownEl.style.color = '#ef4444';
             countdownEl.style.fontWeight = 'bold';
@@ -940,33 +932,22 @@ function updateCountdownDisplay() {
         }
     }
     
-    // 根據是否超過封盤時間，控制投注按鈕和封盤訊息
+    // 自動封盤時停用投注按鈕（但不覆蓋手動封盤）
     if (secondsLeft <= 0) {
         if (submitBtn) submitBtn.disabled = true;
         if (lockMsg) {
             lockMsg.style.display = 'block';
             lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`;
         }
-        if (countdownEl) countdownEl.innerHTML = '已封盤';
-    } else {
-        // 注意：不要覆蓋管理員手動設定的封盤狀態
-        const { data } = await supabaseClient.from('sys_config').select('value').eq('key', 'is_input_enabled').single();
-        const isManualLock = data && data.value === 'false';
-        if (!isManualLock) {
-            if (submitBtn) submitBtn.disabled = false;
-            if (lockMsg) lockMsg.style.display = 'none';
-        }
     }
 }
 
-// 啟動倒計時（每秒更新）
 function startCountdown() {
     if (countdownInterval) clearInterval(countdownInterval);
     updateCountdownDisplay();
     countdownInterval = setInterval(updateCountdownDisplay, 1000);
 }
 
-// 停止倒計時
 function stopCountdown() {
     if (countdownInterval) {
         clearInterval(countdownInterval);
