@@ -154,6 +154,10 @@
         </div>
     </div>    
 <div id="input-page" class="page">
+    <div id="countdownContainer" style="background: #f1f5f9; padding: 10px; border-radius: 12px; margin-bottom: 15px; text-align: center;">
+        <span>⏰ 距離封盤時間: </span>
+        <span id="countdownDisplay" style="font-size: 1.2rem; font-weight: bold;">--:--:--</span>
+    </div>
     <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
     <div class="card">
         <h2>✍️ 自由分配注數 (每注$10，總額固定$120)</h2>
@@ -247,6 +251,16 @@
         <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
         <div id="adminPanel" style="display:none;">
             <div class="card"><button id="toggleInputBtn" onclick="toggleInputLock()">切換封盤</button></div>
+            <div class="card">
+                <h3>⏰ 自動封盤設定</h3>
+                <div class="form-group">
+                    <label>封盤時間 (賽日當天)</label>
+                    <input type="time" id="cutoffTime" step="1" value="17:00:00">
+                    <div class="bet-limit">設定後，投注頁會顯示距離封盤的倒計時</div>
+                </div>
+                <button id="saveCutoffTimeBtn" class="btn" style="background:#475569;">💾 儲存設定</button>
+                <div id="cutoffTimeStatus" class="info-note" style="margin-top:10px;"></div>
+            </div>
             <!-- 自動結算區塊 -->
             <div class="card">
                 <h3>📅 賽日自動結算 (扣款 $120)</h3>
@@ -454,23 +468,25 @@ async function initHorseSelects() {
     }
     
     // ========== 載入賽日相關下拉選單 ==========
-    async function loadRaceDaysForResult() {
-        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
-        if (error) return;
-        const select = document.getElementById('resultRaceDate');
-        if (!select) return;
-        const today = new Date().toISOString().slice(0,10);
-        let nextRace = null;
-        for (let d of data) {
-            if (d.race_date >= today) {
-                nextRace = d.race_date;
-                break;
-            }
+async function loadRaceDaysForResult() {
+    const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
+    if (error) return;
+    const select = document.getElementById('resultRaceDate');
+    if (!select) return;
+    const today = new Date().toISOString().slice(0,10);
+    let nextRace = null;
+    for (let d of data) {
+        if (d.race_date >= today) {
+            nextRace = d.race_date;
+            break;
         }
-        if (!nextRace && data.length > 0) nextRace = data[data.length - 1].race_date;
-        select.innerHTML = data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
-        if (nextRace) select.value = nextRace;
     }
+    if (!nextRace && data.length > 0) nextRace = data[data.length - 1].race_date;
+    select.innerHTML = data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+    if (nextRace) select.value = nextRace;
+    
+    // 賽果頁賽日變更時，不影響投注頁倒計時，無需更新
+}
     
     async function loadRaceDaysForSettle() {
         const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: false });
@@ -510,20 +526,23 @@ async function initHorseSelects() {
         document.getElementById('participantList').innerHTML = participants.map(p => `<span class="badge">${p.name} <b onclick="deleteParticipant(${p.id})" style="cursor:pointer;color:red;">✖</b></span>`).join(' ');
     }
     
-    // ========== 載入賽日 ==========
-    async function loadRaceDays() {
-        const { data, error } = await supabaseClient.from('race_days').select('*').order('race_date', { ascending: true });
-        if (!error) raceDays = data || [];
-        const today = new Date().toISOString().slice(0,10);
-        const nextRace = raceDays.find(d => d.race_date >= today) || raceDays[0];
-        currentRaceDate = nextRace ? nextRace.race_date : null;
-        if (currentRaceDate) document.getElementById('inputRaceDate').value = currentRaceDate;
-        document.getElementById('raceDayList').innerHTML = raceDays.map(d => `<span class="badge">${d.race_date} <b onclick="deleteRaceDay(${d.id})" style="cursor:pointer;color:red;">✖</b></span>`).join(' ');
-        await loadRaceDaysForResult();
-        await loadRaceDaysForSettle();
-        await loadRaceDaysForDetail();
-        await initRaceNoSelects();
-    }
+// ========== 載入賽日 ==========
+async function loadRaceDays() {
+    const { data, error } = await supabaseClient.from('race_days').select('*').order('race_date', { ascending: true });
+    if (!error) raceDays = data || [];
+    const today = new Date().toISOString().slice(0,10);
+    const nextRace = raceDays.find(d => d.race_date >= today) || raceDays[0];
+    currentRaceDate = nextRace ? nextRace.race_date : null;
+    if (currentRaceDate) document.getElementById('inputRaceDate').value = currentRaceDate;
+    document.getElementById('raceDayList').innerHTML = raceDays.map(d => `<span class="badge">${d.race_date} <b onclick="deleteRaceDay(${d.id})" style="cursor:pointer;color:red;">✖</b></span>`).join(' ');
+    await loadRaceDaysForResult();
+    await loadRaceDaysForSettle();
+    await loadRaceDaysForDetail();
+    await initRaceNoSelects();
+    
+    // 賽日變更後，更新倒計時顯示
+    updateCountdownDisplay();
+}
     
 async function initRaceNoSelects() {
     if (!currentRaceDate) return;
@@ -823,6 +842,137 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
             btn.disabled = false;
         }
     }
+
+// ========== 自動封盤計時器 ==========
+let countdownInterval = null;
+let currentCutoffTime = '17:00:00';
+
+// 載入封盤時間設定
+async function loadCutoffTime() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('system_settings')
+            .select('value')
+            .eq('key', 'cutoff_time')
+            .single();
+        if (!error && data) {
+            currentCutoffTime = data.value;
+            document.getElementById('cutoffTime').value = currentCutoffTime;
+            document.getElementById('cutoffTimeStatus').innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
+        } else {
+            document.getElementById('cutoffTimeStatus').innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
+        }
+    } catch (e) {
+        console.error("載入封盤時間失敗:", e);
+    }
+}
+
+// 儲存封盤時間設定
+async function saveCutoffTime() {
+    const newTime = document.getElementById('cutoffTime').value;
+    if (!newTime) return alert("請輸入時間");
+    
+    const { error } = await supabaseClient
+        .from('system_settings')
+        .upsert({ key: 'cutoff_time', value: newTime }, { onConflict: 'key' });
+    
+    if (error) {
+        alert("儲存失敗: " + error.message);
+    } else {
+        currentCutoffTime = newTime;
+        alert("✅ 封盤時間已更新");
+        document.getElementById('cutoffTimeStatus').innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
+        startCountdown(); // 重新啟動倒計時
+    }
+}
+
+// 計算距離封盤還有多少秒
+function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
+    // raceDate 格式: YYYY-MM-DD
+    // cutoffTimeStr 格式: HH:MM:SS
+    const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}`);
+    const now = new Date();
+    
+    if (cutoffDateTime <= now) {
+        return 0; // 已經過了封盤時間
+    }
+    return Math.floor((cutoffDateTime - now) / 1000);
+}
+
+// 格式化倒計時顯示
+function formatCountdown(seconds) {
+    if (seconds <= 0) return "已封盤";
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+        return `${hours}小時 ${minutes}分鐘 ${secs}秒`;
+    } else if (minutes > 0) {
+        return `${minutes}分鐘 ${secs}秒`;
+    } else {
+        return `${secs}秒`;
+    }
+}
+
+// 更新投注頁的倒計時顯示
+function updateCountdownDisplay() {
+    const raceDate = document.getElementById('inputRaceDate').value;
+    if (!raceDate) {
+        const countdownEl = document.getElementById('countdownDisplay');
+        if (countdownEl) countdownEl.innerHTML = '請選擇賽日';
+        return;
+    }
+    
+    const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
+    const countdownEl = document.getElementById('countdownDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const lockMsg = document.getElementById('inputLockMsg');
+    
+    if (countdownEl) {
+        countdownEl.innerHTML = formatCountdown(secondsLeft);
+        // 少於60秒時變紅色
+        if (secondsLeft <= 60 && secondsLeft > 0) {
+            countdownEl.style.color = '#ef4444';
+            countdownEl.style.fontWeight = 'bold';
+        } else {
+            countdownEl.style.color = '';
+        }
+    }
+    
+    // 根據是否超過封盤時間，控制投注按鈕和封盤訊息
+    if (secondsLeft <= 0) {
+        if (submitBtn) submitBtn.disabled = true;
+        if (lockMsg) {
+            lockMsg.style.display = 'block';
+            lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`;
+        }
+        if (countdownEl) countdownEl.innerHTML = '已封盤';
+    } else {
+        // 注意：不要覆蓋管理員手動設定的封盤狀態
+        const { data } = await supabaseClient.from('sys_config').select('value').eq('key', 'is_input_enabled').single();
+        const isManualLock = data && data.value === 'false';
+        if (!isManualLock) {
+            if (submitBtn) submitBtn.disabled = false;
+            if (lockMsg) lockMsg.style.display = 'none';
+        }
+    }
+}
+
+// 啟動倒計時（每秒更新）
+function startCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    updateCountdownDisplay();
+    countdownInterval = setInterval(updateCountdownDisplay, 1000);
+}
+
+// 停止倒計時
+function stopCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+}
     
 // ========== 儲存賽果與結算（完整版，支援派彩與部分退款）==========
 async function saveRaceResult() {
@@ -1123,16 +1273,33 @@ async function saveRaceResult() {
     window.addRaceDay = async () => { const date = document.getElementById('newRaceDate').value; if(date) { await supabaseClient.from('race_days').insert([{race_date:date}]); loadRaceDays(); } };
     window.verifyAdmin = function() { if(document.getElementById('adminPwd').value === 'LBadmin') { adminUnlocked=true; document.getElementById('adminAuth').style.display='none'; document.getElementById('adminPanel').style.display='block'; loadAdminBets(); } else alert("密碼錯誤"); };
     
-    async function applyInputLockStatus() {
-        try {
-            const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single();
-            const isEnabled = data.value === 'true';
-            document.getElementById('submitBtn').disabled = !isEnabled;
-            document.getElementById('inputLockMsg').style.display = isEnabled ? 'none' : 'block';
-            const toggleBtn = document.getElementById('toggleInputBtn');
-            if(toggleBtn) { toggleBtn.innerText = isEnabled ? "🔴 暫停輸入" : "🟢 開放輸入"; toggleBtn.style.background = isEnabled ? "#be123c" : "#1e6f3f"; }
-        } catch(e) {}
-    }
+async function applyInputLockStatus() {
+    try {
+        const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single();
+        const isManualLock = data && data.value === 'false';
+        
+        const raceDate = document.getElementById('inputRaceDate').value;
+        const isTimeLocked = raceDate && getSecondsUntilCutoff(raceDate, currentCutoffTime) <= 0;
+        
+        // 手動封盤或自動封盤，任一成立則禁用投注
+        const isLocked = isManualLock || isTimeLocked;
+        
+        document.getElementById('submitBtn').disabled = isLocked;
+        document.getElementById('inputLockMsg').style.display = isLocked ? 'block' : 'none';
+        
+        if (isManualLock) {
+            document.getElementById('inputLockMsg').innerHTML = "🔒 管理員已暫停輸入 (封盤中)";
+        } else if (isTimeLocked) {
+            document.getElementById('inputLockMsg').innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`;
+        }
+        
+        const toggleBtn = document.getElementById('toggleInputBtn');
+        if(toggleBtn) { 
+            toggleBtn.innerText = isManualLock ? "🟢 開放輸入" : "🔴 暫停輸入"; 
+            toggleBtn.style.background = isManualLock ? "#1e6f3f" : "#be123c";
+        }
+    } catch(e) {}
+}
     window.toggleInputLock = async () => { const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single(); const newVal = data.value === 'true' ? 'false' : 'true'; await supabaseClient.from('sys_config').update({ value: newVal }).eq('key','is_input_enabled'); await applyInputLockStatus(); };
     
     function showResultPasswordModal(onSuccess) {
@@ -1205,6 +1372,12 @@ window.onload = async () => {
     // 綁定投注表單事件
     bindBetFormEvents();
     
+    // 載入封盤時間設定
+    await loadCutoffTime();
+    
+    // 啟動倒計時
+    startCountdown();
+    
     // 套用封盤狀態
     await applyInputLockStatus();
     
@@ -1213,6 +1386,9 @@ window.onload = async () => {
     
     // 綁定自動扣款按鈕
     document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
+    
+    // 綁定儲存封盤時間按鈕
+    document.getElementById('saveCutoffTimeBtn')?.addEventListener('click', saveCutoffTime);
     
     // 綁定投注頁場次變更事件（重新載入馬匹選單）
     document.getElementById('inputRaceNo')?.addEventListener('change', async () => {
