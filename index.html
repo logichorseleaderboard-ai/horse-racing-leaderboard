@@ -752,7 +752,7 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
         }
     }
     
-// ========== 儲存賽果與結算（支援單馬退賽）==========
+// ========== 儲存賽果與結算（完整版，修正單馬退賽）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -802,32 +802,44 @@ async function saveRaceResult() {
         if (bet.flexible_data && bet.flexible_data.auto_deduct) {
             payout = 0;
         }
-        // 新玩法結算（支援單馬退賽）
+        // 新玩法結算
         else if (bet.flexible_data && bet.flexible_data.units) {
             const fd = bet.flexible_data;
-            const banker = parseInt(fd.banker);
+            const banker = fd.banker ? parseInt(fd.banker) : null;
             const legs = fd.horses ? fd.horses.split(',').map(Number) : [];
             const isSingleHorse = !fd.horses || fd.horses.split(',').length === 1;
-            const isBankerScratched = scratchedSet.has(banker);
+            const isBankerScratched = banker !== null && scratchedSet.has(banker);
             
             // 單馬投注（只有膽馬）且馬匹退賽 → 整筆全額退款
-            if (isSingleHorse && isBankerScratched) {
+            if (isSingleHorse && banker !== null && isBankerScratched) {
                 refund = true;
                 refundAmount = amount;
                 amount = 0;
                 payout = 0;
-                updatedFlexibleData.scratchedReason = '所選馬匹退賽，整筆退款';
+                updatedFlexibleData = {
+                    ...fd,
+                    scratchedReason: `所選馬匹 ${banker} 退賽，整筆退款`,
+                    scratchedLegs: [banker],
+                    refundAmount: amount,
+                    refundUnits: 12
+                };
             }
-            // 膽馬退賽（多馬情況）
-            else if (isBankerScratched) {
+            // 多馬 - 膽馬退賽 → 整筆全額退款
+            else if (!isSingleHorse && banker !== null && isBankerScratched) {
                 refund = true;
                 refundAmount = amount;
                 amount = 0;
                 payout = 0;
-                updatedFlexibleData.scratchedReason = '膽馬退賽，整筆退款';
+                updatedFlexibleData = {
+                    ...fd,
+                    scratchedReason: `膽馬 ${banker} 退賽，整筆退款`,
+                    scratchedLegs: [banker],
+                    refundAmount: amount,
+                    refundUnits: 12
+                };
             }
             // 一般情況（有腳馬且膽馬未退賽）
-            else {
+            else if (!isSingleHorse && banker !== null && !isBankerScratched) {
                 const scratchedLegs = legs.filter(leg => scratchedSet.has(leg));
                 if (scratchedLegs.length > 0) {
                     updatedFlexibleData.scratchedLegs = scratchedLegs;
@@ -928,14 +940,14 @@ async function saveRaceResult() {
             }
             // 腳馬退賽（部分退款）
             else if (isLeg1Scratched || isLeg2Scratched) {
-                // 獨贏 + 位置（正常計算）
+                // 獨贏 + 位置
                 if (banker === first) payout += winDiv + (placeDiv1 * 3);
                 else if (banker === second) payout += placeDiv2 * 3;
                 else if (banker === third) payout += placeDiv3 * 3;
                 
                 let refundLegCount = 0;
                 
-                // 連贏：只計算未退賽的腳
+                // 連贏
                 if (!isLeg1Scratched) {
                     if ((banker === first && leg1 === second) || (banker === second && leg1 === first)) payout += qinDiv;
                 } else {
@@ -963,7 +975,7 @@ async function saveRaceResult() {
                     refund = true;
                 }
             }
-            // 無退賽，正常結算
+            // 無退賽
             else {
                 if (banker === first) payout += winDiv + (placeDiv1 * 3);
                 else if (banker === second) payout += placeDiv2 * 3;
