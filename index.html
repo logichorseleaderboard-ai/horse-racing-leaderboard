@@ -752,7 +752,7 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
         }
     }
     
-// ========== 儲存賽果與結算（完整版，修正單馬退賽）==========
+// ========== 儲存賽果與結算（完整修正版）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -808,7 +808,7 @@ async function saveRaceResult() {
             const banker = fd.banker ? parseInt(fd.banker) : null;
             const legs = fd.horses ? fd.horses.split(',').map(Number) : [];
             const isSingleHorse = !fd.horses || fd.horses.split(',').length === 1;
-            const isBankerScratched = banker !== null && scratchedSet.has(banker);
+            const isBankerScratched = (banker !== null) ? scratchedSet.has(banker) : false;
             
             // 單馬投注（只有膽馬）且馬匹退賽 → 整筆全額退款
             if (isSingleHorse && banker !== null && isBankerScratched) {
