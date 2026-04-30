@@ -133,7 +133,14 @@
 
 <div class="container" id="app">
     <div id="ranking-page" class="page active-page">
-        <div class="card"><h2>📊 排位熱度</h2><div class="form-group"><label>場次</label><select id="rankRaceNo"></select></div><div id="rankChart"></div></div>
+        <div class="card">
+            <h2>📊 排位熱度</h2>
+            <div class="form-group">
+                <label>場次</label>
+                <select id="rankRaceNo"></select>
+            </div>
+            <div id="rankChart"></div>
+        </div>
     </div>
     <div id="detail-page" class="page">
         <div class="card">
@@ -437,9 +444,14 @@
         await loadRaceDaysForDetail();
     }
     
-    function initRaceNoSelects() {
+        function initRaceNoSelects() {
         const opts = Array.from({length:11}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
-        ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => {
+        // 排位頁：僅顯示場次，無「全部場次」
+        const rankSelect = document.getElementById('rankRaceNo');
+        if (rankSelect) rankSelect.innerHTML = opts;
+        // 其他頁面保留「全部場次」選項
+        const otherSelects = ['inputRaceNo', 'resultRaceNo', 'detailRaceNo'];
+        otherSelects.forEach(id => {
             let el = document.getElementById(id);
             if (el) el.innerHTML = '<option value="all">全部場次</option>' + opts;
         });
