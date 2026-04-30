@@ -120,6 +120,16 @@
             border-radius: 16px;
             margin-bottom: 12px;
         }
+        .rank-table {
+            margin-top: 20px;
+            font-size: 0.8rem;
+        }
+        .rank-table th {
+            background: #e6f7ec;
+        }
+        .rank-item-1 { background-color: #ffd966; }
+        .rank-item-2 { background-color: #e6f7ec; }
+        .rank-item-3 { background-color: #d9e8f5; }
     </style>
 </head>
 <body>
@@ -178,7 +188,23 @@
         </div>
     </div>
     <div id="stats-page" class="page">
-        <div class="card"><h2>📈 數據分析 (當月)</h2><div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div><div id="statsDisplay"></div></div>
+        <div class="card">
+            <h2>📈 數據分析 (當月)</h2>
+            <div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div>
+            <div id="statsDisplay"></div>
+        </div>
+        <div class="card">
+            <h2>🏆 當月參賽者排名</h2>
+            <div id="monthDisplay" class="info-note" style="margin-bottom:12px;">載入月份中...</div>
+            <div id="rankingTableContainer" style="overflow-x:auto;">
+                <table class="rank-table" id="rankingTable">
+                    <thead>
+                        <tr><th>排名</th><th>參賽者</th><th>總投入</th><th>總派彩</th><th>回報率</th></tr>
+                    </thead>
+                    <tbody><tr><td colspan="5">載入中...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <div id="result-page" class="page">
         <div class="card"><h2>🏁 賽果與派彩輸入</h2><div class="form-group"><label>賽日</label><select id="resultRaceDate"></select></div><div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div><h3 style="margin:15px 0 8px;">派彩 (每$10)</h3><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
@@ -248,14 +274,11 @@
         else bankerSelect.value = '';
     }
     
-    // 移除注數上限限制，只保留總和驗證
     function updateMaxUnits() {
-        // 不做任何限制，僅顯示提示
         document.getElementById('winMax').innerText = '無上限';
         document.getElementById('placeMax').innerText = '無上限';
         document.getElementById('quinellaMax').innerText = '無上限';
         document.getElementById('quinellaPlaceMax').innerText = '無上限';
-        // 移除輸入框的 max 屬性
         ['winUnits', 'placeUnits', 'quinellaUnits', 'quinellaPlaceUnits'].forEach(id => {
             document.getElementById(id).removeAttribute('max');
         });
@@ -461,8 +484,86 @@
             document.getElementById('horsesCountWarning').innerText = '';
             loadRankingChart();
             loadUserBets();
+            loadMonthlyRanking();  // 投注後更新排名
         }
     });
+    
+    // ========== 新增：載入當月參賽者排名 ==========
+    async function loadMonthlyRanking() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const startDate = `${year}-${month}-01`;
+        const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+        const endDate = `${year}-${month}-${lastDay}`;
+        document.getElementById('monthDisplay').innerHTML = `📅 ${year}年${parseInt(month)}月 (${startDate} 至 ${endDate})`;
+        
+        // 獲取所有參賽者列表
+        const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
+        if (pErr) return;
+        const participantNames = allParticipants.map(p => p.name);
+        
+        // 查詢所有當月投注
+        const { data, error } = await supabaseClient
+            .from('bets')
+            .select('participant, payout')
+            .gte('race_date', startDate)
+            .lte('race_date', endDate);
+        if (error) {
+            console.error(error);
+            document.getElementById('rankingTable').innerHTML = '<tbody><tr><td colspan="5">載入失敗</td></tr></tbody>';
+            return;
+        }
+        
+        // 聚合每位參賽者的數據
+        const statsMap = new Map();
+        participantNames.forEach(name => {
+            statsMap.set(name, { totalStake: 0, totalPayout: 0, count: 0 });
+        });
+        (data || []).forEach(bet => {
+            const name = bet.participant;
+            if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0, count: 0 });
+            const s = statsMap.get(name);
+            s.count++;
+            s.totalPayout += bet.payout || 0;
+        });
+        // 計算總投入（每筆 $120）
+        for (let [name, s] of statsMap.entries()) {
+            s.totalStake = s.count * 120;
+            s.roi = s.totalStake === 0 ? 0 : ((s.totalPayout - s.totalStake) / s.totalStake * 100).toFixed(1);
+        }
+        // 轉為陣列並按回報率排序（由高到低）
+        const ranking = Array.from(statsMap.entries()).map(([name, s]) => ({
+            name,
+            totalStake: s.totalStake,
+            totalPayout: s.totalPayout,
+            roi: s.roi,
+            count: s.count
+        })).sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
+        
+        // 渲染表格
+        const tbody = ranking.map((item, idx) => {
+            let roiClass = '';
+            let roiColor = '';
+            const roiVal = parseFloat(item.roi);
+            if (roiVal > 0) roiColor = 'color: #16a34a;';
+            else if (roiVal < 0) roiColor = 'color: #b91c1c;';
+            else roiColor = 'color: #475569;';
+            let rankDisplay = idx + 1;
+            if (idx === 0) rankDisplay = '🥇 1';
+            else if (idx === 1) rankDisplay = '🥈 2';
+            else if (idx === 2) rankDisplay = '🥉 3';
+            else rankDisplay = `${idx+1}`;
+            return `<tr style="${idx<3 ? 'background-color:#f0fdf4;' : ''}">
+                        <td style="font-weight:bold;">${rankDisplay}</td>
+                        <td>${item.name}</td>
+                        <td>$${item.totalStake.toLocaleString()}</td>
+                        <td>$${item.totalPayout.toLocaleString()}</td>
+                        <td style="${roiColor} font-weight:bold;">${item.roi}%</td>
+                    </tr>`;
+        }).join('');
+        document.getElementById('rankingTable').innerHTML = `<tbody>${tbody}</tbody>`;
+    }
     
     async function saveRaceResult() {
         const raceDate = document.getElementById('resultRaceDate').value;
@@ -510,11 +611,15 @@
         alert(`✅ 第 ${raceNo} 場結算完成！`);
         loadRankingChart(); 
         if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
+        loadMonthlyRanking(); // 更新排名
     }
     
     async function loadStats() {
         const user = document.getElementById('statsUserSelect').value;
-        if (!user) { document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
+        if (!user) {
+            document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
+            return;
+        }
         const now = new Date();
         const start = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
         const lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
@@ -538,14 +643,14 @@
             } else {
                 detail = `膽:${b.banker} 腳:${b.legs}`;
             }
-            return `<tr><td style="white-space:nowrap;">${b.participant}</td><td style="white-space:nowrap;">${b.race_date}/${b.race_no}</td><td style="font-size:0.7rem;">${detail}</td><td>${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`;
+            return `<tr><td style="white-space:nowrap;">${b.participant}</td><td style="white-space:nowrap;">${b.race_date}/${b.race_no}</td><td style="font-size:0.7rem;">${detail}</td><td style="white-space:nowrap;">$${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`;
         }).join('')}</tbody></table>`;
     }
     
-    window.deleteBet = async (id) => { if(confirm("刪除？")) { await supabaseClient.from('bets').delete().eq('id', id); loadAdminBets(); loadRankingChart(); loadStats(); loadUserBets(); } };
-    window.deleteParticipant = async (id) => { if(confirm("刪除參賽者會刪除所有投注")) { const p = participants.find(p=>p.id===id); if(p) await supabaseClient.from('bets').delete().eq('participant', p.name); await supabaseClient.from('participants').delete().eq('id', id); loadParticipants(); loadAdminBets(); loadRankingChart(); loadUserBets(); } };
-    window.deleteRaceDay = async (id) => { if(confirm("刪除賽日會刪除該日所有投注")) { const d = raceDays.find(r=>r.id===id); if(d) await supabaseClient.from('bets').delete().eq('race_date', d.race_date); await supabaseClient.from('race_days').delete().eq('id', id); loadRaceDays(); loadAdminBets(); loadUserBets(); } };
-    window.addParticipant = async () => { const name = document.getElementById('newUserName').value.trim(); if(name) { await supabaseClient.from('participants').insert([{name}]); document.getElementById('newUserName').value=''; loadParticipants(); } };
+    window.deleteBet = async (id) => { if(confirm("刪除？")) { await supabaseClient.from('bets').delete().eq('id', id); loadAdminBets(); loadRankingChart(); loadStats(); loadUserBets(); loadMonthlyRanking(); } };
+    window.deleteParticipant = async (id) => { if(confirm("刪除參賽者會刪除所有投注")) { const p = participants.find(p=>p.id===id); if(p) await supabaseClient.from('bets').delete().eq('participant', p.name); await supabaseClient.from('participants').delete().eq('id', id); loadParticipants(); loadAdminBets(); loadRankingChart(); loadUserBets(); loadMonthlyRanking(); } };
+    window.deleteRaceDay = async (id) => { if(confirm("刪除賽日會刪除該日所有投注")) { const d = raceDays.find(r=>r.id===id); if(d) await supabaseClient.from('bets').delete().eq('race_date', d.race_date); await supabaseClient.from('race_days').delete().eq('id', id); loadRaceDays(); loadAdminBets(); loadUserBets(); loadMonthlyRanking(); } };
+    window.addParticipant = async () => { const name = document.getElementById('newUserName').value.trim(); if(name) { await supabaseClient.from('participants').insert([{name}]); document.getElementById('newUserName').value=''; loadParticipants(); loadMonthlyRanking(); } };
     window.addRaceDay = async () => { const date = document.getElementById('newRaceDate').value; if(date) { await supabaseClient.from('race_days').insert([{race_date:date}]); loadRaceDays(); } };
     window.verifyAdmin = function() { if(document.getElementById('adminPwd').value === 'LBadmin') { adminUnlocked=true; document.getElementById('adminAuth').style.display='none'; document.getElementById('adminPanel').style.display='block'; loadAdminBets(); } else alert("密碼錯誤"); };
     
@@ -583,7 +688,10 @@
         if(pageId === 'ranking') loadRankingChart();
         if(pageId === 'detail') loadUserBets();
         if(pageId === 'admin' && adminUnlocked) loadAdminBets();
-        if(pageId === 'stats') loadStats();
+        if(pageId === 'stats') {
+            loadStats();
+            loadMonthlyRanking();  // 進入分析頁時加載排名
+        }
     }
     document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
     document.getElementById('rankRaceNo')?.addEventListener('change', loadRankingChart);
@@ -602,6 +710,7 @@
         showPage('ranking');
     };
     window.saveRaceResult = saveRaceResult;
+    window.loadMonthlyRanking = loadMonthlyRanking; // for debug
 </script>
 </body>
 </html>
