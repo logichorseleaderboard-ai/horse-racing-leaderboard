@@ -401,16 +401,14 @@
         });
     }
     
-// ========== 載入賽果頁的賽日下拉選單（預設下個賽日）==========
+// ========== 載入賽果頁的賽日下拉選單（日期升序，預設下個賽日）==========
 async function loadRaceDaysForResult() {
-    const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: false });
+    const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
     if (error) return;
     const select = document.getElementById('resultRaceDate');
     if (!select) return;
     
-    // 取得今天日期
     const today = new Date().toISOString().slice(0,10);
-    // 找出下個賽日（大於等於今天的日期）
     let nextRace = null;
     for (let d of data) {
         if (d.race_date >= today) {
@@ -418,10 +416,8 @@ async function loadRaceDaysForResult() {
             break;
         }
     }
-    // 如果沒有下個賽日，則選最近（最後一個）賽日
-    if (!nextRace && data.length > 0) nextRace = data[0].race_date;
+    if (!nextRace && data.length > 0) nextRace = data[data.length - 1].race_date;
     
-    // 填入選單
     select.innerHTML = data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
     if (nextRace) select.value = nextRace;
 }
@@ -435,26 +431,26 @@ async function loadRaceDaysForResult() {
         }
     }
     
-async function loadRaceDaysForDetail() {
-    const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
-    if (error) return;
-    const select = document.getElementById('detailRaceDate');
-    if (!select) return;
+    async function loadRaceDaysForDetail() {
+        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
+        if (error) return;
+        const select = document.getElementById('detailRaceDate');
+        if (!select) return;
     
-    const today = new Date().toISOString().slice(0,10);
-    // 直接從 data 中找下個賽日
-    let nextRace = null;
-    for (let d of data) {
-        if (d.race_date >= today) {
-            nextRace = d.race_date;
-            break;
+        const today = new Date().toISOString().slice(0,10);
+        // 直接從 data 中找下個賽日
+        let nextRace = null;
+        for (let d of data) {
+            if (d.race_date >= today) {
+                nextRace = d.race_date;
+                break;
+            }
         }
-    }
-    if (!nextRace && data.length > 0) nextRace = data[0].race_date;
+        if (!nextRace && data.length > 0) nextRace = data[0].race_date;
     
-    select.innerHTML = '<option value="all">全部賽日</option>' + data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
-    if (nextRace) select.value = nextRace;
-}
+        select.innerHTML = '<option value="all">全部賽日</option>' + data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+        if (nextRace) select.value = nextRace;
+    }
     
     // ========== 載入參賽者 ==========
     async function loadParticipants() {
