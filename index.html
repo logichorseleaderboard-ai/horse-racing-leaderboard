@@ -199,50 +199,50 @@
             <div id="rankingTableContainer" style="overflow-x:auto;">
                 <table class="rank-table" id="rankingTable">
                     <thead><th>排名</th><th>參賽者</th><th>總投入</th><th>總派彩</th><th>回報率</th></thead>
-                    <tbody><td colspan="5">載入中...<\/td><\/tbody>
-                <\/table>
-            <\/div>
-        <\/div>
-    <\/div>
+                    <tbody><td colspan="5">載入中...</td></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
     <div id="result-page" class="page">
         <div class="card"><h2>🏁 賽果與派彩輸入</h2><div class="form-group"><label>賽日</label><select id="resultRaceDate"></select></div><div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div><h3 style="margin:15px 0 8px;">派彩 (每$10)</h3><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                 <input type="number" id="div_win" placeholder="獨贏"><input type="number" id="div_q" placeholder="連贏">
                 <input type="number" id="div_pla1" placeholder="位置(1)"><input type="number" id="div_qp12" placeholder="位置Q 1-2">
                 <input type="number" id="div_pla2" placeholder="位置(2)"><input type="number" id="div_qp13" placeholder="位置Q 1-3">
                 <input type="number" id="div_pla3" placeholder="位置(3)"><input type="number" id="div_qp23" placeholder="位置Q 2-3">
-            <\/div>
-            <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算<\/button>
-        <\/div>
-    <\/div>
+            </div>
+            <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
+        </div>
+    </div>
     <div id="admin-page" class="page">
-        <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證<\/button><\/div>
+        <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
         <div id="adminPanel" style="display:none;">
-            <div class="card"><button id="toggleInputBtn" onclick="toggleInputLock()">切換封盤<\/button><\/div>
+            <div class="card"><button id="toggleInputBtn" onclick="toggleInputLock()">切換封盤</button></div>
             <!-- 自動結算區塊 -->
             <div class="card">
                 <h3>📅 賽日自動結算 (扣款 $120)</h3>
                 <div class="form-group">
                     <label>選擇賽日</label>
-                    <select id="settleRaceDate"><\/select>
-                <\/div>
-                <button id="autoDeductBtn" class="btn" style="background:#b91c1c;">🔁 執行賽日結算 (自動扣款)<\/button>
-                <div id="settleResultMsg" class="info-note" style="margin-top:10px; display:none;"><\/div>
-            <\/div>
-            <div class="card"><h3>人員管理</h3><input type="text" id="newUserName" placeholder="新參賽者"><button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增<\/button><div id="participantList"><\/div><\/div>
-            <div class="card"><h3>賽日管理</h3><input type="date" id="newRaceDate"><button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增<\/button><div id="raceDayList"><\/div><\/div>
-            <div class="card"><h3>所有投注紀錄</h3><div id="adminBetsList"><\/div><\/div>
-        <\/div>
-    <\/div>
-<\/div>
+                    <select id="settleRaceDate"></select>
+                </div>
+                <button id="autoDeductBtn" class="btn" style="background:#b91c1c;">🔁 執行賽日結算 (自動扣款)</button>
+                <div id="settleResultMsg" class="info-note" style="margin-top:10px; display:none;"></div>
+            </div>
+            <div class="card"><h3>人員管理</h3><input type="text" id="newUserName" placeholder="新參賽者"><button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button><div id="participantList"></div></div>
+            <div class="card"><h3>賽日管理</h3><input type="date" id="newRaceDate"><button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增</button><div id="raceDayList"></div></div>
+            <div class="card"><h3>所有投注紀錄</h3><div id="adminBetsList"></div></div>
+        </div>
+    </div>
+</div>
 
 <div class="nav-bottom">
-    <button class="nav-btn" data-page="ranking"><span>📊<\/span><span>熱度<\/span><\/button>
-    <button class="nav-btn" data-page="detail"><span>🔍<\/span><span>詳情<\/span><\/button>
-    <button class="nav-btn" data-page="input"><span>✍️<\/span><span>投注<\/span><\/button>
-    <button class="nav-btn" data-page="stats"><span>📈<\/span><span>分析<\/span><\/button>
-    <button class="nav-btn" data-page="result"><span>🏁<\/span><span>賽果<\/span><\/button>
-    <button class="nav-btn" data-page="admin"><span>⚙️<\/span><span>管理<\/span><\/button>
-<\/div>
+    <button class="nav-btn" data-page="ranking"><span>📊</span><span>熱度</span></button>
+    <button class="nav-btn" data-page="detail"><span>🔍</span><span>詳情</span></button>
+    <button class="nav-btn" data-page="input"><span>✍️</span><span>投注</span></button>
+    <button class="nav-btn" data-page="stats"><span>📈</span><span>分析</span></button>
+    <button class="nav-btn" data-page="result"><span>🏁</span><span>賽果</span></button>
+    <button class="nav-btn" data-page="admin"><span>⚙️</span><span>管理</span></button>
+</div>
 
 <script>
     // ========== Supabase 初始化 ==========
@@ -634,8 +634,11 @@
         const { data: bets } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
         for(let b of bets) {
             let pay = 0;
-            if (b.banker && b.legs && b.banker !== '') {
-                const [leg1, leg2] = b.legs.split(',').map(Number);
+            if (b.flexible_data && b.flexible_data.auto_deduct) {
+                pay = 0;
+            } else if (b.banker && b.banker !== '') {
+                const legs = b.legs ? b.legs.split(',').map(Number) : [];
+                const leg1 = legs[0], leg2 = legs[1];
                 if(b.banker === first) pay += d.win_div + d.place_div1 * 3;
                 else if(b.banker === second) pay += d.place_div2 * 3;
                 else if(b.banker === third) pay += d.place_div3 * 3;
@@ -646,11 +649,6 @@
                     if(pair.includes(first) && pair.includes(third)) pay += d.qin_place_div13;
                     if(pair.includes(second) && pair.includes(third)) pay += d.qin_place_div23;
                 });
-            } else if (b.flexible_data && b.flexible_data.auto_deduct) {
-                pay = 0; // 自動扣款不派彩
-            } else {
-                // 新玩法暫不結算
-                console.log("新玩法需手動結算");
             }
             await supabaseClient.from('bets').update({ payout: pay }).eq('id', b.id);
         }
@@ -816,6 +814,6 @@
         document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
     };
     window.saveRaceResult = saveRaceResult;
-<\/script>
-<\/body>
-<\/html>
+</script>
+</body>
+</html>
