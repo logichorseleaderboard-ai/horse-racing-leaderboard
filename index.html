@@ -153,57 +153,62 @@
             <div id="detailList"></div>
         </div>
     </div>    
-    <div id="input-page" class="page">
-        <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
-        <div class="card">
-            <h2>✍️ 自由分配注數 (每注$10，總額固定$120)</h2>
-            <div class="info-note">
-                <strong>📌 規則說明：</strong>
-                <p>• 總注數必須為 12 注 (12 × $10 = $120)。</p>
-                <p>• 獨贏、位置的注數為實際注數。</p>
-                <p>• 連贏、位置Q 輸入的注數為「組數」，系統會自動乘以實際組合數。</p>
-                <p>&nbsp;&nbsp;- 1膽2腳 → 每個輸入注數 = 實際 2 注</p>
-                <p>&nbsp;&nbsp;- 3匹互串 → 每個輸入注數 = 實際 3 注</p>
-                <p>• 請先選擇馬匹與組合方式，系統會自動顯示實際總注數。</p>
-            </div>
-            <form id="betForm">
-                <div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div>
-                <div class="form-group"><label>賽日</label><input type="text" id="inputRaceDate" readonly></div>
-                <div class="form-group"><label>場次</label><select id="inputRaceNo"></select></div>
-                <div class="form-group"><label>選擇馬匹 (最多3匹)</label>
-                    <div class="inline-horses">
-                        <div class="form-group"><label>馬匹 1</label><select id="horse1"><option value="">-- 請選擇 --</option></select></div>
-                        <div class="form-group"><label>馬匹 2</label><select id="horse2"><option value="">-- 請選擇 --</option></select></div>
-                        <div class="form-group"><label>馬匹 3</label><select id="horse3"><option value="">-- 請選擇 --</option></select></div>
-                    </div>
-                </div>
-                <div id="horsesCountWarning" class="error-text"></div>
-                <div id="comboOptions" style="display: none;">
-                    <div class="form-group"><label>組合方式 (僅適用連贏/位置Q)</label>
-                        <div class="radio-group">
-                            <label><input type="radio" name="comboType" value="all" checked> 互串（所有組合）</label>
-                            <label><input type="radio" name="comboType" value="banker"> 膽拖</label>
-                        </div>
-                    </div>
-                    <div class="form-group" id="bankerSelectDiv" style="display:none;">
-                        <label>膽馬</label>
-                        <select id="bankerHorseSelect"><option value="">-- 請選擇 --</option></select>
-                    </div>
-                </div>
-
-                <h3 style="margin:12px 0 8px;">分配注數 (每注$10，合計總注數必須為12)</h3>
-                <div class="bet-type-group"><h4>🏆 獨贏</h4><input type="number" id="winUnits" placeholder="注數" min="0" step="1" value="0"><div id="winMax" class="bet-limit">無上限</div></div>
-                <div class="bet-type-group"><h4>📍 位置</h4><input type="number" id="placeUnits" placeholder="注數" min="0" step="1" value="0"><div id="placeMax" class="bet-limit">無上限</div></div>
-                <div class="bet-type-group" id="quinellaGroup"><h4>🔗 連贏</h4><input type="number" id="quinellaUnits" placeholder="組數" min="0" step="1" value="0"><div id="quinellaMultiplier" class="bet-limit">組合倍數: -</div></div>
-                <div class="bet-type-group" id="quinellaPlaceGroup"><h4>🎯 位置Q</h4><input type="number" id="quinellaPlaceUnits" placeholder="組數" min="0" step="1" value="0"><div id="quinellaPlaceMultiplier" class="bet-limit">組合倍數: -</div></div>
-                <div id="totalUnitsError" class="error-text"></div>
-                <div class="form-group"><label>投注原因 (選填)</label><textarea id="betReason" rows="2" placeholder="例：狀態好、檔位佳、賠率吸引..."></textarea></div>
-                <div class="form-group"><label>投注密碼</label><input type="password" id="betPassword" required placeholder="請輸入投注密碼"></div>
-                <div class="inline-buttons"><button type="submit" id="submitBtn">確認投注 (總額 $120)</button><button type="button" id="clearBetForm" class="secondary">清除</button></div>
-                <button type="submit" id="submitBtn">確認投注 (總額 $120)</button>
-            </form>
+<div id="input-page" class="page">
+    <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
+    <div class="card">
+        <h2>✍️ 自由分配注數 (每注$10，總額固定$120)</h2>
+        <div class="info-note">
+            <strong>📌 規則說明：</strong>
+            <p>• 總注數必須為 12 注 (12 × $10 = $120)。</p>
+            <p>• 獨贏、位置的注數為實際注數。</p>
+            <p>• 連贏、位置Q 輸入的注數為「組數」，系統會自動乘以實際組合數。</p>
+            <p>&nbsp;&nbsp;- 1膽2腳 → 每個輸入注數 = 實際 2 注</p>
+            <p>&nbsp;&nbsp;- 3匹互串 → 每個輸入注數 = 實際 3 注</p>
+            <p>• 請先選擇馬匹與組合方式，系統會自動顯示實際總注數。</p>
         </div>
+        <form id="betForm">
+            <div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div>
+            <div class="form-group"><label>賽日</label><input type="text" id="inputRaceDate" readonly></div>
+            <div class="form-group"><label>場次</label><select id="inputRaceNo"></select></div>
+            <div class="form-group"><label>選擇馬匹 (最多3匹)</label>
+                <div class="inline-horses">
+                    <div class="form-group"><label>馬匹 1</label><select id="horse1"><option value="">-- 請選擇 --</option></select></div>
+                    <div class="form-group"><label>馬匹 2</label><select id="horse2"><option value="">-- 請選擇 --</option></select></div>
+                    <div class="form-group"><label>馬匹 3</label><select id="horse3"><option value="">-- 請選擇 --</option></select></div>
+                </div>
+            </div>
+            <div id="horsesCountWarning" class="error-text"></div>
+            <div id="comboOptions" style="display: none;">
+                <div class="form-group"><label>組合方式 (僅適用連贏/位置Q)</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="comboType" value="all" checked> 互串（所有組合）</label>
+                        <label><input type="radio" name="comboType" value="banker"> 膽拖</label>
+                    </div>
+                </div>
+                <div class="form-group" id="bankerSelectDiv" style="display:none;">
+                    <label>膽馬</label>
+                    <select id="bankerHorseSelect"><option value="">-- 請選擇 --</option></select>
+                </div>
+            </div>
+
+            <h3 style="margin:12px 0 8px;">分配注數 (每注$10，合計總注數必須為12)</h3>
+            <div class="bet-type-group"><h4>🏆 獨贏</h4><input type="number" id="winUnits" placeholder="注數" min="0" step="1" value="0"><div id="winMax" class="bet-limit">無上限</div></div>
+            <div class="bet-type-group"><h4>📍 位置</h4><input type="number" id="placeUnits" placeholder="注數" min="0" step="1" value="0"><div id="placeMax" class="bet-limit">無上限</div></div>
+            <div class="bet-type-group" id="quinellaGroup"><h4>🔗 連贏</h4><input type="number" id="quinellaUnits" placeholder="組數" min="0" step="1" value="0"><div id="quinellaMultiplier" class="bet-limit">組合倍數: -</div></div>
+            <div class="bet-type-group" id="quinellaPlaceGroup"><h4>🎯 位置Q</h4><input type="number" id="quinellaPlaceUnits" placeholder="組數" min="0" step="1" value="0"><div id="quinellaPlaceMultiplier" class="bet-limit">組合倍數: -</div></div>
+            <div id="totalUnitsError" class="error-text"></div>
+            
+            <div class="form-group"><label>投注原因 (選填)</label><textarea id="betReason" rows="2" placeholder="例：狀態好、檔位佳、賠率吸引..."></textarea></div>
+            <div class="form-group"><label>投注密碼</label><input type="password" id="betPassword" required placeholder="請輸入投注密碼"></div>
+            
+            <!-- 只有一組按鈕 -->
+            <div class="inline-buttons">
+                <button type="submit" id="submitBtn">確認投注 (總額 $120)</button>
+                <button type="button" id="clearBetForm" class="secondary">清除</button>
+            </div>
+        </form>
     </div>
+</div>
     <div id="stats-page" class="page">
         <div class="card">
             <h2>📈 數據分析 (當月)</h2>
