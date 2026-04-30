@@ -435,17 +435,26 @@ async function loadRaceDaysForResult() {
         }
     }
     
-    async function loadRaceDaysForDetail() {
-        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
-        if (error) return;
-        const select = document.getElementById('detailRaceDate');
-        if (!select) return;
-        const today = new Date().toISOString().slice(0,10);
-        let nextRace = raceDays.find(d => d.race_date >= today);
-        if (!nextRace && raceDays.length) nextRace = raceDays[0];
-        select.innerHTML = '<option value="all">全部賽日</option>' + data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
-        if (nextRace) select.value = nextRace.race_date;
+async function loadRaceDaysForDetail() {
+    const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
+    if (error) return;
+    const select = document.getElementById('detailRaceDate');
+    if (!select) return;
+    
+    const today = new Date().toISOString().slice(0,10);
+    // 直接從 data 中找下個賽日
+    let nextRace = null;
+    for (let d of data) {
+        if (d.race_date >= today) {
+            nextRace = d.race_date;
+            break;
+        }
     }
+    if (!nextRace && data.length > 0) nextRace = data[0].race_date;
+    
+    select.innerHTML = '<option value="all">全部賽日</option>' + data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+    if (nextRace) select.value = nextRace;
+}
     
     // ========== 載入參賽者 ==========
     async function loadParticipants() {
