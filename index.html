@@ -515,7 +515,7 @@ async function loadRaceDaysForResult() {
         document.getElementById('rankChart').innerHTML = html;
     }
     
-// ========== 投注詳情（自訂顯示順序）==========
+// ========== 投注詳情（支援顯示退賽退款標記）==========
 async function loadUserBets() {
     const user = document.getElementById('detailUserSelect').value;
     const raceDate = document.getElementById('detailRaceDate').value;
@@ -538,31 +538,37 @@ async function loadUserBets() {
     }
     
     document.getElementById('detailList').innerHTML = data.map(b => {
-        // 1. 選馬資訊
         let selectedHorses = '';
         let allocation = '';
-        let reasonText = b.reason ? `📝 原因: ${b.reason}` : '';
+        let refundMsg = '';
+        let borderColor = '#cbd5e1';
         
         // 自動扣款
         if (b.flexible_data && b.flexible_data.auto_deduct) {
             selectedHorses = '-';
             allocation = '⚠️ 自動扣款: $120 (未投注)';
+            borderColor = '#ef4444';
         }
-        // 退賽退款
+        // 整筆退款（膽馬退賽）
         else if (b.refund === true) {
-            selectedHorses = '-';
-            allocation = '🔄 退賽退款: 涉及退賽馬匹，此注項已全額退款（不計入統計）';
+            selectedHorses = '🐎 選馬: 涉及退賽膽馬';
+            allocation = '🔄 退賽退款: 膽馬退賽，整筆全額退款（不計入統計）';
+            borderColor = '#f59e0b';
         }
         // 新玩法
         else if (b.flexible_data && b.flexible_data.units) {
             const fd = b.flexible_data;
             const units = fd.units || {};
-            // 選馬顯示
-            const horses = fd.horses.split(',').join('、');
+            const horses = fd.horses ? fd.horses.split(',').join('、') : '';
             const comboInfo = fd.comboType ? ` (${fd.comboType}${fd.banker ? ` 膽${fd.banker}` : ''})` : '';
             selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
-            // 分配顯示
             allocation = `🎲 分配: 獨贏${units.win||0}注 / 位置${units.place||0}注 / 連贏${units.quinella||0}組 (x${fd.multiplier||1}) / 位置Q${units.quinellaPlace||0}組 (x${fd.multiplier||1})`;
+            
+            // 部分退款標記（腳馬退賽）
+            if (fd.scratchedLegs && fd.scratchedLegs.length > 0) {
+                refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 腳馬 ${fd.scratchedLegs.join(',')} 退賽，相關組合已退款</div>`;
+                borderColor = '#f59e0b';
+            }
         }
         // 舊玩法（膽拖）
         else if (b.banker && b.banker !== '') {
@@ -570,11 +576,8 @@ async function loadUserBets() {
             allocation = '🎲 分配: 膽馬獨贏1注 + 位置3注 + 連贏2注 + 位置Q2注';
         }
         
-        // 邊框顏色
-        let borderColor = '#cbd5e1';
+        // 邊框顏色（派彩獲利為綠色）
         if (b.payout > 0 && b.payout > (b.amount || 120)) borderColor = '#16a34a';
-        else if (b.refund) borderColor = '#f59e0b';
-        else if (b.flexible_data && b.flexible_data.auto_deduct) borderColor = '#ef4444';
         
         return `
             <div class="card" style="border-left:4px solid ${borderColor}; margin-bottom:12px;">
@@ -582,7 +585,8 @@ async function loadUserBets() {
                 <div>👤 參賽者: ${b.participant}</div>
                 <div>${selectedHorses}</div>
                 <div>${allocation}</div>
-                ${reasonText ? `<div>${reasonText}</div>` : ''}
+                ${b.reason ? `<div>📝 原因: ${b.reason}</div>` : ''}
+                ${refundMsg}
                 <div>💰 派彩: $${b.payout || 0}</div>
             </div>
         `;
@@ -714,7 +718,7 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
         }
     }
     
-// ========== 儲存賽果與結算（支援部分退款）==========
+// ========== 儲存賽果與結算（完整版，支援膽馬/腳馬退賽處理）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -727,6 +731,7 @@ async function saveRaceResult() {
     // 讀取退賽馬匹
     const scratchedRaw = document.getElementById('scratchedHorses').value;
     const scratchedHorses = scratchedRaw ? scratchedRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
+    const scratchedSet = new Set(scratchedHorses);
     
     const winDiv = Number(document.getElementById('div_win').value) || 0;
     const qinDiv = Number(document.getElementById('div_q').value) || 0;
@@ -737,7 +742,7 @@ async function saveRaceResult() {
     const qp13 = Number(document.getElementById('div_qp13').value) || 0;
     const qp23 = Number(document.getElementById('div_qp23').value) || 0;
     
-    // 儲存賽果
+    // 儲存賽果（包含退賽資訊）
     const { error: resError } = await supabaseClient.from('race_results').upsert({
         race_date: raceDate, race_no: raceNo,
         first, second, third,
@@ -752,12 +757,11 @@ async function saveRaceResult() {
     const { data: bets, error: betsError } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
     if (betsError) { alert("讀取投注失敗: " + betsError.message); return; }
     
-    const scratchedSet = new Set(scratchedHorses);
-    
     for (let bet of bets) {
         let payout = 0;
         let refund = false;
         let amount = bet.amount || 120;
+        let updatedFlexibleData = bet.flexible_data ? { ...bet.flexible_data } : null;
         
         // 自動扣款紀錄：不派彩
         if (bet.flexible_data && bet.flexible_data.auto_deduct) {
@@ -777,7 +781,14 @@ async function saveRaceResult() {
                 refund = true;
                 amount = 0;
                 payout = 0;
+                updatedFlexibleData.scratchedReason = '膽馬退賽，整筆退款';
             } else {
+                // 找出退賽的腳馬
+                const scratchedLegs = legs.filter(leg => scratchedSet.has(leg));
+                if (scratchedLegs.length > 0) {
+                    updatedFlexibleData.scratchedLegs = scratchedLegs;
+                }
+                
                 // 1. 獨贏結算
                 const winUnits = fd.units.win || 0;
                 if (winUnits > 0 && banker === first) {
@@ -888,11 +899,15 @@ async function saveRaceResult() {
         }
         
         // 更新投注紀錄
-        await supabaseClient.from('bets').update({ 
+        const updateData = { 
             payout: payout,
             amount: amount,
             refund: refund
-        }).eq('id', bet.id);
+        };
+        if (updatedFlexibleData) {
+            updateData.flexible_data = updatedFlexibleData;
+        }
+        await supabaseClient.from('bets').update(updateData).eq('id', bet.id);
     }
     
     alert(`✅ 第 ${raceNo} 場結算完成！${scratchedHorses.length > 0 ? `退賽馬匹: ${scratchedHorses.join(',')}` : ''}`);
