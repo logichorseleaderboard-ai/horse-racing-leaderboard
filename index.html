@@ -796,9 +796,12 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
     const raceNo = parseInt(document.getElementById('inputRaceNo').value);
     const horses = getSelectedHorses();
     if (horses.length === 0) return alert("請至少選擇一匹馬");
+    
+    // 只宣告一次 comboType
     const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
     const bankerHorse = (comboType === 'banker') ? document.getElementById('bankerHorseSelect').value : null;
     const reason = document.getElementById('betReason').value;
+    
     const { data: existing } = await supabaseClient.from('bets').select('id').eq('participant', participant).eq('race_date', raceDate);
     if (existing && existing.length >= 2) return alert("每人每賽日限投2場");
     
@@ -808,9 +811,7 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
     const quinellaPlaceGroups = parseInt(document.getElementById('quinellaPlaceUnits').value) || 0;
     const multiplier = getComboMultiplier();
     const horseCount = horses.length;
-    const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
-    const bankerHorse = (comboType === 'banker') ? document.getElementById('bankerHorseSelect').value : null;
-
+    
     // 計算獨贏/位置實際注數
     let winActual = 0;
     let placeActual = 0;
@@ -818,13 +819,13 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
         winActual = winUnits;
         placeActual = placeUnits;
     } else if (comboType === 'banker' && bankerHorse) {
-        winActual = winUnits;      // 膽拖模式：只投膽馬
+        winActual = winUnits;
         placeActual = placeUnits;
     } else {
-        winActual = winUnits * horseCount;   // 互串模式：投所有馬
+        winActual = winUnits * horseCount;
         placeActual = placeUnits * horseCount;
     }
-
+    
     const flexibleData = {
         horses: horses.join(','),
         comboType: comboType || null,
@@ -851,6 +852,7 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
         flexible_data: flexibleData,
         amount: 120
     }]);
+
     if (error) alert("投注失敗: " + error.message);
     else {
         alert("✅ 投注成功！");
