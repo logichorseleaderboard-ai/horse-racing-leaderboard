@@ -281,7 +281,7 @@
     
     let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false, resultUnlocked = false, betUnlocked = false;
     
-// ========== 從星島頭條 API 取得馬匹資料 ==========
+// ========== 從星島頭條 API 取得馬匹資料（繁體中文優先）==========
 async function fetchHorsesFromAPI(raceDate, raceNo) {
     try {
         const url = `https://racing.stheadline.com/api/raceEntry?raceNo=${raceNo}&date=${raceDate}&rev=2`;
@@ -290,7 +290,8 @@ async function fetchHorsesFromAPI(raceDate, raceNo) {
         if (result.success && result.data && result.data.raceEntries) {
             return result.data.raceEntries.map(entry => ({
                 horseNo: entry.horseNo,
-                horseName: entry.horse?.nameSc || entry.horse?.name || `馬匹 ${entry.horseNo}`,
+                // 優先使用繁體中文 name，若無則使用 nameSc（簡體），最後用馬號
+                horseName: entry.horse?.name || entry.horse?.nameSc || `馬匹 ${entry.horseNo}`,
                 horseNameEn: entry.horse?.nameEn || '',
                 jockey: entry.jockey?.name || '',
                 trainer: entry.trainer?.name || '',
