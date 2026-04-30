@@ -664,87 +664,115 @@
     }
     
     // ========== 個人統計（修正：使用 ilike 年月）==========
-    async function loadStatsForCurrentUser() {
-        const user = document.getElementById('statsUserSelect').value;
-        if (!user) {
-            document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
-            return;
-        }
-        const now = new Date();
-        const yearMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-        const { data, error } = await supabaseClient
-            .from('bets')
-            .select('payout, amount')
-            .eq('participant', user)
-            .ilike('race_date', `${yearMonth}%`);
-        if (error) {
-            console.error(error);
-            document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>';
-            return;
-        }
-        const totalStake = (data||[]).reduce((sum, b) => sum + (b.amount || 120), 0);
-        const totalPayout = (data||[]).reduce((s,b)=>s+(b.payout||0),0);
-        const roi = totalStake ? (totalPayout/totalStake*100).toFixed(1) : 0;
-        const winCount = (data||[]).filter(b=>b.payout > (b.amount || 120)).length;
-        const winRate = data?.length ? (winCount/data.length*100).toFixed(1) : 0;
-        document.getElementById('statsDisplay').innerHTML = `<div class="stats-grid"><div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div><div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div><div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div><div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div></div>`;
+async function loadStatsForCurrentUser() {
+    const user = document.getElementById('statsUserSelect').value;
+    if (!user) {
+        document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
+        return;
+    }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+    const endDate = `${year}-${month}-${lastDay}`;
+    
+    const { data, error } = await supabaseClient
+        .from('bets')
+        .select('payout, amount')
+        .eq('participant', user)
+        .gte('race_date', startDate)
+        .lte('race_date', endDate);
+    
+    if (error) {
+        console.error("統計查詢錯誤:", error);
+        document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗: ' + error.message + '</div>';
+        return;
     }
     
-    // ========== 每月排名（修正：使用 ilike 年月）==========
-    async function loadMonthlyRanking() {
-        const now = new Date();
-        const yearMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-        document.getElementById('monthDisplay').innerHTML = `📅 ${now.getFullYear()}年${now.getMonth()+1}月`;
-        
-        const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
-        if (pErr) return;
-        const participantNames = allParticipants.map(p => p.name);
-        
-        const { data, error } = await supabaseClient
-            .from('bets')
-            .select('participant, payout, amount')
-            .ilike('race_date', `${yearMonth}%`);
-        if (error) {
-            console.error(error);
-            document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入失敗</td></tbody>';
-            return;
-        }
-        
-        const statsMap = new Map();
-        participantNames.forEach(name => {
-            statsMap.set(name, { totalStake: 0, totalPayout: 0 });
-        });
-        (data || []).forEach(bet => {
-            const name = bet.participant;
-            if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
-            const s = statsMap.get(name);
-            s.totalStake += bet.amount || 120;
-            s.totalPayout += bet.payout || 0;
-        });
-        const ranking = Array.from(statsMap.entries()).map(([name, s]) => ({
+    const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 120), 0);
+    const totalPayout = (data || []).reduce((s, b) => s + (b.payout || 0), 0);
+    const roi = totalStake ? ((totalPayout / totalStake) * 100).toFixed(1) : 0;
+    const winCount = (data || []).filter(b => b.payout > (b.amount || 120)).length;
+    const winRate = data?.length ? ((winCount / data.length) * 100).toFixed(1) : 0;
+    
+    document.getElementById('statsDisplay').innerHTML = `
+        <div class="stats-grid">
+            <div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div>
+            <div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div>
+            <div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div>
+            <div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div>
+        </div>
+    `;
+}
+
+async function loadMonthlyRanking() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+    const endDate = `${year}-${month}-${lastDay}`;
+    document.getElementById('monthDisplay').innerHTML = `📅 ${year}年${parseInt(month)}月 (${startDate} 至 ${endDate})`;
+    
+    const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
+    if (pErr) {
+        console.error(pErr);
+        document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入參賽者失敗</td></tbody>';
+        return;
+    }
+    const participantNames = allParticipants.map(p => p.name);
+    
+    const { data, error } = await supabaseClient
+        .from('bets')
+        .select('participant, payout, amount')
+        .gte('race_date', startDate)
+        .lte('race_date', endDate);
+    
+    if (error) {
+        console.error("排名查詢錯誤:", error);
+        document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入失敗: ' + error.message + '</td></tbody>';
+        return;
+    }
+    
+    const statsMap = new Map();
+    participantNames.forEach(name => {
+        statsMap.set(name, { totalStake: 0, totalPayout: 0 });
+    });
+    (data || []).forEach(bet => {
+        const name = bet.participant;
+        if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
+        const s = statsMap.get(name);
+        s.totalStake += bet.amount || 120;
+        s.totalPayout += bet.payout || 0;
+    });
+    
+    const ranking = Array.from(statsMap.entries())
+        .map(([name, s]) => ({
             name,
             totalStake: s.totalStake,
             totalPayout: s.totalPayout,
             roi: s.totalStake === 0 ? 0 : ((s.totalPayout - s.totalStake) / s.totalStake * 100).toFixed(1)
-        })).sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
-        
-        const tbody = ranking.map((item, idx) => {
-            let roiColor = parseFloat(item.roi) > 0 ? 'color: #16a34a;' : (parseFloat(item.roi) < 0 ? 'color: #b91c1c;' : 'color: #475569;');
-            let rankDisplay = idx + 1;
-            if (idx === 0) rankDisplay = '🥇 1';
-            else if (idx === 1) rankDisplay = '🥈 2';
-            else if (idx === 2) rankDisplay = '🥉 3';
-            else rankDisplay = `${idx+1}`;
-            return `<tr style="${idx<3 ? 'background-color:#f0fdf4;' : ''}">
-                        <td style="font-weight:bold;">${rankDisplay}</td>
-                        <td>${item.name}</td>
-                        <td>$${item.totalStake.toLocaleString()}</td>
-                        <td>$${item.totalPayout.toLocaleString()}</td>
-                        <td style="${roiColor} font-weight:bold;">${item.roi}%</td>
-                     </tr>`;
-        }).join('');
-        document.getElementById('rankingTable').innerHTML = `<tbody>${tbody}</tbody>`;
-    }
+        }))
+        .sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
+    
+    const tbody = ranking.map((item, idx) => {
+        let roiColor = parseFloat(item.roi) > 0 ? 'color: #16a34a;' : (parseFloat(item.roi) < 0 ? 'color: #b91c1c;' : 'color: #475569;');
+        let rankDisplay = idx + 1;
+        if (idx === 0) rankDisplay = '🥇 1';
+        else if (idx === 1) rankDisplay = '🥈 2';
+        else if (idx === 2) rankDisplay = '🥉 3';
+        else rankDisplay = `${idx+1}`;
+        return `<tr style="${idx<3 ? 'background-color:#f0fdf4;' : ''}">
+                    <td style="font-weight:bold;">${rankDisplay}</td>
+                    <td>${item.name}</td>
+                    <td>$${item.totalStake.toLocaleString()}</td>
+                    <td>$${item.totalPayout.toLocaleString()}</td>
+                    <td style="${roiColor} font-weight:bold;">${item.roi}%</td>
+                </tr>`;
+    }).join('');
+    document.getElementById('rankingTable').innerHTML = `<tbody>${tbody}</tbody>`;
+}
     
     // ========== 管理頁面載入投注紀錄 ==========
     async function loadAdminBets() {
