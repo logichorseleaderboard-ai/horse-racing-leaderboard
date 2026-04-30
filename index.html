@@ -323,14 +323,18 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
     
-    // ========== 馬匹選擇相關 ==========
+// ========== 初始化馬匹下拉選單（根據馬號排序）==========
 async function initHorseSelects() {
     if (!currentRaceDate) return;
     const raceNo = parseInt(document.getElementById('inputRaceNo').value);
     if (isNaN(raceNo)) return;
     
     const horses = await fetchHorsesFromAPI(currentRaceDate, raceNo);
-    const opts = '<option value="">-- 請選擇 --</option>' + horses.map(h => `<option value="${h.horseNo}">${h.horseNo}號 - ${h.horseName}</option>`).join('');
+    
+    // 根據馬號排序（升序）
+    const sortedHorses = [...horses].sort((a, b) => a.horseNo - b.horseNo);
+    
+    const opts = '<option value="">-- 請選擇 --</option>' + sortedHorses.map(h => `<option value="${h.horseNo}">${h.horseNo}號 - ${h.horseName}</option>`).join('');
     
     ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => {
         const el = document.getElementById(id);
