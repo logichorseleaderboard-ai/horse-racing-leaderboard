@@ -136,8 +136,16 @@
         <div class="card"><h2>📊 排位熱度</h2><div class="form-group"><label>場次</label><select id="rankRaceNo"></select></div><div id="rankChart"></div></div>
     </div>
     <div id="detail-page" class="page">
-        <div class="card"><h2>🔍 投注詳情</h2><div class="flex-row"><div class="form-group"><label>參賽者</label><select id="detailUserSelect"><option value="all">全部參賽者</option></select></div><div class="form-group"><label>場次</label><select id="detailRaceNo"><option value="all">全部場次</option></select></div></div><div id="detailList"></div></div>
-    </div>
+        <div class="card">
+            <h2>🔍 投注詳情</h2>
+            <div class="flex-row">
+                <div class="form-group"><label>賽日</label><select id="detailRaceDate"></select></div>
+                <div class="form-group"><label>參賽者</label><select id="detailUserSelect"><option value="all">全部參賽者</option></select></div>
+                <div class="form-group"><label>場次</label><select id="detailRaceNo"><option value="all">全部場次</option></select></div>
+            </div>
+            <div id="detailList"></div>
+        </div>
+    </div>    
     <div id="input-page" class="page">
         <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
         <div class="card">
@@ -372,7 +380,17 @@
         });
     }
     
-    // ========== 載入賽日至結算下拉選單 ==========
+    // ========== 載入賽日相關下拉選單 ==========
+    async function loadRaceDaysForResult() {
+        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: false });
+        if (error) return;
+        const select = document.getElementById('resultRaceDate');
+        if (select) {
+            select.innerHTML = data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+            if (data.length > 0) select.value = data[0].race_date;
+        }
+    }
+    
     async function loadRaceDaysForSettle() {
         const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: false });
         if (error) return;
@@ -382,83 +400,16 @@
         }
     }
     
-    // ========== 自動扣款函數 ==========
-    async function autoDeductForNonBetting() {
-        const raceDate = document.getElementById('settleRaceDate').value;
-        if (!raceDate) {
-            alert("請選擇賽日");
-            return;
-        }
-        if (!confirm(`確定要對 ${raceDate} 沒有投注的參賽者自動扣款 $120 嗎？\n此操作無法復原。`)) return;
-        
-        const btn = document.getElementById('autoDeductBtn');
-        const msgDiv = document.getElementById('settleResultMsg');
-        btn.disabled = true;
-        msgDiv.style.display = 'block';
-        msgDiv.innerHTML = '處理中...';
-        
-        try {
-            const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
-            if (pErr) throw pErr;
-            const participantNames = allParticipants.map(p => p.name);
-            
-            const { data: bets, error: bErr } = await supabaseClient.from('bets').select('participant').eq('race_date', raceDate);
-            if (bErr) throw bErr;
-            const existingParticipants = new Set(bets.map(b => b.participant));
-            
-            const noBetParticipants = participantNames.filter(name => !existingParticipants.has(name));
-            
-            if (noBetParticipants.length === 0) {
-                msgDiv.innerHTML = `✅ ${raceDate} 所有參賽者皆有投注，無需扣款。`;
-                btn.disabled = false;
-                return;
-            }
-            
-            let insertedCount = 0;
-            for (const participant of noBetParticipants) {
-                const autoDeductData = {
-                    participant: participant,
-                    race_date: raceDate,
-                    race_no: 0,
-                    banker: '',
-                    legs: '',
-                    payout: 0,
-                    reason: `自動扣款 (${raceDate} 未投注)`,
-                    flexible_data: {
-                        auto_deduct: true,
-                        amount: 120,
-                        message: `未在 ${raceDate} 投注，自動扣除 $120`
-                    },
-                    amount: 120
-                };
-                const { error } = await supabaseClient.from('bets').insert([autoDeductData]);
-                if (error) console.error(`插入 ${participant} 失敗:`, error);
-                else insertedCount++;
-            }
-            
-            msgDiv.innerHTML = `✅ 結算完成！共 ${noBetParticipants.length} 位參賽者未投注，已自動扣款 $120 每位。`;
-            await loadAdminBets();
-            await loadMonthlyRanking();
-            if (document.getElementById('stats-page').classList.contains('active-page')) {
-                loadStatsForCurrentUser();
-                loadMonthlyRanking();
-            }
-        } catch (err) {
-            msgDiv.innerHTML = `❌ 錯誤: ${err.message}`;
-        } finally {
-            btn.disabled = false;
-        }
-    }
-    
-    // ========== 載入賽果頁賽日 ==========
-    async function loadRaceDaysForResult() {
-        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: false });
+    async function loadRaceDaysForDetail() {
+        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
         if (error) return;
-        const select = document.getElementById('resultRaceDate');
-        if (select) {
-            select.innerHTML = data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
-            if (data.length > 0) select.value = data[0].race_date;
-        }
+        const select = document.getElementById('detailRaceDate');
+        if (!select) return;
+        const today = new Date().toISOString().slice(0,10);
+        let nextRace = raceDays.find(d => d.race_date >= today);
+        if (!nextRace && raceDays.length) nextRace = raceDays[0];
+        select.innerHTML = '<option value="all">全部賽日</option>' + data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+        if (nextRace) select.value = nextRace.race_date;
     }
     
     // ========== 載入參賽者 ==========
@@ -483,9 +434,9 @@
         document.getElementById('raceDayList').innerHTML = raceDays.map(d => `<span class="badge">${d.race_date} <b onclick="deleteRaceDay(${d.id})" style="cursor:pointer;color:red;">✖</b></span>`).join(' ');
         await loadRaceDaysForResult();
         await loadRaceDaysForSettle();
+        await loadRaceDaysForDetail();
     }
     
-    // ========== 場次選擇 ==========
     function initRaceNoSelects() {
         const opts = Array.from({length:11}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
         ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => {
@@ -519,12 +470,14 @@
         document.getElementById('rankChart').innerHTML = html;
     }
     
-    // ========== 投注詳情 ==========
+    // ========== 投注詳情（支援賽日篩選）==========
     async function loadUserBets() {
         const user = document.getElementById('detailUserSelect').value;
+        const raceDate = document.getElementById('detailRaceDate').value;
         const raceNo = document.getElementById('detailRaceNo').value;
         let query = supabaseClient.from('bets').select('*').order('race_date', { ascending: false });
         if (user && user !== 'all') query = query.eq('participant', user);
+        if (raceDate && raceDate !== 'all') query = query.eq('race_date', raceDate);
         if (raceNo && raceNo !== 'all') query = query.eq('race_no', parseInt(raceNo));
         const { data, error } = await query;
         if (error) { console.error(error); document.getElementById('detailList').innerHTML = '<div class="card">載入失敗</div>'; return; }
@@ -583,7 +536,7 @@
         
         const { error } = await supabaseClient.from('bets').insert([{
             participant, race_date: raceDate, race_no: raceNo,
-            banker: '', legs: '',
+            banker: null, legs: null,
             payout: 0,
             reason: reason,
             flexible_data: flexibleData,
@@ -612,293 +565,226 @@
         }
     });
     
-    // ========== 儲存賽果 ==========
-async function saveRaceResult() {
-    const raceDate = document.getElementById('resultRaceDate').value;
-    if (!raceDate) { alert("請選擇賽日"); return; }
-    const raceNo = parseInt(document.getElementById('resultRaceNo').value);
-    const first = parseInt(document.getElementById('first').value);
-    const second = parseInt(document.getElementById('second').value);
-    const third = parseInt(document.getElementById('third').value);
-    if(!first || !second || !third) return alert("請輸入前三名馬號");
-
-    // 讀取派彩金額
-    const winDiv = Number(document.getElementById('div_win').value) || 0;
-    const qinDiv = Number(document.getElementById('div_q').value) || 0;
-    const placeDiv1 = Number(document.getElementById('div_pla1').value) || 0;
-    const placeDiv2 = Number(document.getElementById('div_pla2').value) || 0;
-    const placeDiv3 = Number(document.getElementById('div_pla3').value) || 0;
-    const qp12 = Number(document.getElementById('div_qp12').value) || 0;
-    const qp13 = Number(document.getElementById('div_qp13').value) || 0;
-    const qp23 = Number(document.getElementById('div_qp23').value) || 0;
-
-    // 儲存賽果（使用 onConflict 處理重複）
-    const { error: resError } = await supabaseClient
-        .from('race_results')
-        .upsert({
-            race_date: raceDate,
-            race_no: raceNo,
+    // ========== 自動扣款 ==========
+    async function autoDeductForNonBetting() {
+        const raceDate = document.getElementById('settleRaceDate').value;
+        if (!raceDate) { alert("請選擇賽日"); return; }
+        if (!confirm(`確定要對 ${raceDate} 沒有投注的參賽者自動扣款 $120 嗎？\n此操作無法復原。`)) return;
+        const btn = document.getElementById('autoDeductBtn');
+        const msgDiv = document.getElementById('settleResultMsg');
+        btn.disabled = true;
+        msgDiv.style.display = 'block';
+        msgDiv.innerHTML = '處理中...';
+        try {
+            const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
+            if (pErr) throw pErr;
+            const participantNames = allParticipants.map(p => p.name);
+            const { data: bets, error: bErr } = await supabaseClient.from('bets').select('participant').eq('race_date', raceDate);
+            if (bErr) throw bErr;
+            const existingParticipants = new Set(bets.map(b => b.participant));
+            const noBetParticipants = participantNames.filter(name => !existingParticipants.has(name));
+            if (noBetParticipants.length === 0) {
+                msgDiv.innerHTML = `✅ ${raceDate} 所有參賽者皆有投注，無需扣款。`;
+                btn.disabled = false;
+                return;
+            }
+            for (const participant of noBetParticipants) {
+                const autoDeductData = {
+                    participant: participant,
+                    race_date: raceDate,
+                    race_no: 0,
+                    banker: null, legs: null,
+                    payout: 0,
+                    reason: `自動扣款 (${raceDate} 未投注)`,
+                    flexible_data: { auto_deduct: true, amount: 120, message: `未在 ${raceDate} 投注，自動扣除 $120` },
+                    amount: 120
+                };
+                await supabaseClient.from('bets').insert([autoDeductData]);
+            }
+            msgDiv.innerHTML = `✅ 結算完成！共 ${noBetParticipants.length} 位參賽者未投注，已自動扣款 $120 每位。`;
+            await loadAdminBets();
+            await loadMonthlyRanking();
+            if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
+        } catch (err) {
+            msgDiv.innerHTML = `❌ 錯誤: ${err.message}`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+    
+    // ========== 儲存賽果與結算 ==========
+    async function saveRaceResult() {
+        const raceDate = document.getElementById('resultRaceDate').value;
+        if (!raceDate) { alert("請選擇賽日"); return; }
+        const raceNo = parseInt(document.getElementById('resultRaceNo').value);
+        const first = parseInt(document.getElementById('first').value);
+        const second = parseInt(document.getElementById('second').value);
+        const third = parseInt(document.getElementById('third').value);
+        if(!first || !second || !third) return alert("請輸入前三名馬號");
+        const winDiv = Number(document.getElementById('div_win').value) || 0;
+        const qinDiv = Number(document.getElementById('div_q').value) || 0;
+        const placeDiv1 = Number(document.getElementById('div_pla1').value) || 0;
+        const placeDiv2 = Number(document.getElementById('div_pla2').value) || 0;
+        const placeDiv3 = Number(document.getElementById('div_pla3').value) || 0;
+        const qp12 = Number(document.getElementById('div_qp12').value) || 0;
+        const qp13 = Number(document.getElementById('div_qp13').value) || 0;
+        const qp23 = Number(document.getElementById('div_qp23').value) || 0;
+        
+        const { error: resError } = await supabaseClient.from('race_results').upsert({
+            race_date: raceDate, race_no: raceNo,
             first, second, third,
-            win_div: winDiv,
-            qin_div: qinDiv,
-            place_div1: placeDiv1,
-            place_div2: placeDiv2,
-            place_div3: placeDiv3,
-            qin_place_div12: qp12,
-            qin_place_div13: qp13,
-            qin_place_div23: qp23
+            win_div: winDiv, qin_div: qinDiv,
+            place_div1: placeDiv1, place_div2: placeDiv2, place_div3: placeDiv3,
+            qin_place_div12: qp12, qin_place_div13: qp13, qin_place_div23: qp23
         }, { onConflict: 'race_date, race_no' });
-    
-    if (resError) {
-        alert("賽果儲存失敗: " + resError.message);
-        return;
-    }
-
-    // 取得該場所有投注
-    const { data: bets, error: betsError } = await supabaseClient
-        .from('bets')
-        .select('*')
-        .eq('race_date', raceDate)
-        .eq('race_no', raceNo);
-    
-    if (betsError) {
-        alert("讀取投注失敗: " + betsError.message);
-        return;
-    }
-
-    for (let bet of bets) {
-        let payout = 0;
+        if (resError) { alert("賽果儲存失敗: " + resError.message); return; }
         
-        // 跳過自動扣款紀錄
-        if (bet.flexible_data && bet.flexible_data.auto_deduct) {
-            payout = 0;
-        }
-        // 新玩法：使用 flexible_data
-        else if (bet.flexible_data && bet.flexible_data.units) {
-            const fd = bet.flexible_data;
-            const multiplier = fd.multiplier || 1;
-            const banker = parseInt(fd.banker);
-            const legs = fd.horses ? fd.horses.split(',').map(Number) : [];
-            
-            // 獨贏結算
-            const winUnits = fd.units.win || 0;
-            if (winUnits > 0 && banker === first) {
-                payout += winUnits * winDiv;
-            }
-            
-            // 位置結算
-            const placeUnits = fd.units.place || 0;
-            if (placeUnits > 0) {
-                if (banker === first) payout += placeUnits * placeDiv1;
-                else if (banker === second) payout += placeUnits * placeDiv2;
-                else if (banker === third) payout += placeUnits * placeDiv3;
-            }
-            
-            // 連贏結算
-            const quinellaGroups = fd.units.quinella || 0;
-            if (quinellaGroups > 0) {
-                let quinellaCombos = [];
-                if (fd.comboType === 'all') {
-                    for (let i = 0; i < legs.length; i++) {
-                        for (let j = i+1; j < legs.length; j++) {
-                            quinellaCombos.push([legs[i], legs[j]]);
-                        }
-                    }
-                } else if (fd.comboType === 'banker' && banker) {
-                    for (let leg of legs) {
-                        if (leg !== banker) quinellaCombos.push([banker, leg]);
-                    }
-                }
-                for (let combo of quinellaCombos) {
-                    if ((combo[0] === first && combo[1] === second) || (combo[0] === second && combo[1] === first)) {
-                        payout += quinellaGroups * qinDiv;
-                    }
-                }
-            }
-            
-            // 位置Q結算
-            const qpGroups = fd.units.quinellaPlace || 0;
-            if (qpGroups > 0) {
-                let qpCombos = [];
-                if (fd.comboType === 'all') {
-                    for (let i = 0; i < legs.length; i++) {
-                        for (let j = i+1; j < legs.length; j++) {
-                            qpCombos.push([legs[i], legs[j]]);
-                        }
-                    }
-                } else if (fd.comboType === 'banker' && banker) {
-                    for (let leg of legs) {
-                        if (leg !== banker) qpCombos.push([banker, leg]);
-                    }
-                }
-                for (let combo of qpCombos) {
-                    if (combo.includes(first) && combo.includes(second)) payout += qpGroups * qp12;
-                    if (combo.includes(first) && combo.includes(third)) payout += qpGroups * qp13;
-                    if (combo.includes(second) && combo.includes(third)) payout += qpGroups * qp23;
-                }
-            }
-        }
-        // 舊玩法：使用 banker 和 legs
-        else if (bet.banker && bet.banker !== '' && bet.legs) {
-            const banker = parseInt(bet.banker);
-            const legs = bet.legs.split(',').map(Number);
-            const leg1 = legs[0], leg2 = legs[1];
-            
-            if (banker === first) payout += winDiv + (placeDiv1 * 3);
-            else if (banker === second) payout += placeDiv2 * 3;
-            else if (banker === third) payout += placeDiv3 * 3;
-            
-            if ((banker === first && leg1 === second) || (banker === second && leg1 === first)) payout += qinDiv;
-            if ((banker === first && leg2 === second) || (banker === second && leg2 === first)) payout += qinDiv;
-            
-            const pairs = [[banker, leg1], [banker, leg2]];
-            for (let pair of pairs) {
-                if (pair.includes(first) && pair.includes(second)) payout += qp12;
-                if (pair.includes(first) && pair.includes(third)) payout += qp13;
-                if (pair.includes(second) && pair.includes(third)) payout += qp23;
-            }
-        }
+        const { data: bets, error: betsError } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
+        if (betsError) { alert("讀取投注失敗: " + betsError.message); return; }
         
-        // 更新派彩
-        await supabaseClient.from('bets').update({ payout: payout }).eq('id', bet.id);
+        for (let bet of bets) {
+            let payout = 0;
+            if (bet.flexible_data && bet.flexible_data.auto_deduct) {
+                payout = 0;
+            } else if (bet.flexible_data && bet.flexible_data.units) {
+                const fd = bet.flexible_data;
+                const banker = parseInt(fd.banker);
+                const legs = fd.horses ? fd.horses.split(',').map(Number) : [];
+                const winUnits = fd.units.win || 0;
+                if (winUnits > 0 && banker === first) payout += winUnits * winDiv;
+                const placeUnits = fd.units.place || 0;
+                if (placeUnits > 0) {
+                    if (banker === first) payout += placeUnits * placeDiv1;
+                    else if (banker === second) payout += placeUnits * placeDiv2;
+                    else if (banker === third) payout += placeUnits * placeDiv3;
+                }
+                const quinellaGroups = fd.units.quinella || 0;
+                if (quinellaGroups > 0) {
+                    let quinellaCombos = [];
+                    if (fd.comboType === 'all') {
+                        for (let i = 0; i < legs.length; i++) {
+                            for (let j = i+1; j < legs.length; j++) quinellaCombos.push([legs[i], legs[j]]);
+                        }
+                    } else if (fd.comboType === 'banker' && banker) {
+                        for (let leg of legs) if (leg !== banker) quinellaCombos.push([banker, leg]);
+                    }
+                    for (let combo of quinellaCombos) {
+                        if ((combo[0] === first && combo[1] === second) || (combo[0] === second && combo[1] === first)) payout += quinellaGroups * qinDiv;
+                    }
+                }
+                const qpGroups = fd.units.quinellaPlace || 0;
+                if (qpGroups > 0) {
+                    let qpCombos = [];
+                    if (fd.comboType === 'all') {
+                        for (let i = 0; i < legs.length; i++) {
+                            for (let j = i+1; j < legs.length; j++) qpCombos.push([legs[i], legs[j]]);
+                        }
+                    } else if (fd.comboType === 'banker' && banker) {
+                        for (let leg of legs) if (leg !== banker) qpCombos.push([banker, leg]);
+                    }
+                    for (let combo of qpCombos) {
+                        if (combo.includes(first) && combo.includes(second)) payout += qpGroups * qp12;
+                        if (combo.includes(first) && combo.includes(third)) payout += qpGroups * qp13;
+                        if (combo.includes(second) && combo.includes(third)) payout += qpGroups * qp23;
+                    }
+                }
+            } else if (bet.banker && bet.banker !== '' && bet.legs) {
+                const banker = parseInt(bet.banker);
+                const legs = bet.legs.split(',').map(Number);
+                const leg1 = legs[0], leg2 = legs[1];
+                if (banker === first) payout += winDiv + (placeDiv1 * 3);
+                else if (banker === second) payout += placeDiv2 * 3;
+                else if (banker === third) payout += placeDiv3 * 3;
+                if ((banker === first && leg1 === second) || (banker === second && leg1 === first)) payout += qinDiv;
+                if ((banker === first && leg2 === second) || (banker === second && leg2 === first)) payout += qinDiv;
+                const pairs = [[banker, leg1], [banker, leg2]];
+                for (let pair of pairs) {
+                    if (pair.includes(first) && pair.includes(second)) payout += qp12;
+                    if (pair.includes(first) && pair.includes(third)) payout += qp13;
+                    if (pair.includes(second) && pair.includes(third)) payout += qp23;
+                }
+            }
+            await supabaseClient.from('bets').update({ payout: payout }).eq('id', bet.id);
+        }
+        alert(`✅ 第 ${raceNo} 場結算完成！`);
+        loadRankingChart();
+        if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
+        loadMonthlyRanking();
+        if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
     }
     
-    alert(`✅ 第 ${raceNo} 場結算完成！`);
-    loadRankingChart();
-    if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
-    loadMonthlyRanking();
-    if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
-}
-    
-    // ========== 個人統計（修正：使用 ilike 年月）==========
-async function loadStatsForCurrentUser() {
-    const user = document.getElementById('statsUserSelect').value;
-    if (!user) {
-        document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
-        return;
-    }
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const startDate = `${year}-${month}-01`;
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const endDate = `${year}-${month}-${lastDay}`;
-    
-    const { data, error } = await supabaseClient
-        .from('bets')
-        .select('payout, amount')
-        .eq('participant', user)
-        .gte('race_date', startDate)
-        .lte('race_date', endDate);
-    
-    if (error) {
-        console.error("統計查詢錯誤:", error);
-        document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗: ' + error.message + '</div>';
-        return;
+    // ========== 個人統計 ==========
+    async function loadStatsForCurrentUser() {
+        const user = document.getElementById('statsUserSelect').value;
+        if (!user) { document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const startDate = `${year}-${month}-01`;
+        const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+        const endDate = `${year}-${month}-${lastDay}`;
+        const { data, error } = await supabaseClient.from('bets').select('payout, amount').eq('participant', user).gte('race_date', startDate).lte('race_date', endDate);
+        if (error) { console.error(error); document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>'; return; }
+        const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 120), 0);
+        const totalPayout = (data || []).reduce((s, b) => s + (b.payout || 0), 0);
+        const roi = totalStake ? (totalPayout / totalStake * 100).toFixed(1) : 0;
+        const winCount = (data || []).filter(b => b.payout > (b.amount || 120)).length;
+        const winRate = data?.length ? (winCount / data.length * 100).toFixed(1) : 0;
+        document.getElementById('statsDisplay').innerHTML = `<div class="stats-grid"><div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div><div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div><div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div><div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div></div>`;
     }
     
-    const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 120), 0);
-    const totalPayout = (data || []).reduce((s, b) => s + (b.payout || 0), 0);
-    const roi = totalStake ? ((totalPayout / totalStake) * 100).toFixed(1) : 0;
-    const winCount = (data || []).filter(b => b.payout > (b.amount || 120)).length;
-    const winRate = data?.length ? ((winCount / data.length) * 100).toFixed(1) : 0;
-    
-    document.getElementById('statsDisplay').innerHTML = `
-        <div class="stats-grid">
-            <div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div>
-            <div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div>
-            <div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div>
-            <div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div>
-        </div>
-    `;
-}
-
-async function loadMonthlyRanking() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const startDate = `${year}-${month}-01`;
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const endDate = `${year}-${month}-${lastDay}`;
-    document.getElementById('monthDisplay').innerHTML = `📅 ${year}年${parseInt(month)}月 (${startDate} 至 ${endDate})`;
-    
-    const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
-    if (pErr) {
-        console.error(pErr);
-        document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入參賽者失敗</td></tbody>';
-        return;
-    }
-    const participantNames = allParticipants.map(p => p.name);
-    
-    const { data, error } = await supabaseClient
-        .from('bets')
-        .select('participant, payout, amount')
-        .gte('race_date', startDate)
-        .lte('race_date', endDate);
-    
-    if (error) {
-        console.error("排名查詢錯誤:", error);
-        document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入失敗: ' + error.message + '</td></tbody>';
-        return;
+    // ========== 每月排名 ==========
+    async function loadMonthlyRanking() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const startDate = `${year}-${month}-01`;
+        const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+        const endDate = `${year}-${month}-${lastDay}`;
+        document.getElementById('monthDisplay').innerHTML = `📅 ${year}年${parseInt(month)}月 (${startDate} 至 ${endDate})`;
+        const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
+        if (pErr) { document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入失敗</td></tbody>'; return; }
+        const participantNames = allParticipants.map(p => p.name);
+        const { data, error } = await supabaseClient.from('bets').select('participant, payout, amount').gte('race_date', startDate).lte('race_date', endDate);
+        if (error) { document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入失敗</td></tbody>'; return; }
+        const statsMap = new Map();
+        participantNames.forEach(name => statsMap.set(name, { totalStake: 0, totalPayout: 0 }));
+        (data || []).forEach(bet => {
+            const name = bet.participant;
+            if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
+            const s = statsMap.get(name);
+            s.totalStake += bet.amount || 120;
+            s.totalPayout += bet.payout || 0;
+        });
+        const ranking = Array.from(statsMap.entries()).map(([name, s]) => ({ name, totalStake: s.totalStake, totalPayout: s.totalPayout, roi: s.totalStake === 0 ? 0 : ((s.totalPayout - s.totalStake) / s.totalStake * 100).toFixed(1) })).sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
+        const tbody = ranking.map((item, idx) => {
+            let roiColor = parseFloat(item.roi) > 0 ? 'color: #16a34a;' : (parseFloat(item.roi) < 0 ? 'color: #b91c1c;' : 'color: #475569;');
+            let rankDisplay = idx === 0 ? '🥇 1' : (idx === 1 ? '🥈 2' : (idx === 2 ? '🥉 3' : `${idx+1}`));
+            return `<tr style="${idx<3 ? 'background-color:#f0fdf4;' : ''}">
+                        <td style="font-weight:bold;">${rankDisplay}</td>
+                        <td>${item.name}</td>
+                        <td>$${item.totalStake.toLocaleString()}</td>
+                        <td>$${item.totalPayout.toLocaleString()}</td>
+                        <td style="${roiColor} font-weight:bold;">${item.roi}%</td>
+                     </tr>`;
+        }).join('');
+        document.getElementById('rankingTable').innerHTML = `<tbody>${tbody}</tbody>`;
     }
     
-    const statsMap = new Map();
-    participantNames.forEach(name => {
-        statsMap.set(name, { totalStake: 0, totalPayout: 0 });
-    });
-    (data || []).forEach(bet => {
-        const name = bet.participant;
-        if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
-        const s = statsMap.get(name);
-        s.totalStake += bet.amount || 120;
-        s.totalPayout += bet.payout || 0;
-    });
-    
-    const ranking = Array.from(statsMap.entries())
-        .map(([name, s]) => ({
-            name,
-            totalStake: s.totalStake,
-            totalPayout: s.totalPayout,
-            roi: s.totalStake === 0 ? 0 : ((s.totalPayout - s.totalStake) / s.totalStake * 100).toFixed(1)
-        }))
-        .sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
-    
-    const tbody = ranking.map((item, idx) => {
-        let roiColor = parseFloat(item.roi) > 0 ? 'color: #16a34a;' : (parseFloat(item.roi) < 0 ? 'color: #b91c1c;' : 'color: #475569;');
-        let rankDisplay = idx + 1;
-        if (idx === 0) rankDisplay = '🥇 1';
-        else if (idx === 1) rankDisplay = '🥈 2';
-        else if (idx === 2) rankDisplay = '🥉 3';
-        else rankDisplay = `${idx+1}`;
-        return `<tr style="${idx<3 ? 'background-color:#f0fdf4;' : ''}">
-                    <td style="font-weight:bold;">${rankDisplay}</td>
-                    <td>${item.name}</td>
-                    <td>$${item.totalStake.toLocaleString()}</td>
-                    <td>$${item.totalPayout.toLocaleString()}</td>
-                    <td style="${roiColor} font-weight:bold;">${item.roi}%</td>
-                </tr>`;
-    }).join('');
-    document.getElementById('rankingTable').innerHTML = `<tbody>${tbody}</tbody>`;
-}
-    
-    // ========== 管理頁面載入投注紀錄 ==========
+    // ========== 管理頁面 ==========
     async function loadAdminBets() {
         const { data } = await supabaseClient.from('bets').select('*').order('created_at', { ascending: false }).limit(50);
         if(data) document.getElementById('adminBetsList').innerHTML = `<table><thead><th>參賽者</th><th>賽日/場</th><th>詳情</th><th>派彩</th><th>操作</th></thead><tbody>${data.map(b => {
             let detail = '';
-            if (b.flexible_data && b.flexible_data.auto_deduct) {
-                detail = `⚠️ 自動扣款 $120`;
-            } else if (b.flexible_data) {
+            if (b.flexible_data && b.flexible_data.auto_deduct) detail = `⚠️ 自動扣款 $120`;
+            else if (b.flexible_data) {
                 const fd = b.flexible_data;
                 detail = `🐎 ${fd.horses} ${fd.comboType || ''} ${fd.banker ? `膽${fd.banker}` : ''} 注:W${fd.units?.win||0}P${fd.units?.place||0}Q${fd.units?.quinella||0}QP${fd.units?.quinellaPlace||0}`;
-            } else {
-                detail = `膽:${b.banker} 腳:${b.legs}`;
-            }
-            return `<tr><td style="white-space:nowrap;">${b.participant}</td><td style="white-space:nowrap;">${b.race_date}/${b.race_no}</td><td style="font-size:0.7rem;">${detail}</td><td style="white-space:nowrap;">$${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`;
+            } else detail = `膽:${b.banker} 腳:${b.legs}`;
+            return `<td><td style="white-space:nowrap;">${b.participant}</td><td style="white-space:nowrap;">${b.race_date}/${b.race_no}</td><td style="font-size:0.7rem;">${detail}</td><td style="white-space:nowrap;">$${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red;">刪</button></td></tr>`;
         }).join('')}</tbody></table>`;
     }
     
-    // ========== 刪除功能 ==========
     window.deleteBet = async (id) => { if(confirm("刪除？")) { await supabaseClient.from('bets').delete().eq('id', id); loadAdminBets(); loadRankingChart(); loadStatsForCurrentUser(); loadUserBets(); loadMonthlyRanking(); } };
     window.deleteParticipant = async (id) => { if(confirm("刪除參賽者會刪除所有投注")) { const p = participants.find(p=>p.id===id); if(p) await supabaseClient.from('bets').delete().eq('participant', p.name); await supabaseClient.from('participants').delete().eq('id', id); loadParticipants(); loadAdminBets(); loadRankingChart(); loadUserBets(); loadMonthlyRanking(); } };
     window.deleteRaceDay = async (id) => { if(confirm("刪除賽日會刪除該日所有投注")) { const d = raceDays.find(r=>r.id===id); if(d) await supabaseClient.from('bets').delete().eq('race_date', d.race_date); await supabaseClient.from('race_days').delete().eq('id', id); loadRaceDays(); loadAdminBets(); loadUserBets(); loadMonthlyRanking(); } };
@@ -922,7 +808,7 @@ async function loadMonthlyRanking() {
     // ========== 賽果密碼保護 ==========
     function showResultPasswordModal(onSuccess) {
         const overlay = document.createElement('div'); overlay.className = 'password-overlay';
-        overlay.innerHTML = `<div class="password-box"><h3>🔐 賽果管理驗證</h3><input type="password" id="resultPwd" placeholder="請輸入密碼"><div id="resultPwdError" class="error-msg"></div><div style="display:flex; justify-content:center; gap:15px; margin-top:15px;"><button id="resultSubmitBtn">確認</button><button id="resultCancelBtn" class="secondary">取消</button></div></div>`;
+        overlay.innerHTML = `<div class="password-box"><h3>🔐 賽果管理驗證</h3><input type="password" id="resultPwd" placeholder="請輸入密碼"><div id="resultPwdError" class="error-msg"></div><div style="display:flex; justify-content:center; gap:15px;"><button id="resultSubmitBtn">確認</button><button id="resultCancelBtn" class="secondary">取消</button></div></div>`;
         document.body.appendChild(overlay);
         document.getElementById('resultSubmitBtn').onclick = () => { if(document.getElementById('resultPwd').value === 'LBadmin') { overlay.remove(); onSuccess(); } else document.getElementById('resultPwdError').innerText = '密碼錯誤'; };
         document.getElementById('resultCancelBtn').onclick = () => overlay.remove();
@@ -952,6 +838,7 @@ async function loadMonthlyRanking() {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
     document.getElementById('rankRaceNo')?.addEventListener('change', loadRankingChart);
     document.getElementById('detailUserSelect')?.addEventListener('change', loadUserBets);
+    document.getElementById('detailRaceDate')?.addEventListener('change', loadUserBets);
     document.getElementById('detailRaceNo')?.addEventListener('change', loadUserBets);
     document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
     
@@ -968,7 +855,6 @@ async function loadMonthlyRanking() {
         document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
     };
     window.saveRaceResult = saveRaceResult;
-    window.loadStatsForCurrentUser = loadStatsForCurrentUser;
 </script>
 </body>
 </html>
