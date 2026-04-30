@@ -613,55 +613,164 @@
     });
     
     // ========== 儲存賽果 ==========
-    async function saveRaceResult() {
-        const raceDate = document.getElementById('resultRaceDate').value;
-        if (!raceDate) { alert("請選擇賽日"); return; }
-        const raceNo = parseInt(document.getElementById('resultRaceNo').value);
-        const first = parseInt(document.getElementById('first').value);
-        const second = parseInt(document.getElementById('second').value);
-        const third = parseInt(document.getElementById('third').value);
-        if(!first || !second || !third) return alert("請輸入前三名馬號");
-        const d = { 
-            race_date: raceDate, 
-            race_no: raceNo, 
-            first, second, third, 
-            win_div: Number(document.getElementById('div_win').value) || 0, 
-            qin_div: Number(document.getElementById('div_q').value) || 0, 
-            qin_place_div12: Number(document.getElementById('div_qp12').value) || 0, 
-            qin_place_div13: Number(document.getElementById('div_qp13').value) || 0, 
-            qin_place_div23: Number(document.getElementById('div_qp23').value) || 0, 
-            place_div1: Number(document.getElementById('div_pla1').value) || 0, 
-            place_div2: Number(document.getElementById('div_pla2').value) || 0, 
-            place_div3: Number(document.getElementById('div_pla3').value) || 0 
-        };
-        await supabaseClient.from('race_results').upsert([d]);
-        const { data: bets } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
-        for(let b of bets) {
-            let pay = 0;
-            if (b.flexible_data && b.flexible_data.auto_deduct) {
-                pay = 0;
-            } else if (b.banker && b.banker !== '') {
-                const legs = b.legs ? b.legs.split(',').map(Number) : [];
-                const leg1 = legs[0], leg2 = legs[1];
-                if(b.banker === first) pay += d.win_div + d.place_div1 * 3;
-                else if(b.banker === second) pay += d.place_div2 * 3;
-                else if(b.banker === third) pay += d.place_div3 * 3;
-                if((b.banker === first && leg1 === second) || (b.banker === second && leg1 === first)) pay += d.qin_div;
-                if((b.banker === first && leg2 === second) || (b.banker === second && leg2 === first)) pay += d.qin_div;
-                [[b.banker, leg1], [b.banker, leg2]].forEach(pair => {
-                    if(pair.includes(first) && pair.includes(second)) pay += d.qin_place_div12;
-                    if(pair.includes(first) && pair.includes(third)) pay += d.qin_place_div13;
-                    if(pair.includes(second) && pair.includes(third)) pay += d.qin_place_div23;
-                });
-            }
-            await supabaseClient.from('bets').update({ payout: pay }).eq('id', b.id);
-        }
-        alert(`✅ 第 ${raceNo} 場結算完成！`);
-        loadRankingChart(); 
-        if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
-        loadMonthlyRanking();
-        if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
+async function saveRaceResult() {
+    const raceDate = document.getElementById('resultRaceDate').value;
+    if (!raceDate) { alert("請選擇賽日"); return; }
+    const raceNo = parseInt(document.getElementById('resultRaceNo').value);
+    const first = parseInt(document.getElementById('first').value);
+    const second = parseInt(document.getElementById('second').value);
+    const third = parseInt(document.getElementById('third').value);
+    if(!first || !second || !third) return alert("請輸入前三名馬號");
+
+    // 讀取派彩金額
+    const winDiv = Number(document.getElementById('div_win').value) || 0;
+    const qinDiv = Number(document.getElementById('div_q').value) || 0;
+    const placeDiv1 = Number(document.getElementById('div_pla1').value) || 0;
+    const placeDiv2 = Number(document.getElementById('div_pla2').value) || 0;
+    const placeDiv3 = Number(document.getElementById('div_pla3').value) || 0;
+    const qp12 = Number(document.getElementById('div_qp12').value) || 0;
+    const qp13 = Number(document.getElementById('div_qp13').value) || 0;
+    const qp23 = Number(document.getElementById('div_qp23').value) || 0;
+
+    // 儲存賽果（upsert）
+    const { error: resError } = await supabaseClient.from('race_results').upsert([{
+        race_date: raceDate,
+        race_no: raceNo,
+        first, second, third,
+        win_div: winDiv,
+        qin_div: qinDiv,
+        place_div1: placeDiv1,
+        place_div2: placeDiv2,
+        place_div3: placeDiv3,
+        qin_place_div12: qp12,
+        qin_place_div13: qp13,
+        qin_place_div23: qp23
+    }]);
+    if (resError) {
+        alert("賽果儲存失敗: " + resError.message);
+        return;
     }
+
+    // 取得該場所有投注
+    const { data: bets, error: betsError } = await supabaseClient
+        .from('bets')
+        .select('*')
+        .eq('race_date', raceDate)
+        .eq('race_no', raceNo);
+    
+    if (betsError) {
+        alert("讀取投注失敗: " + betsError.message);
+        return;
+    }
+
+    for (let bet of bets) {
+        let payout = 0;
+        
+        // 跳過自動扣款紀錄
+        if (bet.flexible_data && bet.flexible_data.auto_deduct) {
+            payout = 0;
+        }
+        // 新玩法：使用 flexible_data
+        else if (bet.flexible_data && bet.flexible_data.units) {
+            const fd = bet.flexible_data;
+            const multiplier = fd.multiplier || 1;
+            const banker = parseInt(fd.banker);
+            const legs = fd.horses ? fd.horses.split(',').map(Number) : [];
+            
+            // 獨贏結算 (每注派彩 winDiv)
+            const winUnits = fd.units.win || 0;
+            if (winUnits > 0 && banker === first) {
+                payout += winUnits * winDiv;
+            }
+            
+            // 位置結算 (每注派彩為對應馬的位置派彩)
+            const placeUnits = fd.units.place || 0;
+            if (placeUnits > 0) {
+                if (banker === first) payout += placeUnits * placeDiv1;
+                else if (banker === second) payout += placeUnits * placeDiv2;
+                else if (banker === third) payout += placeUnits * placeDiv3;
+            }
+            
+            // 連贏結算 (組數轉注數)
+            const quinellaGroups = fd.units.quinella || 0;
+            if (quinellaGroups > 0) {
+                // 取得所有連贏組合
+                let quinellaCombos = [];
+                if (fd.comboType === 'all') {
+                    for (let i = 0; i < legs.length; i++) {
+                        for (let j = i+1; j < legs.length; j++) {
+                            quinellaCombos.push([legs[i], legs[j]]);
+                        }
+                    }
+                } else if (fd.comboType === 'banker' && banker) {
+                    for (let leg of legs) {
+                        if (leg !== banker) quinellaCombos.push([banker, leg]);
+                    }
+                }
+                // 每組乘以組數
+                for (let combo of quinellaCombos) {
+                    if ((combo[0] === first && combo[1] === second) || (combo[0] === second && combo[1] === first)) {
+                        payout += quinellaGroups * qinDiv;
+                    }
+                }
+            }
+            
+            // 位置Q結算 (組數轉注數)
+            const qpGroups = fd.units.quinellaPlace || 0;
+            if (qpGroups > 0) {
+                let qpCombos = [];
+                if (fd.comboType === 'all') {
+                    for (let i = 0; i < legs.length; i++) {
+                        for (let j = i+1; j < legs.length; j++) {
+                            qpCombos.push([legs[i], legs[j]]);
+                        }
+                    }
+                } else if (fd.comboType === 'banker' && banker) {
+                    for (let leg of legs) {
+                        if (leg !== banker) qpCombos.push([banker, leg]);
+                    }
+                }
+                for (let combo of qpCombos) {
+                    if (combo.includes(first) && combo.includes(second)) payout += qpGroups * qp12;
+                    if (combo.includes(first) && combo.includes(third)) payout += qpGroups * qp13;
+                    if (combo.includes(second) && combo.includes(third)) payout += qpGroups * qp23;
+                }
+            }
+        }
+        // 舊玩法：使用 banker 和 legs
+        else if (bet.banker && bet.banker !== '' && bet.legs) {
+            const banker = parseInt(bet.banker);
+            const legs = bet.legs.split(',').map(Number);
+            const leg1 = legs[0], leg2 = legs[1];
+            
+            // 獨贏 + 位置 (每注$10, 舊玩法位置為3注)
+            if (banker === first) payout += winDiv + (placeDiv1 * 3);
+            else if (banker === second) payout += placeDiv2 * 3;
+            else if (banker === third) payout += placeDiv3 * 3;
+            
+            // 連贏
+            if ((banker === first && leg1 === second) || (banker === second && leg1 === first)) payout += qinDiv;
+            if ((banker === first && leg2 === second) || (banker === second && leg2 === first)) payout += qinDiv;
+            
+            // 位置Q
+            const pairs = [[banker, leg1], [banker, leg2]];
+            for (let pair of pairs) {
+                if (pair.includes(first) && pair.includes(second)) payout += qp12;
+                if (pair.includes(first) && pair.includes(third)) payout += qp13;
+                if (pair.includes(second) && pair.includes(third)) payout += qp23;
+            }
+        }
+        
+        // 更新派彩
+        await supabaseClient.from('bets').update({ payout: payout }).eq('id', bet.id);
+    }
+    
+    alert(`✅ 第 ${raceNo} 場結算完成！`);
+    loadRankingChart();
+    if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
+    loadMonthlyRanking();
+    if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
+}
     
     // ========== 個人統計（修正：使用 ilike 年月）==========
 async function loadStatsForCurrentUser() {
