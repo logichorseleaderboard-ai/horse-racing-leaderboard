@@ -658,9 +658,7 @@ async function loadUserBets() {
     const raceDate = document.getElementById('detailRaceDate').value;
     const raceNo = document.getElementById('detailRaceNo').value;
     
-    // 修改排序：先按賽日升序，再按場次升序
     let query = supabaseClient.from('bets').select('*').order('race_date', { ascending: true }).order('race_no', { ascending: true });
-    
     if (user && user !== 'all') query = query.eq('participant', user);
     if (raceDate && raceDate !== 'all') query = query.eq('race_date', raceDate);
     if (raceNo && raceNo !== 'all') query = query.eq('race_no', parseInt(raceNo));
@@ -696,8 +694,9 @@ async function loadUserBets() {
             const horses = fd.horses ? fd.horses.split(',').join('、') : '';
             const comboType = fd.comboType;
             const banker = fd.banker;
-            const horseCount = fd.horseCount || horses.split('、').length;
-    
+            const horseCount = fd.horseCount || (horses ? horses.split('、').length : 1);
+            
+            // 選馬顯示
             let comboInfo = '';
             if (comboType === 'banker' && banker) {
                 comboInfo = ` (膽拖 - 膽馬 ${banker})`;
@@ -705,40 +704,42 @@ async function loadUserBets() {
                 comboInfo = ` (互串)`;
             }
             selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
-    
+            
+            // 分配顯示
             const winUnits = units.win || 0;
             const placeUnits = units.place || 0;
             const quinellaGroups = units.quinella || 0;
             const quinellaPlaceGroups = units.quinellaPlace || 0;
             const multiplier = fd.multiplier || 1;
-    
-            let allocation = '';
+            
+            let allocationParts = [];
             if (winUnits > 0) {
                 if (comboType === 'banker' && horseCount > 1) {
-                    allocation += `獨贏 ${winUnits}注 (只限膽馬) `;
+                    allocationParts.push(`獨贏 ${winUnits}注 (只限膽馬)`);
                 } else if (horseCount > 1) {
-                    allocation += `獨贏 ${winUnits}注/匹 (共${winUnits * horseCount}注) `;
+                    allocationParts.push(`獨贏 ${winUnits}注/匹 (共${winUnits * horseCount}注)`);
                 } else {
-                    allocation += `獨贏 ${winUnits}注 `;
+                    allocationParts.push(`獨贏 ${winUnits}注`);
                 }
             }
             if (placeUnits > 0) {
                 if (comboType === 'banker' && horseCount > 1) {
-                    allocation += `位置 ${placeUnits}注 (只限膽馬) `;
+                    allocationParts.push(`位置 ${placeUnits}注 (只限膽馬)`);
                 } else if (horseCount > 1) {
-                    allocation += `位置 ${placeUnits}注/匹 (共${placeUnits * horseCount}注) `;
+                    allocationParts.push(`位置 ${placeUnits}注/匹 (共${placeUnits * horseCount}注)`);
                 } else {
-                    allocation += `位置 ${placeUnits}注 `;
+                    allocationParts.push(`位置 ${placeUnits}注`);
                 }
             }
             if (quinellaGroups > 0) {
-                allocation += `連贏 ${quinellaGroups}組 (x${multiplier}=${quinellaGroups * multiplier}注) `;
+                allocationParts.push(`連贏 ${quinellaGroups}組 (x${multiplier}=${quinellaGroups * multiplier}注)`);
             }
             if (quinellaPlaceGroups > 0) {
-                allocation += `位置Q ${quinellaPlaceGroups}組 (x${multiplier}=${quinellaPlaceGroups * multiplier}注)`;
+                allocationParts.push(`位置Q ${quinellaPlaceGroups}組 (x${multiplier}=${quinellaPlaceGroups * multiplier}注)`);
             }
-            allocation = `🎲 分配: ${allocation}`;
+            allocation = `🎲 分配: ${allocationParts.join(' / ')}`;
             
+            // 退款標記
             if (b.refund === true && b.refund_amount > 0) {
                 if (b.refund_amount >= (b.amount || 120)) {
                     refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
@@ -749,7 +750,7 @@ async function loadUserBets() {
             }
         }
         // 舊玩法（膽拖）
-        else if (b.banker && b.banker !== '') {
+        else if (b.banker && b.banker !== '' && b.legs) {
             selectedHorses = `🐎 膽馬: ${b.banker} / 腳馬: ${b.legs}`;
             allocation = '🎲 分配: 膽馬獨贏1注 + 位置3注 + 連贏2注 + 位置Q2注';
             
