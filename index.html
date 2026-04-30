@@ -279,16 +279,63 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false, resultUnlocked = false;
+    let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false, resultUnlocked = false, betUnlocked = false;
+    
+// ========== 從星島頭條 API 取得馬匹資料 ==========
+async function fetchHorsesFromAPI(raceDate, raceNo) {
+    try {
+        const url = `https://racing.stheadline.com/api/raceEntry?raceNo=${raceNo}&date=${raceDate}&rev=2`;
+        const response = await fetch(url);
+        const result = await response.json();
+        if (result.success && result.data && result.data.raceEntries) {
+            return result.data.raceEntries.map(entry => ({
+                horseNo: entry.horseNo,
+                horseName: entry.horse?.nameSc || entry.horse?.name || `馬匹 ${entry.horseNo}`,
+                horseNameEn: entry.horse?.nameEn || '',
+                jockey: entry.jockey?.name || '',
+                trainer: entry.trainer?.name || '',
+                rating: entry.rating || 0,
+                weight: entry.handicapWeight || 0
+            }));
+        }
+        return [];
+    } catch (error) {
+        console.error("讀取馬匹資料失敗:", error);
+        return [];
+    }
+}
+
+// ========== 取得某賽日的總場次 ==========
+async function fetchRaceCount(raceDate) {
+    for (let i = 1; i <= 11; i++) {
+        try {
+            const url = `https://racing.stheadline.com/api/raceEntry?raceNo=${i}&date=${raceDate}&rev=2`;
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!result.success || !result.data || !result.data.raceEntries || result.data.raceEntries.length === 0) {
+                return i - 1;
+            }
+        } catch (e) {
+            return i - 1;
+        }
+    }
+    return 11;
+}
     
     // ========== 馬匹選擇相關 ==========
-    function initHorseSelects() {
-        const opts = '<option value="">-- 請選擇 --</option>' + Array.from({length:14}, (_,i) => `<option value="${i+1}">${i+1} 號</option>`).join('');
-        ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = opts;
-        });
-    }
+async function initHorseSelects() {
+    if (!currentRaceDate) return;
+    const raceNo = parseInt(document.getElementById('inputRaceNo').value);
+    if (isNaN(raceNo)) return;
+    
+    const horses = await fetchHorsesFromAPI(currentRaceDate, raceNo);
+    const opts = '<option value="">-- 請選擇 --</option>' + horses.map(h => `<option value="${h.horseNo}">${h.horseNo}號 - ${h.horseName}</option>`).join('');
+    
+    ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = opts;
+    });
+}
     
     function getSelectedHorses() {
         let horses = [];
@@ -470,43 +517,80 @@
         await loadRaceDaysForResult();
         await loadRaceDaysForSettle();
         await loadRaceDaysForDetail();
+        await initRaceNoSelects();
     }
     
-    function initRaceNoSelects() {
-        const opts = Array.from({length:11}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
-        const rankSelect = document.getElementById('rankRaceNo');
-        if (rankSelect) rankSelect.innerHTML = opts;
-        const otherSelects = ['inputRaceNo', 'resultRaceNo', 'detailRaceNo'];
-        otherSelects.forEach(id => {
-            let el = document.getElementById(id);
-            if (el) el.innerHTML = '<option value="all">全部場次</option>' + opts;
-        });
-        if (document.getElementById('detailRaceNo')) document.getElementById('detailRaceNo').value = 'all';
-    }
+async function initRaceNoSelects() {
+    if (!currentRaceDate) return;
+    const raceCount = await fetchRaceCount(currentRaceDate);
+    const opts = Array.from({length: raceCount}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
+    
+    const rankSelect = document.getElementById('rankRaceNo');
+    if (rankSelect) rankSelect.innerHTML = opts;
+    
+    const otherSelects = ['inputRaceNo', 'resultRaceNo', 'detailRaceNo'];
+    otherSelects.forEach(id => {
+        let el = document.getElementById(id);
+        if (el) el.innerHTML = '<option value="all">全部場次</option>' + opts;
+    });
+    
+    if (rankSelect && rankSelect.options.length > 0) rankSelect.selectedIndex = 0;
+    if (document.getElementById('detailRaceNo')) document.getElementById('detailRaceNo').value = 'all';
+}
     
     // ========== 排位圖 ==========
-    async function loadRankingChart() {
-        if (!currentRaceDate) return;
-        const raceNo = document.getElementById('rankRaceNo').value;
-        const { data } = await supabaseClient.from('bets').select('flexible_data, banker, legs').eq('race_date', currentRaceDate).eq('race_no', raceNo);
-        let cnt = {};
-        (data || []).forEach(b => {
-            let horses = [];
-            if (b.flexible_data && b.flexible_data.horses) {
-                horses = b.flexible_data.horses.split(',').map(s => s.trim()).filter(s => s).map(Number);
-            } else if (b.banker) {
-                horses = [b.banker, ...(b.legs ? b.legs.split(',') : [])];
-            }
-            horses.forEach(h => { if (h) cnt[h] = (cnt[h] || 0) + 1; });
-        });
-        const max = Math.max(...Object.values(cnt), 1);
-        let html = '<div class="bar-chart">';
-        for (let i = 1; i <= 14; i++) {
-            let c = cnt[i] || 0;
-            html += `<div class="bar-item"><div class="bar-label">${i}號</div><div class="bar-bg"><div class="bar-fill" style="width:${c/max*100}%"></div></div><div class="bar-count">${c}</div></div>`;
-        }
-        document.getElementById('rankChart').innerHTML = html;
+async function loadRankingChart() {
+    if (!currentRaceDate) {
+        document.getElementById('rankChart').innerHTML = '<div class="card">請先選擇賽日</div>';
+        return;
     }
+    const raceNo = document.getElementById('rankRaceNo').value;
+    if (!raceNo) return;
+    
+    document.getElementById('rankChart').innerHTML = '<div class="card">載入排位資料...</div>';
+    
+    const horses = await fetchHorsesFromAPI(currentRaceDate, raceNo);
+    const { data: bets } = await supabaseClient.from('bets').select('flexible_data, banker, legs').eq('race_date', currentRaceDate).eq('race_no', raceNo);
+    
+    let cnt = {};
+    (bets || []).forEach(b => {
+        let horseNumbers = [];
+        if (b.flexible_data && b.flexible_data.horses) {
+            horseNumbers = b.flexible_data.horses.split(',').map(s => s.trim()).filter(s => s).map(Number);
+        } else if (b.banker) {
+            horseNumbers = [b.banker, ...(b.legs ? b.legs.split(',') : [])];
+        }
+        horseNumbers.forEach(h => { if (h) cnt[h] = (cnt[h] || 0) + 1; });
+    });
+    
+    const maxCnt = Math.max(...Object.values(cnt), 1);
+    
+    if (horses.length === 0) {
+        document.getElementById('rankChart').innerHTML = '<div class="card">無排位資料</div>';
+        return;
+    }
+    
+    let html = '<div class="bar-chart"><div style="font-size:0.8rem; margin-bottom:8px;">🐎 馬匹投注熱度</div>';
+    const sortedHorses = [...horses].sort((a, b) => a.horseNo - b.horseNo);
+    
+    for (let horse of sortedHorses) {
+        const horseNum = horse.horseNo;
+        const count = cnt[horseNum] || 0;
+        const percent = maxCnt > 0 ? (count / maxCnt) * 100 : 0;
+        const horseName = horse.horseName || `${horseNum}號`;
+        
+        html += `
+            <div class="bar-item">
+                <div class="bar-label" style="width: 55px;">${horseNum}號</div>
+                <div style="width: 80px; font-size:0.75rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${horseName}">${horseName}</div>
+                <div class="bar-bg"><div class="bar-fill" style="width: ${percent}%;"></div></div>
+                <div class="bar-count">${count}</div>
+            </div>
+        `;
+    }
+    html += '</div>';
+    document.getElementById('rankChart').innerHTML = html;
+}
     
 // ========== 投注詳情（支援顯示派彩、退款標記）==========
 async function loadUserBets() {
@@ -1080,18 +1164,64 @@ async function saveRaceResult() {
     document.getElementById('detailRaceNo')?.addEventListener('change', loadUserBets);
     document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
     
-    window.onload = async () => {
-        initHorseSelects();
-        initRaceNoSelects();
-        await loadParticipants();
-        await loadRaceDays();
+window.onload = async () => {
+    // 檢查投注頁是否已解鎖
+    if (sessionStorage.getItem('betUnlocked') === 'true') {
+        betUnlocked = true;
+    }
+    // 檢查賽果頁是否已解鎖
+    if (sessionStorage.getItem('resultUnlocked') === 'true') {
+        resultUnlocked = true;
+    }
+    
+    // 初始化馬匹下拉選單（先建立空選單，等賽日載入後再填入）
+    const emptyOpts = '<option value="">-- 請選擇 --</option>';
+    ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = emptyOpts;
+    });
+    
+    // 初始化場次選單（暫時顯示載入中）
+    const loadingOpts = '<option value="">載入中...</option>';
+    ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = loadingOpts;
+    });
+    
+    await loadParticipants();
+    await loadRaceDays();
+    
+    // 載入賽日後，初始化場次和馬匹選單
+    await initRaceNoSelects();
+    
+    // 載入排位圖
+    await loadRankingChart();
+    
+    // 綁定投注表單事件
+    bindBetFormEvents();
+    
+    // 套用封盤狀態
+    await applyInputLockStatus();
+    
+    // 顯示預設頁面
+    showPage('ranking');
+    
+    // 綁定自動扣款按鈕
+    document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
+    
+    // 綁定投注頁場次變更事件（重新載入馬匹選單）
+    document.getElementById('inputRaceNo')?.addEventListener('change', async () => {
+        await initHorseSelects();
+        document.getElementById('horse1').value = '';
+        document.getElementById('horse2').value = '';
+        document.getElementById('horse3').value = '';
+    });
+    
+    // 綁定排位頁場次變更事件（重新載入排位圖）
+    document.getElementById('rankRaceNo')?.addEventListener('change', () => {
         loadRankingChart();
-        bindBetFormEvents();
-        await applyInputLockStatus();
-        showPage('ranking');
-        document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
-    };
-    window.saveRaceResult = saveRaceResult;
+    });
+};
 </script>
 </body>
 </html>
