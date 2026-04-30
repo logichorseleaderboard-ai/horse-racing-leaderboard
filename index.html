@@ -109,6 +109,17 @@
             color: #475569;
             margin-top: 4px;
         }
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            margin-top: 6px;
+        }
+        .bet-type-group {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+        }
     </style>
 </head>
 <body>
@@ -120,7 +131,6 @@
     <div id="detail-page" class="page">
         <div class="card"><h2>🔍 投注詳情</h2><div class="flex-row"><div class="form-group"><label>參賽者</label><select id="detailUserSelect"><option value="all">全部參賽者</option></select></div><div class="form-group"><label>場次</label><select id="detailRaceNo"><option value="all">全部場次</option></select></div></div><div id="detailList"></div></div>
     </div>
-    <!-- 修改後的投注頁 (新玩法) -->
     <div id="input-page" class="page">
         <div id="inputLockMsg" class="lock-msg" style="display:none;">🔒 目前封盤中，暫停接受新投注</div>
         <div class="card">
@@ -128,10 +138,8 @@
             <div class="info-note">
                 <strong>📌 規則說明：</strong>
                 <p>• 總注數必須為 12 注 (12 × $10 = $120)。</p>
-                <p>• 各玩法可自由分配注數，但不可超過該玩法允許的最大注數。</p>
-                <p>• 獨贏/位置：每匹選擇的馬最多可買1注。</p>
-                <p>• 連贏/位置Q：注數上限 = 互串或膽拖產生的組合數。</p>
-                <p>• 請先選擇馬匹（可選1-3匹），再設定組合方式，系統會自動更新各玩法上限。</p>
+                <p>• 各玩法可自由分配注數（無上限限制）。</p>
+                <p>• 請先選擇馬匹（可選1-3匹），組合方式僅用於連贏/位置Q的組合邏輯（不影響注數上限）。</p>
             </div>
             <form id="betForm">
                 <div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div>
@@ -159,10 +167,10 @@
                 </div>
 
                 <h3 style="margin:12px 0 8px;">分配注數 (每注$10，合計總注數必須為12)</h3>
-                <div class="bet-type-group" style="background:#f8fafc; padding:12px; border-radius:16px; margin-bottom:12px;"><h4>🏆 獨贏</h4><input type="number" id="winUnits" placeholder="注數" min="0" step="1" value="0"><div id="winMax" class="bet-limit"></div></div>
-                <div class="bet-type-group" style="background:#f8fafc; padding:12px; border-radius:16px; margin-bottom:12px;"><h4>📍 位置</h4><input type="number" id="placeUnits" placeholder="注數" min="0" step="1" value="0"><div id="placeMax" class="bet-limit"></div></div>
-                <div class="bet-type-group" id="quinellaGroup" style="background:#f8fafc; padding:12px; border-radius:16px; margin-bottom:12px;"><h4>🔗 連贏</h4><input type="number" id="quinellaUnits" placeholder="注數" min="0" step="1" value="0"><div id="quinellaMax" class="bet-limit"></div></div>
-                <div class="bet-type-group" id="quinellaPlaceGroup" style="background:#f8fafc; padding:12px; border-radius:16px; margin-bottom:12px;"><h4>🎯 位置Q</h4><input type="number" id="quinellaPlaceUnits" placeholder="注數" min="0" step="1" value="0"><div id="quinellaPlaceMax" class="bet-limit"></div></div>
+                <div class="bet-type-group"><h4>🏆 獨贏</h4><input type="number" id="winUnits" placeholder="注數" min="0" step="1" value="0"><div id="winMax" class="bet-limit">無上限</div></div>
+                <div class="bet-type-group"><h4>📍 位置</h4><input type="number" id="placeUnits" placeholder="注數" min="0" step="1" value="0"><div id="placeMax" class="bet-limit">無上限</div></div>
+                <div class="bet-type-group" id="quinellaGroup"><h4>🔗 連贏</h4><input type="number" id="quinellaUnits" placeholder="注數" min="0" step="1" value="0"><div id="quinellaMax" class="bet-limit">無上限</div></div>
+                <div class="bet-type-group" id="quinellaPlaceGroup"><h4>🎯 位置Q</h4><input type="number" id="quinellaPlaceUnits" placeholder="注數" min="0" step="1" value="0"><div id="quinellaPlaceMax" class="bet-limit">無上限</div></div>
                 <div id="totalUnitsError" class="error-text"></div>
                 <div class="form-group"><label>投注原因 (選填)</label><textarea id="betReason" rows="2" placeholder="例：狀態好、檔位佳、賠率吸引..."></textarea></div>
                 <button type="submit" id="submitBtn">確認投注 (總額 $120)</button>
@@ -173,7 +181,15 @@
         <div class="card"><h2>📈 數據分析 (當月)</h2><div class="form-group"><label>參賽者</label><select id="statsUserSelect"></select></div><div id="statsDisplay"></div></div>
     </div>
     <div id="result-page" class="page">
-        <div class="card"><h2>🏁 賽果與派彩輸入</h2><div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div><h3 style="margin:15px 0 8px;">派彩 (每$10)</h3><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;"><input type="number" id="div_win" placeholder="獨贏"><input type="number" id="div_q" placeholder="連贏"><input type="number" id="div_pla1" placeholder="位置(1)"><input type="number" id="div_qp12" placeholder="位置Q 1-2"><input type="number" id="div_pla2" placeholder="位置(2)"><input type="number" id="div_qp13" placeholder="位置Q 1-3"><input type="number" id="div_pla3" placeholder="位置(3)"><input type="number" id="div_qp23" placeholder="位置Q 2-3"></div><button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button></div></div>
+        <div class="card"><h2>🏁 賽果與派彩輸入</h2><div class="form-group"><label>賽日</label><select id="resultRaceDate"></select></div><div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div><h3 style="margin:15px 0 8px;">派彩 (每$10)</h3><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <input type="number" id="div_win" placeholder="獨贏"><input type="number" id="div_q" placeholder="連贏">
+                <input type="number" id="div_pla1" placeholder="位置(1)"><input type="number" id="div_qp12" placeholder="位置Q 1-2">
+                <input type="number" id="div_pla2" placeholder="位置(2)"><input type="number" id="div_qp13" placeholder="位置Q 1-3">
+                <input type="number" id="div_pla3" placeholder="位置(3)"><input type="number" id="div_qp23" placeholder="位置Q 2-3">
+            </div>
+            <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
+        </div>
+    </div>
     <div id="admin-page" class="page">
         <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
         <div id="adminPanel" style="display:none;">
@@ -200,10 +216,9 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2F1ZXN2anBlbHVmanJubHpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE5MTAsImV4cCI6MjA5Mjg2NzkxMH0.IHezXCywHMpKW7t6V9wAXVab-9j8O5Rg2uRu2WvLzk4";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    // ========== 全域變數 ==========
     let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false, resultUnlocked = false;
     
-    // ========== 初始化馬匹下拉選單 (1-14) ==========
+    // 馬匹下拉選單初始化
     function initHorseSelects() {
         const opts = '<option value="">-- 請選擇 --</option>' + Array.from({length:14}, (_,i) => `<option value="${i+1}">${i+1} 號</option>`).join('');
         ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => {
@@ -212,7 +227,6 @@
         });
     }
     
-    // 獲取當前選擇的馬匹陣列 (過濾空值)
     function getSelectedHorses() {
         let horses = [];
         let h1 = document.getElementById('horse1').value;
@@ -221,66 +235,33 @@
         if (h1) horses.push(parseInt(h1));
         if (h2) horses.push(parseInt(h2));
         if (h3) horses.push(parseInt(h3));
-        // 去重（如果用戶不小心選相同號碼，僅保留一個）
         return [...new Set(horses)];
     }
     
-    // 更新膽馬下拉選項 (基於已選馬匹)
     function updateBankerSelect() {
         const horses = getSelectedHorses();
         const bankerSelect = document.getElementById('bankerHorseSelect');
         const currentVal = bankerSelect.value;
         bankerSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
-        horses.forEach(h => {
-            bankerSelect.innerHTML += `<option value="${h}">${h} 號</option>`;
-        });
+        horses.forEach(h => { bankerSelect.innerHTML += `<option value="${h}">${h} 號</option>`; });
         if (currentVal && horses.includes(parseInt(currentVal))) bankerSelect.value = currentVal;
         else bankerSelect.value = '';
     }
     
-    // 計算各玩法最大注數
+    // 移除注數上限限制，只保留總和驗證
     function updateMaxUnits() {
-        const horses = getSelectedHorses();
-        const count = horses.length;
-        const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
-        const bankerVal = comboType === 'banker' ? parseInt(document.getElementById('bankerHorseSelect').value) : null;
-        
-        let winMax = count;           // 每匹馬最多1注獨贏
-        let placeMax = count;         // 每匹馬最多1注位置
-        let quinellaMax = 0, qpMax = 0;
-        
-        if (count >= 2 && comboType) {
-            if (comboType === 'all') {
-                let combos = [];
-                for (let i = 0; i < horses.length; i++) {
-                    for (let j = i+1; j < horses.length; j++) {
-                        combos.push([horses[i], horses[j]]);
-                    }
-                }
-                quinellaMax = combos.length;
-                qpMax = combos.length;
-            } else if (comboType === 'banker' && bankerVal && horses.includes(bankerVal)) {
-                let legs = horses.filter(h => h !== bankerVal);
-                quinellaMax = legs.length;
-                qpMax = legs.length;
-            }
-        }
-        
-        document.getElementById('winMax').innerText = `最多 ${winMax} 注`;
-        document.getElementById('placeMax').innerText = `最多 ${placeMax} 注`;
-        document.getElementById('quinellaMax').innerText = `最多 ${quinellaMax} 注`;
-        document.getElementById('quinellaPlaceMax').innerText = `最多 ${qpMax} 注`;
-        
-        // 限制輸入框最大值
-        document.getElementById('winUnits').max = winMax;
-        document.getElementById('placeUnits').max = placeMax;
-        document.getElementById('quinellaUnits').max = quinellaMax;
-        document.getElementById('quinellaPlaceUnits').max = qpMax;
-        
+        // 不做任何限制，僅顯示提示
+        document.getElementById('winMax').innerText = '無上限';
+        document.getElementById('placeMax').innerText = '無上限';
+        document.getElementById('quinellaMax').innerText = '無上限';
+        document.getElementById('quinellaPlaceMax').innerText = '無上限';
+        // 移除輸入框的 max 屬性
+        ['winUnits', 'placeUnits', 'quinellaUnits', 'quinellaPlaceUnits'].forEach(id => {
+            document.getElementById(id).removeAttribute('max');
+        });
         validateTotalUnits();
     }
     
-    // 驗證總注數是否為12
     function validateTotalUnits() {
         let win = parseInt(document.getElementById('winUnits').value) || 0;
         let place = parseInt(document.getElementById('placeUnits').value) || 0;
@@ -297,7 +278,6 @@
         }
     }
     
-    // 投注頁面專用的事件綁定
     function bindBetFormEvents() {
         const horseSelects = ['horse1', 'horse2', 'horse3'];
         horseSelects.forEach(id => {
@@ -308,7 +288,6 @@
                 const comboDiv = document.getElementById('comboOptions');
                 const quinellaGroup = document.getElementById('quinellaGroup');
                 const quinellaPlaceGroup = document.getElementById('quinellaPlaceGroup');
-                
                 if (count === 0) {
                     comboDiv.style.display = 'none';
                     quinellaGroup.style.display = 'none';
@@ -329,7 +308,6 @@
                 updateMaxUnits();
             });
         });
-        
         document.querySelectorAll('input[name="comboType"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
@@ -339,14 +317,22 @@
             });
         });
         document.getElementById('bankerHorseSelect').addEventListener('change', updateMaxUnits);
-        
         const unitIds = ['winUnits', 'placeUnits', 'quinellaUnits', 'quinellaPlaceUnits'];
         unitIds.forEach(id => {
             document.getElementById(id).addEventListener('input', validateTotalUnits);
         });
     }
     
-    // ========== 原有頁面函數 (排位、詳情、分析、管理) 保持不變，但增加對 flexible_data 的支援 ==========
+    async function loadRaceDaysForResult() {
+        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: false });
+        if (error) return;
+        const select = document.getElementById('resultRaceDate');
+        if (select) {
+            select.innerHTML = data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
+            if (data.length > 0) select.value = data[0].race_date;
+        }
+    }
+    
     async function loadParticipants() {
         const { data, error } = await supabaseClient.from('participants').select('*').order('name');
         if (!error) participants = data || [];
@@ -365,6 +351,7 @@
         currentRaceDate = nextRace ? nextRace.race_date : null;
         if (currentRaceDate) document.getElementById('inputRaceDate').value = currentRaceDate;
         document.getElementById('raceDayList').innerHTML = raceDays.map(d => `<span class="badge">${d.race_date} <b onclick="deleteRaceDay(${d.id})" style="cursor:pointer;color:red;">✖</b></span>`).join(' ');
+        await loadRaceDaysForResult();
     }
     
     function initRaceNoSelects() {
@@ -373,11 +360,9 @@
             let el = document.getElementById(id);
             if (el) el.innerHTML = '<option value="all">全部場次</option>' + opts;
         });
-        const detailRaceNo = document.getElementById('detailRaceNo');
-        if(detailRaceNo) detailRaceNo.value = 'all';
+        if (document.getElementById('detailRaceNo')) document.getElementById('detailRaceNo').value = 'all';
     }
     
-    // 修正排位圖，同時支援舊的 banker/legs 與新的 flexible_data
     async function loadRankingChart() {
         if (!currentRaceDate) return;
         const raceNo = document.getElementById('rankRaceNo').value;
@@ -401,7 +386,6 @@
         document.getElementById('rankChart').innerHTML = html;
     }
     
-    // 修正詳情頁，支援 flexible_data
     async function loadUserBets() {
         const user = document.getElementById('detailUserSelect').value;
         const raceNo = document.getElementById('detailRaceNo').value;
@@ -424,7 +408,6 @@
         }).join('');
     }
     
-    // 修改投注提交 (使用 flexible_data)
     document.getElementById('betForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!validateTotalUnits()) return alert("總注數必須為12注 (總金額$120)");
@@ -464,7 +447,6 @@
         else {
             alert("✅ 投注成功！");
             document.getElementById('betForm').reset();
-            // 重置所有輸入
             document.getElementById('winUnits').value = 0;
             document.getElementById('placeUnits').value = 0;
             document.getElementById('quinellaUnits').value = 0;
@@ -482,16 +464,16 @@
         }
     });
     
-    // 賽果結算（原有邏輯，未改動）
     async function saveRaceResult() {
-        if (!currentRaceDate) { alert("請先設定賽日"); return; }
+        const raceDate = document.getElementById('resultRaceDate').value;
+        if (!raceDate) { alert("請選擇賽日"); return; }
         const raceNo = parseInt(document.getElementById('resultRaceNo').value);
         const first = parseInt(document.getElementById('first').value);
         const second = parseInt(document.getElementById('second').value);
         const third = parseInt(document.getElementById('third').value);
         if(!first || !second || !third) return alert("請輸入前三名馬號");
         const d = { 
-            race_date: currentRaceDate, 
+            race_date: raceDate, 
             race_no: raceNo, 
             first, second, third, 
             win_div: Number(document.getElementById('div_win').value) || 0, 
@@ -504,10 +486,9 @@
             place_div3: Number(document.getElementById('div_pla3').value) || 0 
         };
         await supabaseClient.from('race_results').upsert([d]);
-        const { data: bets } = await supabaseClient.from('bets').select('*').eq('race_date', currentRaceDate).eq('race_no', raceNo);
+        const { data: bets } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
         for(let b of bets) {
             let pay = 0;
-            // 兼容舊資料
             if (b.banker && b.legs) {
                 const [leg1, leg2] = b.legs.split(',').map(Number);
                 if(b.banker === first) pay += d.win_div + d.place_div1 * 3;
@@ -521,18 +502,16 @@
                     if(pair.includes(second) && pair.includes(third)) pay += d.qin_place_div23;
                 });
             } else if (b.flexible_data) {
-                // 新玩法結算較複雜，簡化處理：暫不自動結算，僅提示手動更新派彩
-                // 此處可保留未來擴充，目前先略過
-                console.log("新玩法暫不自動結算，請手動更新派彩");
+                // 新玩法暫不自動結算，可手動更新
+                console.log("新玩法需手動更新派彩");
             }
             await supabaseClient.from('bets').update({ payout: pay }).eq('id', b.id);
         }
-        alert(`✅ 第 ${raceNo} 場結算完成（舊玩法已結算，新玩法需手動更新）`);
+        alert(`✅ 第 ${raceNo} 場結算完成！`);
         loadRankingChart(); 
         if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
     }
     
-    // 數據分析（原有邏輯，未改動，但金額視為每筆120）
     async function loadStats() {
         const user = document.getElementById('statsUserSelect').value;
         if (!user) { document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
@@ -549,7 +528,6 @@
         document.getElementById('statsDisplay').innerHTML = `<div class="stats-grid"><div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div><div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div><div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div><div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div></div>`;
     }
     
-    // 管理功能（支援顯示 flexible_data）
     async function loadAdminBets() {
         const { data } = await supabaseClient.from('bets').select('*').order('created_at', { ascending: false }).limit(50);
         if(data) document.getElementById('adminBetsList').innerHTML = `<table><thead><th>參賽者</th><th>賽日/場</th><th>詳情</th><th>派彩</th><th>操作</th></thead><tbody>${data.map(b => {
@@ -560,7 +538,7 @@
             } else {
                 detail = `膽:${b.banker} 腳:${b.legs}`;
             }
-            return `<tr><td>${b.participant}</td><td>${b.race_date}/${b.race_no}</td><td>${detail}</td><td>${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red;">刪</button></td></tr>`;
+            return `<tr><td style="white-space:nowrap;">${b.participant}</td><td style="white-space:nowrap;">${b.race_date}/${b.race_no}</td><td style="font-size:0.7rem;">${detail}</td><td>${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red; padding:4px 8px;">刪</button></td></tr>`;
         }).join('')}</tbody></table>`;
     }
     
@@ -571,7 +549,6 @@
     window.addRaceDay = async () => { const date = document.getElementById('newRaceDate').value; if(date) { await supabaseClient.from('race_days').insert([{race_date:date}]); loadRaceDays(); } };
     window.verifyAdmin = function() { if(document.getElementById('adminPwd').value === 'LBadmin') { adminUnlocked=true; document.getElementById('adminAuth').style.display='none'; document.getElementById('adminPanel').style.display='block'; loadAdminBets(); } else alert("密碼錯誤"); };
     
-    // 封盤功能
     async function applyInputLockStatus() {
         try {
             const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single();
@@ -584,7 +561,6 @@
     }
     window.toggleInputLock = async () => { const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single(); const newVal = data.value === 'true' ? 'false' : 'true'; await supabaseClient.from('sys_config').update({ value: newVal }).eq('key','is_input_enabled'); await applyInputLockStatus(); };
     
-    // 賽果密碼保護
     function showResultPasswordModal(onSuccess) {
         const overlay = document.createElement('div'); overlay.className = 'password-overlay';
         overlay.innerHTML = `<div class="password-box"><h3>🔐 賽果管理驗證</h3><input type="password" id="resultPwd" placeholder="請輸入密碼"><div id="resultPwdError" class="error-msg"></div><div style="display:flex; justify-content:center; gap:15px; margin-top:15px;"><button id="resultSubmitBtn">確認</button><button id="resultCancelBtn" class="secondary">取消</button></div></div>`;
