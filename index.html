@@ -198,6 +198,8 @@
                 <div class="bet-type-group" id="quinellaPlaceGroup"><h4>🎯 位置Q</h4><input type="number" id="quinellaPlaceUnits" placeholder="組數" min="0" step="1" value="0"><div id="quinellaPlaceMultiplier" class="bet-limit">組合倍數: -</div></div>
                 <div id="totalUnitsError" class="error-text"></div>
                 <div class="form-group"><label>投注原因 (選填)</label><textarea id="betReason" rows="2" placeholder="例：狀態好、檔位佳、賠率吸引..."></textarea></div>
+                <div class="form-group"><label>投注密碼</label><input type="password" id="betPassword" required placeholder="請輸入投注密碼"></div>
+                <div class="inline-buttons"><button type="submit" id="submitBtn">確認投注 (總額 $120)</button><button type="button" id="clearBetForm" class="secondary">清除</button></div>
                 <button type="submit" id="submitBtn">確認投注 (總額 $120)</button>
             </form>
         </div>
@@ -555,72 +557,82 @@ async function loadUserBets() {
 }
     
     // ========== 提交投注 ==========
-    document.getElementById('betForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!validateTotalUnits()) return alert("總注數必須為12注 (總金額$120)");
-        const participant = document.getElementById('inputUserSelect').value;
-        if (!participant) return alert("請選擇參賽者");
-        const raceDate = document.getElementById('inputRaceDate').value;
-        const raceNo = parseInt(document.getElementById('inputRaceNo').value);
-        const horses = getSelectedHorses();
-        if (horses.length === 0) return alert("請至少選擇一匹馬");
-        const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
-        const bankerHorse = (comboType === 'banker') ? document.getElementById('bankerHorseSelect').value : null;
-        const reason = document.getElementById('betReason').value;
-        const { data: existing } = await supabaseClient.from('bets').select('id').eq('participant', participant).eq('race_date', raceDate);
-        if (existing && existing.length >= 2) return alert("每人每賽日限投2場");
-        
-        const winUnits = parseInt(document.getElementById('winUnits').value) || 0;
-        const placeUnits = parseInt(document.getElementById('placeUnits').value) || 0;
-        const quinellaGroups = parseInt(document.getElementById('quinellaUnits').value) || 0;
-        const quinellaPlaceGroups = parseInt(document.getElementById('quinellaPlaceUnits').value) || 0;
-        const multiplier = getComboMultiplier();
-        
-        const flexibleData = {
-            horses: horses.join(','),
-            comboType: comboType || null,
-            banker: bankerHorse || null,
-            multiplier: multiplier,
-            units: { 
-                win: winUnits, 
-                place: placeUnits, 
-                quinella: quinellaGroups, 
-                quinellaPlace: quinellaPlaceGroups,
-                quinellaActual: quinellaGroups * multiplier,
-                quinellaPlaceActual: quinellaPlaceGroups * multiplier
-            }
-        };
-        
-        const { error } = await supabaseClient.from('bets').insert([{
-            participant, race_date: raceDate, race_no: raceNo,
-            banker: null, legs: null,
-            payout: 0,
-            reason: reason,
-            flexible_data: flexibleData,
-            amount: 120
-        }]);
-        if (error) alert("投注失敗: " + error.message);
-        else {
-            alert("✅ 投注成功！");
-            document.getElementById('betForm').reset();
-            document.getElementById('winUnits').value = 0;
-            document.getElementById('placeUnits').value = 0;
-            document.getElementById('quinellaUnits').value = 0;
-            document.getElementById('quinellaPlaceUnits').value = 0;
-            document.getElementById('horse1').value = '';
-            document.getElementById('horse2').value = '';
-            document.getElementById('horse3').value = '';
-            document.getElementById('bankerHorseSelect').innerHTML = '<option value="">-- 請選擇 --</option>';
-            document.getElementById('comboOptions').style.display = 'none';
-            document.getElementById('quinellaGroup').style.display = 'none';
-            document.getElementById('quinellaPlaceGroup').style.display = 'none';
-            document.getElementById('horsesCountWarning').innerText = '';
-            loadRankingChart();
-            loadUserBets();
-            loadMonthlyRanking();
-            if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
+document.getElementById('betForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // 驗證投注密碼
+    const betPassword = document.getElementById('betPassword').value;
+    if (betPassword !== 'LH05lb') {
+        alert("投注密碼錯誤，無法提交投注");
+        return;
+    }
+    
+    if (!validateTotalUnits()) return alert("總注數必須為12注 (總金額$120)");
+    const participant = document.getElementById('inputUserSelect').value;
+    if (!participant) return alert("請選擇參賽者");
+    const raceDate = document.getElementById('inputRaceDate').value;
+    const raceNo = parseInt(document.getElementById('inputRaceNo').value);
+    const horses = getSelectedHorses();
+    if (horses.length === 0) return alert("請至少選擇一匹馬");
+    const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
+    const bankerHorse = (comboType === 'banker') ? document.getElementById('bankerHorseSelect').value : null;
+    const reason = document.getElementById('betReason').value;
+    
+    const { data: existing } = await supabaseClient.from('bets').select('id').eq('participant', participant).eq('race_date', raceDate);
+    if (existing && existing.length >= 2) return alert("每人每賽日限投2場");
+    
+    const winUnits = parseInt(document.getElementById('winUnits').value) || 0;
+    const placeUnits = parseInt(document.getElementById('placeUnits').value) || 0;
+    const quinellaGroups = parseInt(document.getElementById('quinellaUnits').value) || 0;
+    const quinellaPlaceGroups = parseInt(document.getElementById('quinellaPlaceUnits').value) || 0;
+    const multiplier = getComboMultiplier();
+    
+    const flexibleData = {
+        horses: horses.join(','),
+        comboType: comboType || null,
+        banker: bankerHorse || null,
+        multiplier: multiplier,
+        units: { 
+            win: winUnits, 
+            place: placeUnits, 
+            quinella: quinellaGroups, 
+            quinellaPlace: quinellaPlaceGroups,
+            quinellaActual: quinellaGroups * multiplier,
+            quinellaPlaceActual: quinellaPlaceGroups * multiplier
         }
-    });
+    };
+    
+    const { error } = await supabaseClient.from('bets').insert([{
+        participant, race_date: raceDate, race_no: raceNo,
+        banker: null, legs: null,
+        payout: 0,
+        reason: reason,
+        flexible_data: flexibleData,
+        amount: 120
+    }]);
+    if (error) alert("投注失敗: " + error.message);
+    else {
+        alert("✅ 投注成功！");
+        document.getElementById('betForm').reset();
+        document.getElementById('winUnits').value = 0;
+        document.getElementById('placeUnits').value = 0;
+        document.getElementById('quinellaUnits').value = 0;
+        document.getElementById('quinellaPlaceUnits').value = 0;
+        document.getElementById('horse1').value = '';
+        document.getElementById('horse2').value = '';
+        document.getElementById('horse3').value = '';
+        document.getElementById('bankerHorseSelect').innerHTML = '<option value="">-- 請選擇 --</option>';
+        document.getElementById('comboOptions').style.display = 'none';
+        document.getElementById('quinellaGroup').style.display = 'none';
+        document.getElementById('quinellaPlaceGroup').style.display = 'none';
+        document.getElementById('horsesCountWarning').innerText = '';
+        document.getElementById('betPassword').value = ''; // 清空密碼欄位
+        loadRankingChart();
+        loadUserBets();
+        loadMonthlyRanking();
+        if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
+    }
+});
     
     // ========== 自動扣款 ==========
     async function autoDeductForNonBetting() {
