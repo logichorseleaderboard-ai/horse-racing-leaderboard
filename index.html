@@ -616,13 +616,15 @@ async function loadRankingChart() {
     document.getElementById('rankChart').innerHTML = html;
 }
     
-// ========== 投注詳情（支援顯示派彩、退款標記）==========
+// ========== 投注詳情（按賽日及場次順序排列）==========
 async function loadUserBets() {
     const user = document.getElementById('detailUserSelect').value;
     const raceDate = document.getElementById('detailRaceDate').value;
     const raceNo = document.getElementById('detailRaceNo').value;
     
-    let query = supabaseClient.from('bets').select('*').order('race_date', { ascending: false });
+    // 修改排序：先按賽日升序，再按場次升序
+    let query = supabaseClient.from('bets').select('*').order('race_date', { ascending: true }).order('race_no', { ascending: true });
+    
     if (user && user !== 'all') query = query.eq('participant', user);
     if (raceDate && raceDate !== 'all') query = query.eq('race_date', raceDate);
     if (raceNo && raceNo !== 'all') query = query.eq('race_no', parseInt(raceNo));
@@ -659,7 +661,6 @@ async function loadUserBets() {
             const comboInfo = fd.comboType ? ` (${fd.comboType}${fd.banker ? ` 膽${fd.banker}` : ''})` : '';
             selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
             
-            // 計算總注數顯示
             const winUnits = units.win || 0;
             const placeUnits = units.place || 0;
             const quinellaGroups = units.quinella || 0;
@@ -667,7 +668,6 @@ async function loadUserBets() {
             const multiplier = fd.multiplier || 1;
             allocation = `🎲 分配: 獨贏${winUnits}注 / 位置${placeUnits}注 / 連贏${quinellaGroups}組 (x${multiplier}) / 位置Q${quinellaPlaceGroups}組 (x${multiplier})`;
             
-            // 退款標記
             if (b.refund === true && b.refund_amount > 0) {
                 if (b.refund_amount >= (b.amount || 120)) {
                     refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
@@ -692,7 +692,6 @@ async function loadUserBets() {
             }
         }
         
-        // 派彩獲利時邊框變綠色
         if (b.payout > 0 && b.payout > (b.amount || 120)) {
             borderColor = '#16a34a';
         }
