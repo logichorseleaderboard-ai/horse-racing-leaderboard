@@ -632,20 +632,23 @@ async function saveRaceResult() {
     const qp13 = Number(document.getElementById('div_qp13').value) || 0;
     const qp23 = Number(document.getElementById('div_qp23').value) || 0;
 
-    // 儲存賽果（upsert）
-    const { error: resError } = await supabaseClient.from('race_results').upsert([{
-        race_date: raceDate,
-        race_no: raceNo,
-        first, second, third,
-        win_div: winDiv,
-        qin_div: qinDiv,
-        place_div1: placeDiv1,
-        place_div2: placeDiv2,
-        place_div3: placeDiv3,
-        qin_place_div12: qp12,
-        qin_place_div13: qp13,
-        qin_place_div23: qp23
-    }]);
+    // 儲存賽果（使用 onConflict 處理重複）
+    const { error: resError } = await supabaseClient
+        .from('race_results')
+        .upsert({
+            race_date: raceDate,
+            race_no: raceNo,
+            first, second, third,
+            win_div: winDiv,
+            qin_div: qinDiv,
+            place_div1: placeDiv1,
+            place_div2: placeDiv2,
+            place_div3: placeDiv3,
+            qin_place_div12: qp12,
+            qin_place_div13: qp13,
+            qin_place_div23: qp23
+        }, { onConflict: 'race_date, race_no' });
+    
     if (resError) {
         alert("賽果儲存失敗: " + resError.message);
         return;
@@ -677,13 +680,13 @@ async function saveRaceResult() {
             const banker = parseInt(fd.banker);
             const legs = fd.horses ? fd.horses.split(',').map(Number) : [];
             
-            // 獨贏結算 (每注派彩 winDiv)
+            // 獨贏結算
             const winUnits = fd.units.win || 0;
             if (winUnits > 0 && banker === first) {
                 payout += winUnits * winDiv;
             }
             
-            // 位置結算 (每注派彩為對應馬的位置派彩)
+            // 位置結算
             const placeUnits = fd.units.place || 0;
             if (placeUnits > 0) {
                 if (banker === first) payout += placeUnits * placeDiv1;
@@ -691,10 +694,9 @@ async function saveRaceResult() {
                 else if (banker === third) payout += placeUnits * placeDiv3;
             }
             
-            // 連贏結算 (組數轉注數)
+            // 連贏結算
             const quinellaGroups = fd.units.quinella || 0;
             if (quinellaGroups > 0) {
-                // 取得所有連贏組合
                 let quinellaCombos = [];
                 if (fd.comboType === 'all') {
                     for (let i = 0; i < legs.length; i++) {
@@ -707,7 +709,6 @@ async function saveRaceResult() {
                         if (leg !== banker) quinellaCombos.push([banker, leg]);
                     }
                 }
-                // 每組乘以組數
                 for (let combo of quinellaCombos) {
                     if ((combo[0] === first && combo[1] === second) || (combo[0] === second && combo[1] === first)) {
                         payout += quinellaGroups * qinDiv;
@@ -715,7 +716,7 @@ async function saveRaceResult() {
                 }
             }
             
-            // 位置Q結算 (組數轉注數)
+            // 位置Q結算
             const qpGroups = fd.units.quinellaPlace || 0;
             if (qpGroups > 0) {
                 let qpCombos = [];
@@ -743,16 +744,13 @@ async function saveRaceResult() {
             const legs = bet.legs.split(',').map(Number);
             const leg1 = legs[0], leg2 = legs[1];
             
-            // 獨贏 + 位置 (每注$10, 舊玩法位置為3注)
             if (banker === first) payout += winDiv + (placeDiv1 * 3);
             else if (banker === second) payout += placeDiv2 * 3;
             else if (banker === third) payout += placeDiv3 * 3;
             
-            // 連贏
             if ((banker === first && leg1 === second) || (banker === second && leg1 === first)) payout += qinDiv;
             if ((banker === first && leg2 === second) || (banker === second && leg2 === first)) payout += qinDiv;
             
-            // 位置Q
             const pairs = [[banker, leg1], [banker, leg2]];
             for (let pair of pairs) {
                 if (pair.includes(first) && pair.includes(second)) payout += qp12;
