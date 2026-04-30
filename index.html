@@ -164,11 +164,12 @@
         <div class="info-note">
             <strong>📌 規則說明：</strong>
             <p>• 總注數必須為 12 注 (12 × $10 = $120)。</p>
-            <p>• 獨贏、位置的注數為實際注數。</p>
+            <p>• 獨贏、位置的注數分配：</p>
+            <p>&nbsp;&nbsp;- 互串模式：每匹馬都買 → 輸入1注 = 實際 N 注 (N=馬匹數)</p>
+            <p>&nbsp;&nbsp;- 膽拖模式：只買膽馬 → 輸入1注 = 實際1注</p>
             <p>• 連贏、位置Q 輸入的注數為「組數」，系統會自動乘以實際組合數。</p>
-            <p>&nbsp;&nbsp;- 1膽2腳 → 每個輸入注數 = 實際 2 注</p>
-            <p>&nbsp;&nbsp;- 3匹互串 → 每個輸入注數 = 實際 3 注</p>
-            <p>• 請先選擇馬匹與組合方式，系統會自動顯示實際總注數。</p>
+            <p>&nbsp;&nbsp;- 互串：N匹馬 → C(N,2) 組</p>
+            <p>&nbsp;&nbsp;- 膽拖：1膽 + M腳 → M 組</p>
         </div>
         <form id="betForm">
             <div class="form-group"><label>參賽者</label><select id="inputUserSelect" required></select></div>
@@ -400,21 +401,56 @@ async function initHorseSelects() {
     }
     
     function calculateActualTotalUnits() {
+        const horses = getSelectedHorses();
+        const horseCount = horses.length;
+        const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
+        const bankerVal = comboType === 'banker' ? parseInt(document.getElementById('bankerHorseSelect').value) : null;
+    
         let win = parseInt(document.getElementById('winUnits').value) || 0;
         let place = parseInt(document.getElementById('placeUnits').value) || 0;
         let quinellaGroups = parseInt(document.getElementById('quinellaUnits').value) || 0;
         let quinellaPlaceGroups = parseInt(document.getElementById('quinellaPlaceUnits').value) || 0;
         const multiplier = getComboMultiplier();
+    
+        // 獨贏/位置實際注數：膽拖模式只投膽馬，互串模式投所有馬
+        let winActual = 0;
+        let placeActual = 0;
+    
+        if (horseCount === 1) {
+            // 單馬：直接使用輸入注數
+            winActual = win;
+            placeActual = place;
+        } else if (comboType === 'banker' && bankerVal && horses.includes(bankerVal)) {
+            // 膽拖模式：只投膽馬（1匹）
+            winActual = win;
+            placeActual = place;
+        } else {
+            // 互串模式或未選擇膽拖：投所有馬匹
+            winActual = win * horseCount;
+            placeActual = place * horseCount;
+        }
+    
         let quinellaActual = quinellaGroups * multiplier;
         let quinellaPlaceActual = quinellaPlaceGroups * multiplier;
-        return win + place + quinellaActual + quinellaPlaceActual;
+     
+        return winActual + placeActual + quinellaActual + quinellaPlaceActual;
     }
     
     function validateTotalUnits() {
         const total = calculateActualTotalUnits();
         const errorSpan = document.getElementById('totalUnitsError');
+        const horses = getSelectedHorses();
+        const horseCount = horses.length;
+        const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
+        
         if (total !== 12) {
-            errorSpan.innerText = `總注數必須為 12 注 (目前 ${total} 注)，總金額需為 $120。`;
+            if (horseCount > 1 && comboType === 'all') {
+                errorSpan.innerText = `總注數必須為 12 注 (目前 ${total} 注)。注意：互串模式下，獨贏/位置注數會自動乘以 ${horseCount} 匹馬。`;
+            } else if (horseCount > 1 && comboType === 'banker') {
+                errorSpan.innerText = `總注數必須為 12 注 (目前 ${total} 注)。注意：膽拖模式下，獨贏/位置只投膽馬。`;
+            } else {
+                errorSpan.innerText = `總注數必須為 12 注 (目前 ${total} 注)，總金額需為 $120。`;
+            }
             return false;
         } else {
             errorSpan.innerText = '';
@@ -658,15 +694,50 @@ async function loadUserBets() {
             const fd = b.flexible_data;
             const units = fd.units || {};
             const horses = fd.horses ? fd.horses.split(',').join('、') : '';
-            const comboInfo = fd.comboType ? ` (${fd.comboType}${fd.banker ? ` 膽${fd.banker}` : ''})` : '';
+            const comboType = fd.comboType;
+            const banker = fd.banker;
+            const horseCount = fd.horseCount || horses.split('、').length;
+    
+            let comboInfo = '';
+            if (comboType === 'banker' && banker) {
+                comboInfo = ` (膽拖 - 膽馬 ${banker})`;
+            } else if (comboType === 'all' && horseCount > 1) {
+                comboInfo = ` (互串)`;
+            }
             selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
-            
+    
             const winUnits = units.win || 0;
             const placeUnits = units.place || 0;
             const quinellaGroups = units.quinella || 0;
             const quinellaPlaceGroups = units.quinellaPlace || 0;
             const multiplier = fd.multiplier || 1;
-            allocation = `🎲 分配: 獨贏${winUnits}注 / 位置${placeUnits}注 / 連贏${quinellaGroups}組 (x${multiplier}) / 位置Q${quinellaPlaceGroups}組 (x${multiplier})`;
+    
+            let allocation = '';
+            if (winUnits > 0) {
+                if (comboType === 'banker' && horseCount > 1) {
+                    allocation += `獨贏 ${winUnits}注 (只限膽馬) `;
+                } else if (horseCount > 1) {
+                    allocation += `獨贏 ${winUnits}注/匹 (共${winUnits * horseCount}注) `;
+                } else {
+                    allocation += `獨贏 ${winUnits}注 `;
+                }
+            }
+            if (placeUnits > 0) {
+                if (comboType === 'banker' && horseCount > 1) {
+                    allocation += `位置 ${placeUnits}注 (只限膽馬) `;
+                } else if (horseCount > 1) {
+                    allocation += `位置 ${placeUnits}注/匹 (共${placeUnits * horseCount}注) `;
+                } else {
+                    allocation += `位置 ${placeUnits}注 `;
+                }
+            }
+            if (quinellaGroups > 0) {
+                allocation += `連贏 ${quinellaGroups}組 (x${multiplier}=${quinellaGroups * multiplier}注) `;
+            }
+            if (quinellaPlaceGroups > 0) {
+                allocation += `位置Q ${quinellaPlaceGroups}組 (x${multiplier}=${quinellaPlaceGroups * multiplier}注)`;
+            }
+            allocation = `🎲 分配: ${allocation}`;
             
             if (b.refund === true && b.refund_amount > 0) {
                 if (b.refund_amount >= (b.amount || 120)) {
@@ -736,17 +807,37 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
     const quinellaGroups = parseInt(document.getElementById('quinellaUnits').value) || 0;
     const quinellaPlaceGroups = parseInt(document.getElementById('quinellaPlaceUnits').value) || 0;
     const multiplier = getComboMultiplier();
-    
+    const horseCount = horses.length;
+    const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
+    const bankerHorse = (comboType === 'banker') ? document.getElementById('bankerHorseSelect').value : null;
+
+    // 計算獨贏/位置實際注數
+    let winActual = 0;
+    let placeActual = 0;
+    if (horseCount === 1) {
+        winActual = winUnits;
+        placeActual = placeUnits;
+    } else if (comboType === 'banker' && bankerHorse) {
+        winActual = winUnits;      // 膽拖模式：只投膽馬
+        placeActual = placeUnits;
+    } else {
+        winActual = winUnits * horseCount;   // 互串模式：投所有馬
+        placeActual = placeUnits * horseCount;
+    }
+
     const flexibleData = {
         horses: horses.join(','),
         comboType: comboType || null,
         banker: bankerHorse || null,
         multiplier: multiplier,
+        horseCount: horseCount,
         units: { 
-            win: winUnits, 
-            place: placeUnits, 
-            quinella: quinellaGroups, 
+            win: winUnits,
+            place: placeUnits,
+            quinella: quinellaGroups,
             quinellaPlace: quinellaPlaceGroups,
+            winActual: winActual,
+            placeActual: placeActual,
             quinellaActual: quinellaGroups * multiplier,
             quinellaPlaceActual: quinellaPlaceGroups * multiplier
         }
