@@ -722,7 +722,7 @@ async function initRaceNoSelects() {
     if (detailSelect) detailSelect.value = 'all';
 }
     
-// ========== 排位熱度圖（同一行，馬號縮小）==========
+// ========== 排位熱度圖（使用內聯樣式確保顯示）==========
 async function loadRankingChart() {
     if (!currentRaceDate) {
         document.getElementById('rankChart').innerHTML = '<div class="card">請先選擇賽日</div>';
@@ -805,7 +805,7 @@ async function loadRankingChart() {
         return;
     }
     
-    let html = '<div class="bar-chart">';
+    let html = '<div style="margin-top: 12px;">';
     
     const sortedHorses = [...horses].sort((a, b) => a.horseNo - b.horseNo);
     
@@ -824,16 +824,16 @@ async function loadRankingChart() {
         const legPercent = totalCount > 0 ? (legCount / totalCount) * 100 : 0;
         
         html += `
-            <div class="race-row">
-                <div class="race-horse-num">${horseNum}</div>
-                <div class="race-horse-name" title="${horseName}">${horseName}</div>
-                <div class="race-bar-container">
-                    <div class="race-bar" style="width: ${percent}%;">
-                        <div class="race-bar-banker" style="width: ${bankerPercent}%;"></div>
-                        <div class="race-bar-leg" style="width: ${legPercent}%;"></div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <div style="width: 40px; font-weight: 500;">${horseNum}</div>
+                <div style="width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem;" title="${horseName}">${horseName}</div>
+                <div style="flex: 1; background: #e2e8f0; border-radius: 20px; height: 24px; overflow: hidden;">
+                    <div style="width: ${percent}%; height: 100%; display: flex;">
+                        <div style="width: ${bankerPercent}%; background: #ef4444; height: 100%;"></div>
+                        <div style="width: ${legPercent}%; background: #22c55e; height: 100%;"></div>
                     </div>
                 </div>
-                <div class="race-count">${totalCount}</div>
+                <div style="width: 35px; text-align: right; font-size: 0.75rem;">${totalCount}</div>
             </div>
         `;
     }
