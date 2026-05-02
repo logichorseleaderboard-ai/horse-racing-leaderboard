@@ -35,39 +35,59 @@
         button { width: 100%; padding: 12px; background: #1e6f3f; color: white; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; font-size: 1rem; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
         .badge { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; margin: 4px 4px 0 /* 排位熱度圖樣式 */
-.bar-chart {
-    margin-top: 12px;
+/* 排位熱度圖樣式 - 同一行 */
+.race-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
 }
 
-.bar-item {
-    margin-bottom: 16px;
-}
-
-.bar-label {
+.race-horse-num {
     width: 45px;
     font-weight: 500;
+    flex-shrink: 0;
 }
 
-.bar-bg {
+.race-horse-name {
+    width: 85px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.race-bar-container {
     flex: 1;
     background: #e2e8f0;
     border-radius: 20px;
     height: 24px;
     overflow: hidden;
+}
+
+.race-bar {
+    height: 100%;
     display: flex;
 }
 
-.bar-fill {
-    background: #1e6f3f;
+.race-bar-banker {
+    background: #ef4444;
     height: 100%;
-    width: 0%;
-    transition: width 0.2s;
 }
 
-.bar-count {
+.race-bar-leg {
+    background: #22c55e;
+    height: 100%;
+}
+
+.race-count {
     width: 35px;
     text-align: right;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    flex-shrink: 0;
 }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center; }
         .stat-card { background: #f8fafc; padding: 12px; border-radius: 16px; }
@@ -701,7 +721,7 @@ async function initRaceNoSelects() {
     if (detailSelect) detailSelect.value = 'all';
 }
     
-// ========== 排位熱度圖（修正橫條顯示）==========
+// ========== 排位熱度圖（同一行，馬號縮小）==========
 async function loadRankingChart() {
     if (!currentRaceDate) {
         document.getElementById('rankChart').innerHTML = '<div class="card">請先選擇賽日</div>';
@@ -770,13 +790,14 @@ async function loadRankingChart() {
         });
     });
     
-    // 找出最大人數（用於計算百分比）
-    const allCounts = [];
+    // 找出最大人數
+    let maxCnt = 0;
     for (let horse of horses) {
         const num = horse.horseNo;
-        allCounts.push((bankerCnt[num] || 0) + (legCnt[num] || 0));
+        const total = (bankerCnt[num] || 0) + (legCnt[num] || 0);
+        if (total > maxCnt) maxCnt = total;
     }
-    const maxCnt = Math.max(...allCounts, 1);
+    if (maxCnt === 0) maxCnt = 1;
     
     if (horses.length === 0) {
         document.getElementById('rankChart').innerHTML = '<div class="card">無排位資料</div>';
@@ -794,30 +815,24 @@ async function loadRankingChart() {
         const totalCount = bankerCount + legCount;
         const horseName = horse.horseName || `${horseNum}號`;
         
-        // 計算總人數百分比
+        // 橫條長度百分比
         const percent = (totalCount / maxCnt) * 100;
         
-        // 膽和腳的比例（相對於總人數）
+        // 膽和腳佔橫條內部的比例
         const bankerPercent = totalCount > 0 ? (bankerCount / totalCount) * 100 : 0;
         const legPercent = totalCount > 0 ? (legCount / totalCount) * 100 : 0;
         
         html += `
-            <div class="bar-item">
-                <div style="display: flex; align-items: center; margin-bottom: 4px;">
-                    <div style="width: 50px; font-weight: 600;">${horseNum}號</div>
-                    <div style="width: 85px; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${horseName}">${horseName}</div>
-                    <div style="flex:1; text-align: right; font-size: 0.75rem; font-weight: 500;">${totalCount}人</div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="width: 50px;"></div>
-                    <div class="bar-bg" style="flex: 1; background: #e2e8f0; border-radius: 20px; height: 24px; overflow: hidden;">
-                        <div style="width: ${percent}%; height: 100%; display: flex;">
-                            <div style="width: ${bankerPercent}%; background: #ef4444; height: 100%;"></div>
-                            <div style="width: ${legPercent}%; background: #22c55e; height: 100%;"></div>
-                        </div>
+            <div class="race-row">
+                <div class="race-horse-num">${horseNum}</div>
+                <div class="race-horse-name" title="${horseName}">${horseName}</div>
+                <div class="race-bar-container">
+                    <div class="race-bar" style="width: ${percent}%;">
+                        <div class="race-bar-banker" style="width: ${bankerPercent}%;"></div>
+                        <div class="race-bar-leg" style="width: ${legPercent}%;"></div>
                     </div>
-                    <div style="width: 35px;"></div>
                 </div>
+                <div class="race-count">${totalCount}</div>
             </div>
         `;
     }
