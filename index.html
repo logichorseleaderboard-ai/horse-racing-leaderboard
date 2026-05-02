@@ -127,6 +127,57 @@
         .rank-table th {
             background: #e6f7ec;
         }
+        /* 場次按鈕樣式 */
+        .race-buttons-container {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 8px 0;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+
+        .race-buttons-container::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .race-buttons-container::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .race-buttons-container::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+
+        .race-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            min-width: 56px;
+        }
+
+        .race-btn.active {
+            background: #1e6f3f;
+            border-color: #1e6f3f;
+            color: white;
+        }
+
+        .race-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .race-btn.active:hover {
+            background: #1e6f3f;
+        }
     </style>
 </head>
 <body>
@@ -137,7 +188,9 @@
             <h2>📊 排位熱度</h2>
             <div class="form-group">
                 <label>場次</label>
-                <select id="rankRaceNo"></select>
+                <div class="race-buttons-container" style="overflow-x: auto; white-space: nowrap; padding: 8px 0; -webkit-overflow-scrolling: touch;">
+                    <div id="rankRaceButtons" style="display: inline-flex; gap: 8px;"></div>
+                </div>
             </div>
             <div id="rankChart"></div>
         </div>
@@ -585,23 +638,38 @@ async function initRaceNoSelects() {
     const raceCount = await fetchRaceCount(currentRaceDate);
     const opts = Array.from({length: raceCount}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
     
-    // 排位頁：只顯示場次
-    const rankSelect = document.getElementById('rankRaceNo');
-    if (rankSelect) rankSelect.innerHTML = opts;
+    // 排位頁：使用按鈕組（取代下拉選單）
+    const rankButtonsContainer = document.getElementById('rankRaceButtons');
+    if (rankButtonsContainer) {
+        const buttonsHtml = Array.from({length: raceCount}, (_, i) => {
+            const raceNum = i + 1;
+            return `<button class="race-btn" data-race="${raceNum}">${raceNum}場</button>`;
+        }).join('');
+        rankButtonsContainer.innerHTML = buttonsHtml;
+        
+        // 綁定按鈕點擊事件
+        document.querySelectorAll('.race-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // 移除所有 active 類別
+                document.querySelectorAll('.race-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                // 載入該場次的排位圖
+                loadRankingChart();
+            });
+        });
+        // 預設選中第一場
+        const firstBtn = document.querySelector('.race-btn');
+        if (firstBtn) firstBtn.classList.add('active');
+    }
     
-    // 投注頁、詳情頁：保留「全部場次」選項
-    const inputSelect = document.getElementById('inputRaceNo');
-    if (inputSelect) inputSelect.innerHTML = '<option value="all">全部場次</option>' + opts;
+    // 投注頁、詳情頁：保留原有的下拉選單
+    const otherSelects = ['inputRaceNo', 'resultRaceNo', 'detailRaceNo'];
+    otherSelects.forEach(id => {
+        let el = document.getElementById(id);
+        if (el) el.innerHTML = '<option value="all">全部場次</option>' + opts;
+    });
     
-    const detailSelect = document.getElementById('detailRaceNo');
-    if (detailSelect) detailSelect.innerHTML = '<option value="all">全部場次</option>' + opts;
-    
-    // 賽果頁：只顯示場次，無「全部場次」（重要！）
-    const resultSelect = document.getElementById('resultRaceNo');
-    if (resultSelect) resultSelect.innerHTML = opts;
-    
-    if (rankSelect && rankSelect.options.length > 0) rankSelect.selectedIndex = 0;
-    if (detailSelect) detailSelect.value = 'all';
+    if (document.getElementById('detailRaceNo')) document.getElementById('detailRaceNo').value = 'all';
 }
     
     // ========== 排位圖 ==========
@@ -610,7 +678,14 @@ async function loadRankingChart() {
         document.getElementById('rankChart').innerHTML = '<div class="card">請先選擇賽日</div>';
         return;
     }
-    const raceNo = document.getElementById('rankRaceNo').value;
+    
+    // 獲取選中的場次（從按鈕組）
+    const activeBtn = document.querySelector('.race-btn.active');
+    if (!activeBtn) {
+        document.getElementById('rankChart').innerHTML = '<div class="card">請選擇場次</div>';
+        return;
+    }
+    const raceNo = activeBtn.getAttribute('data-race');
     if (!raceNo) return;
     
     document.getElementById('rankChart').innerHTML = '<div class="card">載入排位資料...</div>';
