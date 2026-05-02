@@ -90,9 +90,25 @@
             font-weight: 500;
             flex-shrink: 0;
         }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center; }
-        .stat-card { background: #f8fafc; padding: 12px; border-radius: 16px; }
-        .stat-number { font-size: 1.6rem; font-weight: bold; color: #1e6f3f; }
+        /* 統計方格樣式 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            text-align: center;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 16px;
+        }
+
+        .stat-number {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #1e6f3f;
+        }
         .lock-msg { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 12px; text-align: center; margin-bottom: 12px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; }
@@ -251,6 +267,27 @@
         .race-btn.active:hover {
             background: #1e6f3f;
         }
+        /* 投注頁按鈕樣式 - 同一行 */
+        .inline-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .inline-buttons button {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        /* 手機版稍小 */
+        @media (max-width: 480px) {
+            .inline-buttons button {
+                padding: 6px 8px;
+                font-size: 0.75rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -334,8 +371,8 @@
             
             <!-- 只有一組按鈕 -->
             <div class="inline-buttons">
-                <button type="submit" id="submitBtn">確認投注 (總額 $120)</button>
-                <button type="button" id="clearBetForm" class="secondary">清除</button>
+                <button type="submit" id="submitBtn" style="flex: 1; padding: 8px 12px; font-size: 0.85rem;">確認投注</button>
+                <button type="button" id="clearBetForm" class="secondary" style="flex: 1; padding: 8px 12px; font-size: 0.85rem;">清除</button>
             </div>
         </form>
     </div>
@@ -1515,28 +1552,63 @@ async function saveRaceResult() {
     if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
 }
     
-    // ========== 個人統計 ==========
-    async function loadStatsForCurrentUser() {
-        const user = document.getElementById('statsUserSelect').value;
-        if (!user) {
-            document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
-            return;
-        }
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const startDate = `${year}-${month}-01`;
-        const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-        const endDate = `${year}-${month}-${lastDay}`;
-        const { data, error } = await supabaseClient.from('bets').select('payout, amount, refund').eq('participant', user).gte('race_date', startDate).lte('race_date', endDate).eq('refund', false);
-        if (error) { console.error(error); document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>'; return; }
-        const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 120), 0);
-        const totalPayout = (data || []).reduce((s, b) => s + (b.payout || 0), 0);
-        const roi = totalStake ? (totalPayout / totalStake * 100).toFixed(1) : 0;
-        const winCount = (data || []).filter(b => b.payout > (b.amount || 120)).length;
-        const winRate = data?.length ? (winCount / data.length * 100).toFixed(1) : 0;
-        document.getElementById('statsDisplay').innerHTML = `<div class="stats-grid"><div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div><div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div><div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div><div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div></div>`;
+// ========== 個人統計（四個方格顯示）==========
+async function loadStatsForCurrentUser() {
+    const user = document.getElementById('statsUserSelect').value;
+    if (!user) {
+        document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
+        return;
     }
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+    const endDate = `${year}-${month}-${lastDay}`;
+    
+    const { data, error } = await supabaseClient
+        .from('bets')
+        .select('payout, amount, refund')
+        .eq('participant', user)
+        .gte('race_date', startDate)
+        .lte('race_date', endDate)
+        .eq('refund', false);
+    
+    if (error) {
+        console.error("統計查詢錯誤:", error);
+        document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>';
+        return;
+    }
+    
+    const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 120), 0);
+    const totalPayout = (data || []).reduce((s, b) => s + (b.payout || 0), 0);
+    const roi = totalStake ? ((totalPayout / totalStake) * 100).toFixed(1) : 0;
+    const winCount = (data || []).filter(b => b.payout > (b.amount || 120)).length;
+    const winRate = data?.length ? ((winCount / data.length) * 100).toFixed(1) : 0;
+    
+    // 四個方格顯示
+    document.getElementById('statsDisplay').innerHTML = `
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div>總投入</div>
+                <div class="stat-number">$${totalStake}</div>
+            </div>
+            <div class="stat-card">
+                <div>總派彩</div>
+                <div class="stat-number">$${totalPayout}</div>
+            </div>
+            <div class="stat-card">
+                <div>勝率</div>
+                <div class="stat-number">${winRate}%</div>
+            </div>
+            <div class="stat-card">
+                <div>回報率</div>
+                <div class="stat-number">${roi}%</div>
+            </div>
+        </div>
+    `;
+}
     
 // ========== 每月排名（縮小字體）==========
 async function loadMonthlyRanking() {
