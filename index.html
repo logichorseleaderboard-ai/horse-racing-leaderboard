@@ -1552,7 +1552,6 @@ async function saveRaceResult() {
     if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
 }
     
-// ========== 個人統計（四個方格顯示）==========
 async function loadStatsForCurrentUser() {
     const user = document.getElementById('statsUserSelect').value;
     if (!user) {
@@ -1587,24 +1586,24 @@ async function loadStatsForCurrentUser() {
     const winCount = (data || []).filter(b => b.payout > (b.amount || 120)).length;
     const winRate = data?.length ? ((winCount / data.length) * 100).toFixed(1) : 0;
     
-    // 四個方格顯示
+    // 使用內聯樣式（四個方格）
     document.getElementById('statsDisplay').innerHTML = `
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div>總投入</div>
-                <div class="stat-number">$${totalStake}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center;">
+            <div style="background: #f8fafc; padding: 16px; border-radius: 16px;">
+                <div style="font-size: 0.8rem; color: #64748b;">總投入</div>
+                <div style="font-size: 1.6rem; font-weight: bold; color: #1e6f3f;">$${totalStake}</div>
             </div>
-            <div class="stat-card">
-                <div>總派彩</div>
-                <div class="stat-number">$${totalPayout}</div>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 16px;">
+                <div style="font-size: 0.8rem; color: #64748b;">總派彩</div>
+                <div style="font-size: 1.6rem; font-weight: bold; color: #1e6f3f;">$${totalPayout}</div>
             </div>
-            <div class="stat-card">
-                <div>勝率</div>
-                <div class="stat-number">${winRate}%</div>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 16px;">
+                <div style="font-size: 0.8rem; color: #64748b;">勝率</div>
+                <div style="font-size: 1.6rem; font-weight: bold; color: #1e6f3f;">${winRate}%</div>
             </div>
-            <div class="stat-card">
-                <div>回報率</div>
-                <div class="stat-number">${roi}%</div>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 16px;">
+                <div style="font-size: 0.8rem; color: #64748b;">回報率</div>
+                <div style="font-size: 1.6rem; font-weight: bold; color: #1e6f3f;">${roi}%</div>
             </div>
         </div>
     `;
