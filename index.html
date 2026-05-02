@@ -1509,37 +1509,98 @@ async function saveRaceResult() {
         document.getElementById('statsDisplay').innerHTML = `<div class="stats-grid"><div class="stat-card">總投入<br><span class="stat-number">$${totalStake}</span></div><div class="stat-card">總派彩<br><span class="stat-number">$${totalPayout}</span></div><div class="stat-card">勝率<br><span class="stat-number">${winRate}%</span></div><div class="stat-card">回報率<br><span class="stat-number">${roi}%</span></div></div>`;
     }
     
-    // ========== 每月排名 ==========
-    async function loadMonthlyRanking() {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const startDate = `${year}-${month}-01`;
-        const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-        const endDate = `${year}-${month}-${lastDay}`;
-        document.getElementById('monthDisplay').innerHTML = `📅 ${year}年${parseInt(month)}月 (${startDate} 至 ${endDate})`;
-        const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
-        if (pErr) { document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入失敗</td></tbody>'; return; }
-        const participantNames = allParticipants.map(p => p.name);
-        const { data, error } = await supabaseClient.from('bets').select('participant, payout, amount, refund').gte('race_date', startDate).lte('race_date', endDate).eq('refund', false);
-        if (error) { document.getElementById('rankingTable').innerHTML = '<tbody><td colspan="5">載入失敗</td></tbody>'; return; }
-        const statsMap = new Map();
-        participantNames.forEach(name => statsMap.set(name, { totalStake: 0, totalPayout: 0 }));
-        (data || []).forEach(bet => {
-            const name = bet.participant;
-            if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
-            const s = statsMap.get(name);
-            s.totalStake += bet.amount || 120;
-            s.totalPayout += bet.payout || 0;
-        });
-        const ranking = Array.from(statsMap.entries()).map(([name, s]) => ({ name, totalStake: s.totalStake, totalPayout: s.totalPayout, roi: s.totalStake === 0 ? 0 : ((s.totalPayout - s.totalStake) / s.totalStake * 100).toFixed(1) })).sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
-        const tbody = ranking.map((item, idx) => {
-            let roiColor = parseFloat(item.roi) > 0 ? 'color: #16a34a;' : (parseFloat(item.roi) < 0 ? 'color: #b91c1c;' : 'color: #475569;');
-            let rankDisplay = idx === 0 ? '🥇 1' : (idx === 1 ? '🥈 2' : (idx === 2 ? '🥉 3' : `${idx+1}`));
-            return `<tr style="${idx<3 ? 'background-color:#f0fdf4;' : ''}"><td style="font-weight:bold;">${rankDisplay}</td><td>${item.name}</td><td>$${item.totalStake.toLocaleString()}</td><td>$${item.totalPayout.toLocaleString()}</td><td style="${roiColor} font-weight:bold;">${item.roi}%</td></tr>`;
-        }).join('');
-        document.getElementById('rankingTable').innerHTML = `<tbody>${tbody}</tbody>`;
+// ========== 每月排名（修正表格顯示）==========
+async function loadMonthlyRanking() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+    const endDate = `${year}-${month}-${lastDay}`;
+    document.getElementById('monthDisplay').innerHTML = `📅 ${year}年${parseInt(month)}月 (${startDate} 至 ${endDate})`;
+    
+    const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
+    if (pErr) { 
+        document.getElementById('rankingTable').innerHTML = '<div class="card">載入參賽者失敗</div>';
+        return; 
     }
+    const participantNames = allParticipants.map(p => p.name);
+    
+    const { data, error } = await supabaseClient
+        .from('bets')
+        .select('participant, payout, amount, refund')
+        .gte('race_date', startDate)
+        .lte('race_date', endDate)
+        .eq('refund', false);
+    
+    if (error) { 
+        document.getElementById('rankingTable').innerHTML = '<div class="card">載入排名失敗</div>';
+        return; 
+    }
+    
+    const statsMap = new Map();
+    participantNames.forEach(name => {
+        statsMap.set(name, { totalStake: 0, totalPayout: 0 });
+    });
+    
+    (data || []).forEach(bet => {
+        const name = bet.participant;
+        if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
+        const s = statsMap.get(name);
+        s.totalStake += bet.amount || 120;
+        s.totalPayout += bet.payout || 0;
+    });
+    
+    const ranking = Array.from(statsMap.entries())
+        .map(([name, s]) => ({
+            name,
+            totalStake: s.totalStake,
+            totalPayout: s.totalPayout,
+            roi: s.totalStake === 0 ? 0 : ((s.totalPayout - s.totalStake) / s.totalStake * 100).toFixed(1)
+        }))
+        .sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
+    
+    // 使用表格方式顯示，帶有標題列
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+            <thead>
+                <tr style="background: #e6f7ec; border-bottom: 2px solid #cbd5e1;">
+                    <th style="padding: 10px 8px; text-align: center; width: 60px;">排名</th>
+                    <th style="padding: 10px 8px; text-align: left;">參賽者</th>
+                    <th style="padding: 10px 8px; text-align: right; width: 90px;">總投入</th>
+                    <th style="padding: 10px 8px; text-align: right; width: 90px;">總派彩</th>
+                    <th style="padding: 10px 8px; text-align: right; width: 80px;">回報率</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    ranking.forEach((item, idx) => {
+        const roiColor = parseFloat(item.roi) > 0 ? '#16a34a' : (parseFloat(item.roi) < 0 ? '#b91c1c' : '#475569');
+        let rankDisplay = idx + 1;
+        if (idx === 0) rankDisplay = '🥇 1';
+        else if (idx === 1) rankDisplay = '🥈 2';
+        else if (idx === 2) rankDisplay = '🥉 3';
+        else rankDisplay = `${idx+1}`;
+        
+        html += `
+            <tr style="border-bottom: 1px solid #e2e8f0; ${idx < 3 ? 'background-color: #f0fdf4;' : ''}">
+                <td style="padding: 8px; text-align: center; font-weight: bold;">${rankDisplay}</td>
+                <td style="padding: 8px; text-align: left;">${item.name}</td>
+                <td style="padding: 8px; text-align: right;">$${item.totalStake.toLocaleString()}</td>
+                <td style="padding: 8px; text-align: right;">$${item.totalPayout.toLocaleString()}</td>
+                <td style="padding: 8px; text-align: right; color: ${roiColor}; font-weight: bold;">${item.roi}%</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+            </tbody>
+        </table>
+    `;
+    
+    document.getElementById('rankingTable').innerHTML = html;
+}
     
 // ========== 管理頁面 ==========
 async function loadAdminBets() {
