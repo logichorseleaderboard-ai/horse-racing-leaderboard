@@ -35,12 +35,40 @@
         button { width: 100%; padding: 12px; background: #1e6f3f; color: white; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; font-size: 1rem; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
         .badge { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; margin: 4px 4px 0 0; }
-        .bar-chart { margin: 12px 0; }
-        .bar-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-        .bar-label { width: 45px; font-weight: 500; }
-        .bar-bg { flex: 1; background: #e2e8f0; border-radius: 20px; height: 24px; overflow: hidden; }
-        .bar-fill { background: #1e6f3f; height: 100%; width: 0%; transition: width 0.2s; }
-        .bar-count { width: 35px; text-align: right; font-size: 0.8rem; }
+        /* 排位熱度圖樣式 */
+        .bar-chart {
+            margin-top: 12px;
+        }
+
+        .bar-item {
+            margin-bottom: 12px;
+        }
+
+        .bar-label {
+            width: 45px;
+            font-weight: 500;
+        }
+
+        .bar-bg {
+            flex: 1;
+            background: #e2e8f0;
+            border-radius: 20px;
+            height: 24px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            background: #1e6f3f;
+            height: 100%;
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        .bar-count {
+            width: 35px;
+            text-align: right;
+            font-size: 0.8rem;
+        }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center; }
         .stat-card { background: #f8fafc; padding: 12px; border-radius: 16px; }
         .stat-number { font-size: 1.6rem; font-weight: bold; color: #1e6f3f; }
@@ -673,7 +701,7 @@ async function initRaceNoSelects() {
     if (detailSelect) detailSelect.value = 'all';
 }
     
-// ========== 排位熱度圖（同時顯示膽/腳次數）==========
+// ========== 排位熱度圖（使用原有 CSS 類名）==========
 async function loadRankingChart() {
     if (!currentRaceDate) {
         document.getElementById('rankChart').innerHTML = '<div class="card">請先選擇賽日</div>';
@@ -709,20 +737,16 @@ async function loadRankingChart() {
             if (horsesStr) {
                 const horseList = horsesStr.split(',').map(s => s.trim()).filter(s => s).map(Number);
                 
-                // 單馬投注
                 if (horseList.length === 1) {
                     banker = horseList[0];
                 }
-                // 膽拖模式
                 else if (comboType === 'banker' && fd.banker) {
                     banker = parseInt(fd.banker);
                     legs = horseList.filter(h => h !== banker);
                 }
-                // 互串模式
                 else if (comboType === 'all' && horseList.length >= 2) {
                     legs = horseList;
                 }
-                // 舊資料兼容
                 else if (fd.banker) {
                     banker = parseInt(fd.banker);
                     if (fd.horses) {
@@ -762,32 +786,32 @@ async function loadRankingChart() {
         const bankerCount = bankerCnt[horseNum] || 0;
         const legCount = legCnt[horseNum] || 0;
         const totalCount = bankerCount + legCount;
+        const horseName = horse.horseName || `${horseNum}號`;
         
+        // 計算百分比
         const bankerPercent = maxCnt > 0 ? (bankerCount / maxCnt) * 100 : 0;
         const legPercent = maxCnt > 0 ? (legCount / maxCnt) * 100 : 0;
         
-        const horseName = horse.horseName || `${horseNum}號`;
-        
         html += `
-            <div class="bar-item" style="margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                    <div style="width: 55px; font-weight: 600;">${horseNum}號</div>
+            <div class="bar-item">
+                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                    <div class="bar-label" style="width: 55px;">${horseNum}號</div>
                     <div style="width: 80px; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${horseName}">${horseName}</div>
-                    <div style="flex:1; text-align: right; font-size: 0.7rem;">${totalCount}</div>
+                    <div style="flex:1; text-align: right;">${totalCount}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <div style="width: 55px;"></div>
-                    <div style="flex: 1; background: #e2e8f0; border-radius: 20px; overflow: hidden; display: flex;">
-                        <div style="width: ${bankerPercent}%; background: #ef4444; height: 20px; transition: width 0.2s;"></div>
-                        <div style="width: ${legPercent}%; background: #22c55e; height: 20px; transition: width 0.2s;"></div>
+                    <div class="bar-bg" style="flex: 1; display: flex;">
+                        <div style="width: ${bankerPercent}%; background: #ef4444; height: 24px;"></div>
+                        <div style="width: ${legPercent}%; background: #22c55e; height: 24px;"></div>
                     </div>
-                    <div style="width: 50px; font-size: 0.7rem; text-align: right;"></div>
+                    <div style="width: 35px;"></div>
                 </div>
             </div>
         `;
     }
     
-    // 表格下方圖例（簡化文字）
+    // 圖例
     html += `
         <div style="display: flex; justify-content: center; gap: 24px; margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0;">
             <span style="display: inline-flex; align-items: center; gap: 6px;">
