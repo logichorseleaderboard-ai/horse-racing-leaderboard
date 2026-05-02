@@ -358,20 +358,26 @@
         </div>
     </div>
 <div id="result-page" class="page">
-    <div class="card">
-        <h2>🏁 賽果與派彩輸入</h2>
-        <div class="form-group"><label>賽日</label><select id="resultRaceDate"></select></div>
-        <div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div>
-        <div class="form-group"><label>退賽馬匹 (號碼，逗號分隔)</label><input type="text" id="scratchedHorses" placeholder="例如: 4,7,10"></div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div>
-        <h3 style="margin:15px 0 8px;">派彩 (每$10)</h3>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <input type="number" id="div_win" placeholder="獨贏"><input type="number" id="div_q" placeholder="連贏">
-            <input type="number" id="div_pla1" placeholder="位置(1)"><input type="number" id="div_qp12" placeholder="位置Q 1-2">
-            <input type="number" id="div_pla2" placeholder="位置(2)"><input type="number" id="div_qp13" placeholder="位置Q 1-3">
-            <input type="number" id="div_pla3" placeholder="位置(3)"><input type="number" id="div_qp23" placeholder="位置Q 2-3">
+    <div id="resultAuth" class="card">
+        <input type="password" id="resultPwd" placeholder="賽果管理密碼">
+        <button onclick="verifyResult()" style="margin-top:8px;">驗證</button>
+    </div>
+    <div id="resultContent" style="display:none;">
+        <div class="card">
+            <h2>🏁 賽果與派彩輸入</h2>
+            <div class="form-group"><label>賽日</label><select id="resultRaceDate"></select></div>
+            <div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div>
+            <div class="form-group"><label>退賽馬匹 (號碼，逗號分隔)</label><input type="text" id="scratchedHorses" placeholder="例如: 4,7,10"></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;"><input type="number" id="first" placeholder="第一名"><input type="number" id="second" placeholder="第二名"><input type="number" id="third" placeholder="第三名"></div>
+            <h3 style="margin:15px 0 8px;">派彩 (每$10)</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <input type="number" id="div_win" placeholder="獨贏"><input type="number" id="div_q" placeholder="連贏">
+                <input type="number" id="div_pla1" placeholder="位置(1)"><input type="number" id="div_qp12" placeholder="位置Q 1-2">
+                <input type="number" id="div_pla2" placeholder="位置(2)"><input type="number" id="div_qp13" placeholder="位置Q 1-3">
+                <input type="number" id="div_pla3" placeholder="位置(3)"><input type="number" id="div_qp23" placeholder="位置Q 2-3">
+            </div>
+            <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
         </div>
-        <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
     </div>
 </div>
     <div id="admin-page" class="page">
@@ -1787,22 +1793,34 @@ function showResultPasswordModal(onSuccess) {
 }
 
 function showPage(pageId) {
-    if (pageId === 'result' && !resultUnlocked && sessionStorage.getItem('resultUnlocked') !== 'true') {
-        showResultPasswordModal(() => { resultUnlocked = true; sessionStorage.setItem('resultUnlocked','true'); doShowPage(pageId); });
-        return;
+    // 賽果頁：沒解鎖時顯示密碼輸入區，不解鎖不顯示內容
+    if (pageId === 'result') {
+        const resultAuth = document.getElementById('resultAuth');
+        const resultContent = document.getElementById('resultContent');
+        
+        if (!resultUnlocked && sessionStorage.getItem('resultUnlocked') !== 'true') {
+            if (resultAuth) resultAuth.style.display = 'block';
+            if (resultContent) resultContent.style.display = 'none';
+        } else {
+            if (resultAuth) resultAuth.style.display = 'none';
+            if (resultContent) resultContent.style.display = 'block';
+            // 載入賽果頁資料
+            loadRaceDaysForResult();
+        }
     }
-    doShowPage(pageId);
-}
-
-function doShowPage(pageId) {
+    
+    // 其餘頁面正常切換
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
     document.getElementById(`${pageId}-page`).classList.add('active-page');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`.nav-btn[data-page="${pageId}"]`).classList.add('active');
+    
     if(pageId === 'ranking') loadRankingChart();
     if(pageId === 'detail') loadUserBets();
     if(pageId === 'admin' && adminUnlocked) loadAdminBets();
     if(pageId === 'stats') { loadStatsForCurrentUser(); loadMonthlyRanking(); }
+    
+    // 賽果頁已在上方處理，這裡避免重複
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
@@ -1811,6 +1829,19 @@ document.getElementById('detailUserSelect')?.addEventListener('change', loadUser
 document.getElementById('detailRaceDate')?.addEventListener('change', loadUserBets);
 document.getElementById('detailRaceNo')?.addEventListener('change', loadUserBets);
 document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
+    
+function verifyResult() {
+    const pwd = document.getElementById('resultPwd').value;
+    if (pwd === 'LBadmin') {
+        resultUnlocked = true;
+        sessionStorage.setItem('resultUnlocked', 'true');
+        document.getElementById('resultAuth').style.display = 'none';
+        document.getElementById('resultContent').style.display = 'block';
+        loadRaceDaysForResult();
+    } else {
+        alert("密碼錯誤");
+    }
+}
     
 window.onload = async () => {
     // 檢查投注頁是否已解鎖
