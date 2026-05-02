@@ -1633,7 +1633,7 @@ async function loadStatsForCurrentUser() {
     `;
 }
     
-// ========== 每月排名（字體更小，全部靠左）==========
+// ========== 每月排名（一頁顯示，不滾動不換行）==========
 async function loadMonthlyRanking() {
     const now = new Date();
     const year = now.getFullYear();
@@ -1684,19 +1684,19 @@ async function loadMonthlyRanking() {
         }))
         .sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
     
+    // 固定寬度，確保手機上一行顯示
     let html = `
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.4rem; white-space: nowrap;">
-                <thead>
-                    <tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;">
-                        <th style="padding: 3px 5px; text-align: left; width: 40px;">排名</th>
-                        <th style="padding: 3px 5px; text-align: left;">參賽者</th>
-                        <th style="padding: 3px 5px; text-align: left; width: 55px;">總投入</th>
-                        <th style="padding: 3px 5px; text-align: left; width: 55px;">總派彩</th>
-                        <th style="padding: 3px 5px; text-align: left; width: 50px;">回報率</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.55rem; table-layout: fixed;">
+            <thead>
+                <tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;">
+                    <th style="padding: 4px 3px; text-align: left; width: 38px;">排名</th>
+                    <th style="padding: 4px 3px; text-align: left;">參賽者</th>
+                    <th style="padding: 4px 3px; text-align: left; width: 50px;">總投入</th>
+                    <th style="padding: 4px 3px; text-align: left; width: 50px;">總派彩</th>
+                    <th style="padding: 4px 3px; text-align: left; width: 48px;">回報率</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
     
     ranking.forEach((item, idx) => {
@@ -1709,19 +1709,18 @@ async function loadMonthlyRanking() {
         
         html += `
             <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 2px 5px; text-align: left;">${rankDisplay}</td>
-                <td style="padding: 2px 5px; text-align: left;">${item.name}</td>
-                <td style="padding: 2px 5px; text-align: left;">$${item.totalStake.toLocaleString()}</td>
-                <td style="padding: 2px 5px; text-align: left;">$${item.totalPayout.toLocaleString()}</td>
-                <td style="padding: 2px 5px; text-align: left; color: ${roiColor};">${item.roi}%</td>
+                <td style="padding: 3px 3px; text-align: left;">${rankDisplay}</td>
+                <td style="padding: 3px 3px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</td>
+                <td style="padding: 3px 3px; text-align: left;">$${item.totalStake}</td>
+                <td style="padding: 3px 3px; text-align: left;">$${item.totalPayout}</td>
+                <td style="padding: 3px 3px; text-align: left; color: ${roiColor};">${item.roi}%</td>
             </tr>
         `;
     });
     
     html += `
-                </tbody>
-            </table>
-        </div>
+            </tbody>
+        </table>
     `;
     
     document.getElementById('rankingTable').innerHTML = html;
