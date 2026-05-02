@@ -1633,7 +1633,7 @@ async function loadStatsForCurrentUser() {
     `;
 }
     
-// ========== 每月排名（全部靠左對齊）==========
+// ========== 每月排名（排名置中，其他靠左，不換行）==========
 async function loadMonthlyRanking() {
     const now = new Date();
     const year = now.getFullYear();
@@ -1684,17 +1684,16 @@ async function loadMonthlyRanking() {
         }))
         .sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
     
-    // 全部靠左對齊（包括數字）
     let html = `
-        <div style="display: flex; justify-content: center;">
-            <table style="width: 100%; max-width: 500px; border-collapse: collapse; font-size: 0.65rem;">
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; white-space: nowrap;">
                 <thead>
                     <tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;">
-                        <th style="padding: 5px 6px; text-align: left; width: 50px;">排名</th>
-                        <th style="padding: 5px 6px; text-align: left;">參賽者</th>
-                        <th style="padding: 5px 6px; text-align: left; width: 65px;">總投入</th>
-                        <th style="padding: 5px 6px; text-align: left; width: 65px;">總派彩</th>
-                        <th style="padding: 5px 6px; text-align: left; width: 55px;">回報率</th>
+                        <th style="padding: 6px 8px; text-align: center; width: 55px;">排名</th>
+                        <th style="padding: 6px 8px; text-align: left;">參賽者</th>
+                        <th style="padding: 6px 8px; text-align: right; width: 70px;">總投入</th>
+                        <th style="padding: 6px 8px; text-align: right; width: 70px;">總派彩</th>
+                        <th style="padding: 6px 8px; text-align: right; width: 65px;">回報率</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1709,12 +1708,12 @@ async function loadMonthlyRanking() {
         else rankDisplay = `${idx+1}`;
         
         html += `
-            <tr style="border-bottom: 1px solid #e2e8f0; ${idx < 3 ? 'background-color: #f0fdf4;' : ''}">
-                <td style="padding: 4px 6px; text-align: left;">${rankDisplay}</td>
-                <td style="padding: 4px 6px; text-align: left;">${item.name}</td>
-                <td style="padding: 4px 6px; text-align: left;">$${item.totalStake.toLocaleString()}</td>
-                <td style="padding: 4px 6px; text-align: left;">$${item.totalPayout.toLocaleString()}</tr>
-                <td style="padding: 4px 6px; text-align: left; color: ${roiColor};">${item.roi}%</td>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 5px 8px; text-align: center;">${rankDisplay}</td>
+                <td style="padding: 5px 8px; text-align: left; white-space: nowrap;">${item.name}</td>
+                <td style="padding: 5px 8px; text-align: right;">$${item.totalStake.toLocaleString()}</td>
+                <td style="padding: 5px 8px; text-align: right;">$${item.totalPayout.toLocaleString()}</td>
+                <td style="padding: 5px 8px; text-align: right; color: ${roiColor};">${item.roi}%</td>
             </tr>
         `;
     });
