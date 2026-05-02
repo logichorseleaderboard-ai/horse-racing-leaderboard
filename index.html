@@ -1633,7 +1633,7 @@ async function loadStatsForCurrentUser() {
     `;
 }
     
-// ========== 每月排名（排名置中，其他靠左，不換行）==========
+// ========== 每月排名（獎牌圖示無數字，全部靠左）==========
 async function loadMonthlyRanking() {
     const now = new Date();
     const year = now.getFullYear();
@@ -1686,14 +1686,14 @@ async function loadMonthlyRanking() {
     
     let html = `
         <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; white-space: nowrap;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.6rem; white-space: nowrap;">
                 <thead>
                     <tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;">
-                        <th style="padding: 6px 8px; text-align: center; width: 55px;">排名</th>
-                        <th style="padding: 6px 8px; text-align: left;">參賽者</th>
-                        <th style="padding: 6px 8px; text-align: right; width: 70px;">總投入</th>
-                        <th style="padding: 6px 8px; text-align: right; width: 70px;">總派彩</th>
-                        <th style="padding: 6px 8px; text-align: right; width: 65px;">回報率</th>
+                        <th style="padding: 4px 6px; text-align: left; width: 45px;">排名</th>
+                        <th style="padding: 4px 6px; text-align: left;">參賽者</th>
+                        <th style="padding: 4px 6px; text-align: left; width: 60px;">總投入</th>
+                        <th style="padding: 4px 6px; text-align: left; width: 60px;">總派彩</th>
+                        <th style="padding: 4px 6px; text-align: left; width: 55px;">回報率</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1701,7 +1701,7 @@ async function loadMonthlyRanking() {
     
     ranking.forEach((item, idx) => {
         const roiColor = parseFloat(item.roi) > 0 ? '#16a34a' : (parseFloat(item.roi) < 0 ? '#b91c1c' : '#475569');
-        let rankDisplay = idx + 1;
+        let rankDisplay;
         if (idx === 0) rankDisplay = '🥇';
         else if (idx === 1) rankDisplay = '🥈';
         else if (idx === 2) rankDisplay = '🥉';
@@ -1709,11 +1709,11 @@ async function loadMonthlyRanking() {
         
         html += `
             <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 5px 8px; text-align: center;">${rankDisplay}</td>
-                <td style="padding: 5px 8px; text-align: left; white-space: nowrap;">${item.name}</td>
-                <td style="padding: 5px 8px; text-align: right;">$${item.totalStake.toLocaleString()}</td>
-                <td style="padding: 5px 8px; text-align: right;">$${item.totalPayout.toLocaleString()}</td>
-                <td style="padding: 5px 8px; text-align: right; color: ${roiColor};">${item.roi}%</td>
+                <td style="padding: 3px 6px; text-align: left;">${rankDisplay}</td>
+                <td style="padding: 3px 6px; text-align: left;">${item.name}</td>
+                <td style="padding: 3px 6px; text-align: left;">$${item.totalStake.toLocaleString()}</td>
+                <td style="padding: 3px 6px; text-align: left;">$${item.totalPayout.toLocaleString()}</td>
+                <td style="padding: 3px 6px; text-align: left; color: ${roiColor};">${item.roi}%</td>
             </tr>
         `;
     });
