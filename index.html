@@ -1343,22 +1343,79 @@ async function saveRaceResult() {
         document.getElementById('rankingTable').innerHTML = `<tbody>${tbody}</tbody>`;
     }
     
-    // ========== 管理頁面 ==========
-    async function loadAdminBets() {
-        const { data } = await supabaseClient.from('bets').select('*').order('created_at', { ascending: false }).limit(50);
-        if(data) document.getElementById('adminBetsList').innerHTML = `<tr><thead><th>參賽者</th><th>賽日/場</th><th>詳情</th><th>派彩</th><th>操作</th></thead><tbody>${data.map(b => {
-            let detail = b.flexible_data ? JSON.stringify(b.flexible_data) : `膽:${b.banker} 腳:${b.legs}`;
-            return `<tr><td>${b.participant}</td><td>${b.race_date}/${b.race_no}</td><td style="font-size:0.7rem;">${detail}</td><td>$${b.payout}</td><td><button onclick="deleteBet(${b.id})" style="background:red;">刪</button></td></tr>`;
-        }).join('')}</tbody></table>`;
-    }
+// ========== 管理頁面 ==========
+async function loadAdminBets() {
+    const { data } = await supabaseClient.from('bets').select('*').order('created_at', { ascending: false }).limit(50);
+    if (!data) return;
     
-    window.deleteBet = async (id) => { if(confirm("刪除？")) { await supabaseClient.from('bets').delete().eq('id', id); loadAdminBets(); loadRankingChart(); loadStatsForCurrentUser(); loadUserBets(); loadMonthlyRanking(); } };
-    window.deleteParticipant = async (id) => { if(confirm("刪除參賽者會刪除所有投注")) { const p = participants.find(p=>p.id===id); if(p) await supabaseClient.from('bets').delete().eq('participant', p.name); await supabaseClient.from('participants').delete().eq('id', id); loadParticipants(); loadAdminBets(); loadRankingChart(); loadUserBets(); loadMonthlyRanking(); } };
-    window.deleteRaceDay = async (id) => { if(confirm("刪除賽日會刪除該日所有投注")) { const d = raceDays.find(r=>r.id===id); if(d) await supabaseClient.from('bets').delete().eq('race_date', d.race_date); await supabaseClient.from('race_days').delete().eq('id', id); loadRaceDays(); loadAdminBets(); loadUserBets(); loadMonthlyRanking(); } };
-    window.addParticipant = async () => { const name = document.getElementById('newUserName').value.trim(); if(name) { await supabaseClient.from('participants').insert([{name}]); document.getElementById('newUserName').value=''; loadParticipants(); loadMonthlyRanking(); } };
-    window.addRaceDay = async () => { const date = document.getElementById('newRaceDate').value; if(date) { await supabaseClient.from('race_days').insert([{race_date:date}]); loadRaceDays(); } };
-    window.verifyAdmin = function() { if(document.getElementById('adminPwd').value === 'LBadmin') { adminUnlocked=true; document.getElementById('adminAuth').style.display='none'; document.getElementById('adminPanel').style.display='block'; loadAdminBets(); } else alert("密碼錯誤"); };
-    
+    document.getElementById('adminBetsList').innerHTML = `
+        <table style="width:100%; font-size:0.75rem; border-collapse: collapse;">
+            <thead>
+                <tr style="background:#f1f5f9;">
+                    <th style="padding:8px; text-align:left;">參賽者</th>
+                    <th style="padding:8px; text-align:left;">賽日/場</th>
+                    <th style="padding:8px; text-align:left;">投注內容</th>
+                    <th style="padding:8px; text-align:left;">派彩</th>
+                    <th style="padding:8px; text-align:left;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.map(b => {
+                    let betDetail = '';
+                    const amount = b.amount || 120;
+                    
+                    // 自動扣款
+                    if (b.flexible_data && b.flexible_data.auto_deduct) {
+                        betDetail = '⚠️ 自動扣款 $120 (未投注)';
+                    }
+                    // 新玩法
+                    else if (b.flexible_data && b.flexible_data.units) {
+                        const fd = b.flexible_data;
+                        const units = fd.units || {};
+                        const horses = fd.horses || '';
+                        const comboType = fd.comboType === 'banker' ? `膽拖(膽${fd.banker})` : (fd.comboType === 'all' ? '互串' : '');
+                        
+                        let parts = [];
+                        if (units.win > 0) parts.push(`獨贏${units.win}注`);
+                        if (units.place > 0) parts.push(`位置${units.place}注`);
+                        if (units.quinella > 0) parts.push(`連贏${units.quinella}組`);
+                        if (units.quinellaPlace > 0) parts.push(`位置Q${units.quinellaPlace}組`);
+                        
+                        betDetail = `🐎 ${horses} ${comboType} | ${parts.join(' / ')} | 總額$${amount}`;
+                        
+                        if (b.refund === true && b.refund_amount > 0) {
+                            betDetail += ` <span style="color:#f59e0b;">(退賽退款 $${b.refund_amount})</span>`;
+                        }
+                    }
+                    // 舊玩法
+                    else if (b.banker && b.banker !== '') {
+                        betDetail = `🐎 膽${b.banker} / 腳${b.legs} | 膽馬獨贏1注+位置3注+連贏2注+位置Q2注 | 總額$${amount}`;
+                    }
+                    
+                    const payoutColor = (b.payout || 0) > 0 ? '#16a34a' : '#64748b';
+                    
+                    return `
+                        <tr style="border-bottom:1px solid #e2e8f0;">
+                            <td style="padding:8px;">${b.participant}</td>
+                            <td style="padding:8px;">${b.race_date}/${b.race_no}</td>
+                            <td style="padding:8px; font-size:0.7rem;">${betDetail}</td>
+                            <td style="padding:8px; color:${payoutColor}; font-weight:bold;">$${b.payout || 0}</td>
+                            <td style="padding:8px;"><button onclick="deleteBet(${b.id})" style="background:#ef4444; color:white; border:none; border-radius:6px; padding:4px 8px; cursor:pointer;">刪除</button></td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+window.deleteBet = async (id) => { if(confirm("刪除？")) { await supabaseClient.from('bets').delete().eq('id', id); loadAdminBets(); loadRankingChart(); loadStatsForCurrentUser(); loadUserBets(); loadMonthlyRanking(); } };
+window.deleteParticipant = async (id) => { if(confirm("刪除參賽者會刪除所有投注")) { const p = participants.find(p=>p.id===id); if(p) await supabaseClient.from('bets').delete().eq('participant', p.name); await supabaseClient.from('participants').delete().eq('id', id); loadParticipants(); loadAdminBets(); loadRankingChart(); loadUserBets(); loadMonthlyRanking(); } };
+window.deleteRaceDay = async (id) => { if(confirm("刪除賽日會刪除該日所有投注")) { const d = raceDays.find(r=>r.id===id); if(d) await supabaseClient.from('bets').delete().eq('race_date', d.race_date); await supabaseClient.from('race_days').delete().eq('id', id); loadRaceDays(); loadAdminBets(); loadUserBets(); loadMonthlyRanking(); } };
+window.addParticipant = async () => { const name = document.getElementById('newUserName').value.trim(); if(name) { await supabaseClient.from('participants').insert([{name}]); document.getElementById('newUserName').value=''; loadParticipants(); loadMonthlyRanking(); } };
+window.addRaceDay = async () => { const date = document.getElementById('newRaceDate').value; if(date) { await supabaseClient.from('race_days').insert([{race_date:date}]); loadRaceDays(); } };
+window.verifyAdmin = function() { if(document.getElementById('adminPwd').value === 'LBadmin') { adminUnlocked=true; document.getElementById('adminAuth').style.display='none'; document.getElementById('adminPanel').style.display='block'; loadAdminBets(); } else alert("密碼錯誤"); };
+
 async function applyInputLockStatus() {
     try {
         const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single();
@@ -1367,7 +1424,6 @@ async function applyInputLockStatus() {
         const raceDate = document.getElementById('inputRaceDate').value;
         const isTimeLocked = raceDate && getSecondsUntilCutoff(raceDate, currentCutoffTime) <= 0;
         
-        // 手動封盤或自動封盤，任一成立則禁用投注
         const isLocked = isManualLock || isTimeLocked;
         
         document.getElementById('submitBtn').disabled = isLocked;
@@ -1386,41 +1442,41 @@ async function applyInputLockStatus() {
         }
     } catch(e) {}
 }
-    window.toggleInputLock = async () => { const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single(); const newVal = data.value === 'true' ? 'false' : 'true'; await supabaseClient.from('sys_config').update({ value: newVal }).eq('key','is_input_enabled'); await applyInputLockStatus(); };
-    
-    function showResultPasswordModal(onSuccess) {
-        const overlay = document.createElement('div'); overlay.className = 'password-overlay';
-        overlay.innerHTML = `<div class="password-box"><h3>🔐 賽果管理驗證</h3><input type="password" id="resultPwd" placeholder="請輸入密碼"><div id="resultPwdError" class="error-msg"></div><div style="display:flex; justify-content:center; gap:15px; margin-top:15px;"><button id="resultSubmitBtn">確認</button><button id="resultCancelBtn" class="secondary">取消</button></div></div>`;
-        document.body.appendChild(overlay);
-        document.getElementById('resultSubmitBtn').onclick = () => { if(document.getElementById('resultPwd').value === 'LBadmin') { overlay.remove(); onSuccess(); } else document.getElementById('resultPwdError').innerText = '密碼錯誤'; };
-        document.getElementById('resultCancelBtn').onclick = () => overlay.remove();
+window.toggleInputLock = async () => { const { data } = await supabaseClient.from('sys_config').select('value').eq('key','is_input_enabled').single(); const newVal = data.value === 'true' ? 'false' : 'true'; await supabaseClient.from('sys_config').update({ value: newVal }).eq('key','is_input_enabled'); await applyInputLockStatus(); };
+
+function showResultPasswordModal(onSuccess) {
+    const overlay = document.createElement('div'); overlay.className = 'password-overlay';
+    overlay.innerHTML = `<div class="password-box"><h3>🔐 賽果管理驗證</h3><input type="password" id="resultPwd" placeholder="請輸入密碼"><div id="resultPwdError" class="error-msg"></div><div style="display:flex; justify-content:center; gap:15px; margin-top:15px;"><button id="resultSubmitBtn">確認</button><button id="resultCancelBtn" class="secondary">取消</button></div></div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('resultSubmitBtn').onclick = () => { if(document.getElementById('resultPwd').value === 'LBadmin') { overlay.remove(); onSuccess(); } else document.getElementById('resultPwdError').innerText = '密碼錯誤'; };
+    document.getElementById('resultCancelBtn').onclick = () => overlay.remove();
+}
+
+function showPage(pageId) {
+    if (pageId === 'result' && !resultUnlocked && sessionStorage.getItem('resultUnlocked') !== 'true') {
+        showResultPasswordModal(() => { resultUnlocked = true; sessionStorage.setItem('resultUnlocked','true'); doShowPage(pageId); });
+        return;
     }
-    
-    function showPage(pageId) {
-        if (pageId === 'result' && !resultUnlocked && sessionStorage.getItem('resultUnlocked') !== 'true') {
-            showResultPasswordModal(() => { resultUnlocked = true; sessionStorage.setItem('resultUnlocked','true'); doShowPage(pageId); });
-            return;
-        }
-        doShowPage(pageId);
-    }
-    
-    function doShowPage(pageId) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-        document.getElementById(`${pageId}-page`).classList.add('active-page');
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.nav-btn[data-page="${pageId}"]`).classList.add('active');
-        if(pageId === 'ranking') loadRankingChart();
-        if(pageId === 'detail') loadUserBets();
-        if(pageId === 'admin' && adminUnlocked) loadAdminBets();
-        if(pageId === 'stats') { loadStatsForCurrentUser(); loadMonthlyRanking(); }
-    }
-    
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
-    document.getElementById('rankRaceNo')?.addEventListener('change', loadRankingChart);
-    document.getElementById('detailUserSelect')?.addEventListener('change', loadUserBets);
-    document.getElementById('detailRaceDate')?.addEventListener('change', loadUserBets);
-    document.getElementById('detailRaceNo')?.addEventListener('change', loadUserBets);
-    document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
+    doShowPage(pageId);
+}
+
+function doShowPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+    document.getElementById(`${pageId}-page`).classList.add('active-page');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.nav-btn[data-page="${pageId}"]`).classList.add('active');
+    if(pageId === 'ranking') loadRankingChart();
+    if(pageId === 'detail') loadUserBets();
+    if(pageId === 'admin' && adminUnlocked) loadAdminBets();
+    if(pageId === 'stats') { loadStatsForCurrentUser(); loadMonthlyRanking(); }
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
+document.getElementById('rankRaceNo')?.addEventListener('change', loadRankingChart);
+document.getElementById('detailUserSelect')?.addEventListener('change', loadUserBets);
+document.getElementById('detailRaceDate')?.addEventListener('change', loadUserBets);
+document.getElementById('detailRaceNo')?.addEventListener('change', loadUserBets);
+document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
     
 window.onload = async () => {
     // 檢查投注頁是否已解鎖
