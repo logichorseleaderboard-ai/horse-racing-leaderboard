@@ -34,7 +34,7 @@
         select, input, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 0.9rem; background: white; }
         button { width: 100%; padding: 12px; background: #1e6f3f; color: white; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; font-size: 1rem; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
-        .badge { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; margin: 4px 4px 0 /* 排位熱度圖樣式 */
+        .badge { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; margin: 4px 4px 0
 /* 排位熱度圖樣式 - 同一行 */
 .race-row {
     display: flex;
@@ -45,7 +45,7 @@
 }
 
 .race-horse-num {
-    width: 45px;
+    width: 40px;
     font-weight: 500;
     flex-shrink: 0;
 }
@@ -70,6 +70,7 @@
 .race-bar {
     height: 100%;
     display: flex;
+    transition: width 0.2s;
 }
 
 .race-bar-banker {
