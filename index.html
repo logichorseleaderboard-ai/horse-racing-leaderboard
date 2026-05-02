@@ -37,7 +37,7 @@
         .badge { display: inline-block; background: #e2e8f0; padding: 4px 12px; border-radius: 30px; font-size: 0.75rem; margin: 4px 4px 0
         /* 排位熱度圖樣式 - 同一行 */
         .race-row {
-            display: flex;
+            display: flex !important;
             align-items: center;
             gap: 8px;
             margin-bottom: 10px;
@@ -45,7 +45,7 @@
         }
 
         .race-horse-num {
-            width: 45px;
+            width: 40px;
             font-weight: 500;
             flex-shrink: 0;
         }
@@ -70,6 +70,7 @@
         .race-bar {
             height: 100%;
             display: flex;
+            transition: width 0.2s;
         }
 
         .race-bar-banker {
