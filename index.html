@@ -1671,11 +1671,11 @@ async function loadMonthlyRanking() {
             <table style="width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.7rem;">
                 <thead>
                     <tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;">
-                        <th style="padding: 8px 6px; text-align: left; width: 55px;">排名</th>
+                        <th style="padding: 8px 6px; text-align: center; width: 55px;">排名</th>
                         <th style="padding: 8px 6px; text-align: left; min-width: 90px;">參賽者</th>
-                        <th style="padding: 8px 6px; text-align: right; width: 70px;">總投入</th>
-                        <th style="padding: 8px 6px; text-align: right; width: 70px;">總利潤</th>
-                        <th style="padding: 8px 6px; text-align: right; width: 70px;">回報率</th>
+                        <th style="padding: 8px 6px; text-align: left; width: 70px;">總投入</th>
+                        <th style="padding: 8px 6px; text-align: left; width: 70px;">總利潤</th>
+                        <th style="padding: 8px 6px; text-align: left; width: 70px;">回報率</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1693,11 +1693,11 @@ async function loadMonthlyRanking() {
         
         html += `
             <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 6px 6px; text-align: left;">${rankDisplay}</td>
+                <td style="padding: 6px 6px; text-align: center;">${rankDisplay}</td>
                 <td style="padding: 6px 6px; text-align: left; white-space: nowrap;">${item.name}</td>
-                <td style="padding: 6px 6px; text-align: right;">$${item.totalStake}</td>
-                <td style="padding: 6px 6px; text-align: right; color: ${profitColor};">$${item.totalProfit}</td>
-                <td style="padding: 6px 6px; text-align: right; color: ${roiColor};">${item.roi}%</td>
+                <td style="padding: 6px 6px; text-align: left;">$${item.totalStake}</td>
+                <td style="padding: 6px 6px; text-align: left; color: ${profitColor};">$${item.totalProfit}</td>
+                <td style="padding: 6px 6px; text-align: left; color: ${roiColor};">${item.roi}%</td>
              </tr>
         `;
     });
