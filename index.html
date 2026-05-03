@@ -542,9 +542,10 @@ async function fetchRaceCount(raceDate) {
 let countdownInterval = null;
 let currentCutoffTime = '12:30:00';
 
-// 獲取當前香港時間
+// 獲取當前香港時間 (UTC+8) - 使用國際標準 API
 function getHKTime() {
     const now = new Date();
+    // 將香港時間轉換為 Date 物件
     const hkTimeString = now.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
     return new Date(hkTimeString);
 }
