@@ -985,7 +985,7 @@ async function loadUserBets() {
         // 計算實際派彩（淨利潤 + 成本）
         const netProfit = b.payout || 0;
         const cost = b.amount || 120;
-        const actualPayout = netProfit + cost;
+        const actualPayout = (b.payout || 0) + (b.amount || 0);
         const displayPayout = actualPayout >= 0 ? actualPayout : 0;
         
         // 自動扣款
