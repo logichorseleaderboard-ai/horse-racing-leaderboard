@@ -1562,7 +1562,7 @@ async function saveRaceResult() {
     if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
 }
     
-// ========== 個人統計（內聯樣式，淨回報率）==========
+// ========== 個人統計（顯示實際投入金額）==========
 async function loadStatsForCurrentUser() {
     const user = document.getElementById('statsUserSelect').value;
     if (!user) {
@@ -1577,13 +1577,13 @@ async function loadStatsForCurrentUser() {
     const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
     const endDate = `${year}-${month}-${lastDay}`;
     
+    // 統計所有投注（包括部分退款的）
     const { data, error } = await supabaseClient
         .from('bets')
-        .select('payout, amount, refund')
+        .select('payout, amount, refund_amount, refund')
         .eq('participant', user)
         .gte('race_date', startDate)
-        .lte('race_date', endDate)
-        .eq('refund', false);
+        .lte('race_date', endDate);
     
     if (error) {
         console.error("統計查詢錯誤:", error);
@@ -1591,12 +1591,13 @@ async function loadStatsForCurrentUser() {
         return;
     }
     
+    // 實際總投入 = amount 總和（已扣除退款的實際支出）
     const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 0), 0);
+    // 總利潤
     const totalProfit = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
-    
-    // 淨回報率 = (總利潤 / 總投入) × 100%
+    // 回報率 = (總利潤 / 實際總投入) × 100%
     const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
-    
+    // 勝率 = 利潤 > 0 的場次 / 總場次
     const totalRaces = (data || []).length;
     const winningRaces = (data || []).filter(b => (b.payout || 0) > 0).length;
     const winRate = totalRaces !== 0 ? ((winningRaces / totalRaces) * 100).toFixed(1) : 0;
@@ -1665,7 +1666,7 @@ async function loadMonthlyRanking() {
         const name = bet.participant;
         if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalProfit: 0 });
         const s = statsMap.get(name);
-        s.totalStake += bet.amount || 120;
+        s.totalStake += bet.amount || 0;
         s.totalProfit += bet.payout || 0;
     });
     
