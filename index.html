@@ -1319,7 +1319,7 @@ function stopCountdown() {
     }
 }
     
-// ========== 儲存賽果與結算（自動退賽退款）==========
+// ========== 儲存賽果與結算（完整版，支援部分退款）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -1344,15 +1344,9 @@ async function saveRaceResult() {
         return;
     }
     
-    // 讀取退賽馬匹（從輸入框）
     const scratchedRaw = document.getElementById('scratchedHorses').value;
     const scratchedHorses = scratchedRaw ? scratchedRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
     const scratchedSet = new Set(scratchedHorses);
-    
-    // 如果輸入了退賽馬匹，在 alert 中提示
-    if (scratchedHorses.length > 0) {
-        console.log(`退賽馬匹: ${scratchedHorses.join(', ')}`);
-    }
     
     const winDiv = Number(document.getElementById('div_win').value) || 0;
     const qinDiv = Number(document.getElementById('div_q').value) || 0;
@@ -1363,7 +1357,6 @@ async function saveRaceResult() {
     const qp13 = Number(document.getElementById('div_qp13').value) || 0;
     const qp23 = Number(document.getElementById('div_qp23').value) || 0;
     
-    // 儲存賽果（包含退賽資訊）
     const { error: resError } = await supabaseClient.from('race_results').upsert({
         race_date: raceDate, race_no: raceNo,
         first, second, third,
@@ -1374,7 +1367,6 @@ async function saveRaceResult() {
     }, { onConflict: 'race_date, race_no' });
     if (resError) { alert("賽果儲存失敗: " + resError.message); return; }
     
-    // 取得該場所有投注
     const { data: bets, error: betsError } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
     if (betsError) { alert("讀取投注失敗: " + betsError.message); return; }
     
@@ -1383,8 +1375,6 @@ async function saveRaceResult() {
         return;
     }
     
-    let refundCount = 0;
-    
     for (let bet of bets) {
         let grossPayout = 0;
         let refund = false;
@@ -1392,76 +1382,67 @@ async function saveRaceResult() {
         let amount = bet.amount || 120;
         let updatedFlexibleData = bet.flexible_data ? { ...bet.flexible_data } : null;
         
-        // 獲取該投注選擇的所有馬匹
-        let selectedHorses = [];
-        if (bet.flexible_data && bet.flexible_data.horses) {
-            selectedHorses = bet.flexible_data.horses.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-        } else if (bet.banker && bet.banker !== '') {
-            selectedHorses = [parseInt(bet.banker)];
-            if (bet.legs) {
-                const legs = bet.legs.split(',').map(Number);
-                selectedHorses.push(...legs);
-            }
-        }
-        
-        // 檢查是否有退賽馬匹
-        const hasScratched = selectedHorses.some(h => scratchedSet.has(h));
-        
-        // 自動扣款
         if (bet.flexible_data && bet.flexible_data.auto_deduct) {
             grossPayout = 0;
         }
-        // 退賽處理：整筆退款
-        else if (hasScratched) {
-            refund = true;
-            refundAmount = amount;
-            amount = 0;
-            grossPayout = 0;
-            refundCount++;
-            if (updatedFlexibleData) {
-                updatedFlexibleData.scratchedReason = `所選馬匹 ${selectedHorses.filter(h => scratchedSet.has(h)).join(',')} 退賽，整筆退款`;
-                updatedFlexibleData.scratchedLegs = selectedHorses.filter(h => scratchedSet.has(h));
-            }
-        }
-        // 新玩法正常結算
         else if (bet.flexible_data && bet.flexible_data.units) {
             const fd = bet.flexible_data;
             const units = fd.units || {};
             const banker = fd.banker ? parseInt(fd.banker) : null;
             const legs = fd.horses ? fd.horses.split(',').map(Number) : [];
             const comboType = fd.comboType;
-            const horseCount = fd.horseCount || legs.length;
-            const isSingleHorse = horseCount === 1;
             
-            // 獨贏
+            let totalRefundUnits = 0;
+            
+            // ========== 獨贏結算 ==========
             const winUnits = units.win || 0;
             if (winUnits > 0) {
-                if (comboType === 'banker' && banker) {
-                    if (banker === first) grossPayout += winUnits * winDiv;
+                if (comboType === 'banker' && banker !== null) {
+                    if (scratchedSet.has(banker)) {
+                        totalRefundUnits += winUnits;
+                    } else if (banker === first) {
+                        grossPayout += winUnits * winDiv;
+                    }
                 } else {
                     for (let horse of legs) {
-                        if (horse === first) grossPayout += winUnits * winDiv;
+                        if (scratchedSet.has(horse)) {
+                            totalRefundUnits += winUnits;
+                        } else if (horse === first) {
+                            grossPayout += winUnits * winDiv;
+                        }
                     }
                 }
             }
             
-            // 位置
+            // ========== 位置結算 ==========
             const placeUnits = units.place || 0;
             if (placeUnits > 0) {
-                if (comboType === 'banker' && banker) {
-                    if (banker === first) grossPayout += placeUnits * placeDiv1;
-                    else if (banker === second) grossPayout += placeUnits * placeDiv2;
-                    else if (banker === third) grossPayout += placeUnits * placeDiv3;
+                if (comboType === 'banker' && banker !== null) {
+                    if (scratchedSet.has(banker)) {
+                        totalRefundUnits += placeUnits;
+                    } else if (banker === first) {
+                        grossPayout += placeUnits * placeDiv1;
+                    } else if (banker === second) {
+                        grossPayout += placeUnits * placeDiv2;
+                    } else if (banker === third) {
+                        grossPayout += placeUnits * placeDiv3;
+                    }
                 } else {
                     for (let horse of legs) {
-                        if (horse === first) grossPayout += placeUnits * placeDiv1;
-                        else if (horse === second) grossPayout += placeUnits * placeDiv2;
-                        else if (horse === third) grossPayout += placeUnits * placeDiv3;
+                        if (scratchedSet.has(horse)) {
+                            totalRefundUnits += placeUnits;
+                        } else if (horse === first) {
+                            grossPayout += placeUnits * placeDiv1;
+                        } else if (horse === second) {
+                            grossPayout += placeUnits * placeDiv2;
+                        } else if (horse === third) {
+                            grossPayout += placeUnits * placeDiv3;
+                        }
                     }
                 }
             }
             
-            // 連贏
+            // ========== 連贏結算 ==========
             const quinellaGroups = units.quinella || 0;
             if (quinellaGroups > 0) {
                 let quinellaCombos = [];
@@ -1471,19 +1452,21 @@ async function saveRaceResult() {
                             quinellaCombos.push([legs[i], legs[j]]);
                         }
                     }
-                } else if (comboType === 'banker' && banker) {
+                } else if (comboType === 'banker' && banker !== null) {
                     for (let leg of legs) {
                         if (leg !== banker) quinellaCombos.push([banker, leg]);
                     }
                 }
                 for (let combo of quinellaCombos) {
-                    if ((combo[0] === first && combo[1] === second) || (combo[0] === second && combo[1] === first)) {
+                    if (combo.some(h => scratchedSet.has(h))) {
+                        totalRefundUnits += quinellaGroups;
+                    } else if ((combo[0] === first && combo[1] === second) || (combo[0] === second && combo[1] === first)) {
                         grossPayout += quinellaGroups * qinDiv;
                     }
                 }
             }
             
-            // 位置Q
+            // ========== 位置Q結算 ==========
             const qpGroups = units.quinellaPlace || 0;
             if (qpGroups > 0) {
                 let qpCombos = [];
@@ -1493,47 +1476,79 @@ async function saveRaceResult() {
                             qpCombos.push([legs[i], legs[j]]);
                         }
                     }
-                } else if (comboType === 'banker' && banker) {
+                } else if (comboType === 'banker' && banker !== null) {
                     for (let leg of legs) {
                         if (leg !== banker) qpCombos.push([banker, leg]);
                     }
                 }
                 for (let combo of qpCombos) {
-                    if (combo.includes(first) && combo.includes(second)) grossPayout += qpGroups * qp12;
-                    if (combo.includes(first) && combo.includes(third)) grossPayout += qpGroups * qp13;
-                    if (combo.includes(second) && combo.includes(third)) grossPayout += qpGroups * qp23;
+                    if (combo.some(h => scratchedSet.has(h))) {
+                        totalRefundUnits += qpGroups;
+                    } else {
+                        if (combo.includes(first) && combo.includes(second)) grossPayout += qpGroups * qp12;
+                        if (combo.includes(first) && combo.includes(third)) grossPayout += qpGroups * qp13;
+                        if (combo.includes(second) && combo.includes(third)) grossPayout += qpGroups * qp23;
+                    }
+                }
+            }
+            
+            refundAmount = totalRefundUnits * 10;
+            if (refundAmount > 0) {
+                refund = true;
+                if (updatedFlexibleData) {
+                    updatedFlexibleData.refundAmount = refundAmount;
+                    updatedFlexibleData.refundUnits = totalRefundUnits;
+                    updatedFlexibleData.scratchedLegs = scratchedHorses;
                 }
             }
         }
-        // 舊玩法（膽拖）正常結算
         else if (bet.banker && bet.banker !== '' && bet.legs) {
             const banker = parseInt(bet.banker);
             const legs = bet.legs.split(',').map(Number);
             const leg1 = legs[0], leg2 = legs[1];
             
-            // 獨贏 + 位置
-            if (banker === first) grossPayout += winDiv + (placeDiv1 * 3);
-            else if (banker === second) grossPayout += placeDiv2 * 3;
-            else if (banker === third) grossPayout += placeDiv3 * 3;
-            
-            // 連贏
-            if ((banker === first && leg1 === second) || (banker === second && leg1 === first)) grossPayout += qinDiv;
-            if ((banker === first && leg2 === second) || (banker === second && leg2 === first)) grossPayout += qinDiv;
-            
-            // 位置Q
-            const pairs = [[banker, leg1], [banker, leg2]];
-            for (let pair of pairs) {
-                if (pair.includes(first) && pair.includes(second)) grossPayout += qp12;
-                if (pair.includes(first) && pair.includes(third)) grossPayout += qp13;
-                if (pair.includes(second) && pair.includes(third)) grossPayout += qp23;
+            if (scratchedSet.has(banker)) {
+                refund = true;
+                refundAmount = amount;
+                amount = 0;
+                grossPayout = 0;
+            } else {
+                let refundUnits = 0;
+                
+                if (banker === first) grossPayout += winDiv + (placeDiv1 * 3);
+                else if (banker === second) grossPayout += placeDiv2 * 3;
+                else if (banker === third) grossPayout += placeDiv3 * 3;
+                
+                if (!scratchedSet.has(leg1) && ((banker === first && leg1 === second) || (banker === second && leg1 === first))) {
+                    grossPayout += qinDiv;
+                } else if (scratchedSet.has(leg1)) {
+                    refundUnits++;
+                }
+                
+                if (!scratchedSet.has(leg2) && ((banker === first && leg2 === second) || (banker === second && leg2 === first))) {
+                    grossPayout += qinDiv;
+                } else if (scratchedSet.has(leg2)) {
+                    refundUnits++;
+                }
+                
+                const pairs = [[banker, leg1], [banker, leg2]];
+                for (let i = 0; i < pairs.length; i++) {
+                    const pair = pairs[i];
+                    const legScratched = (i === 0) ? scratchedSet.has(leg1) : scratchedSet.has(leg2);
+                    if (legScratched) continue;
+                    if (pair.includes(first) && pair.includes(second)) grossPayout += qp12;
+                    if (pair.includes(first) && pair.includes(third)) grossPayout += qp13;
+                    if (pair.includes(second) && pair.includes(third)) grossPayout += qp23;
+                }
+                
+                refundAmount = refundUnits * 10;
+                if (refundAmount > 0) refund = true;
             }
         }
         
-        // 計算淨利潤（總派彩 - 總成本）
         const totalCost = bet.amount || 120;
         const netProfit = grossPayout - totalCost;
         
-        // 更新投注紀錄
         const updateData = { 
             payout: netProfit,
             amount: totalCost,
@@ -1546,12 +1561,7 @@ async function saveRaceResult() {
         await supabaseClient.from('bets').update(updateData).eq('id', bet.id);
     }
     
-    let message = `✅ 第 ${raceNo} 場結算完成！共更新 ${bets.length} 筆投注。`;
-    if (scratchedHorses.length > 0) {
-        message += ` 退賽馬匹: ${scratchedHorses.join(',')}，已自動退款 ${refundCount} 筆投注。`;
-    }
-    alert(message);
-    
+    alert(`✅ 第 ${raceNo} 場結算完成！共更新 ${bets.length} 筆投注。${scratchedHorses.length > 0 ? `退賽馬匹: ${scratchedHorses.join(',')}` : ''}`);
     loadRankingChart();
     if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
     loadMonthlyRanking();
