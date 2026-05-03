@@ -953,7 +953,7 @@ async function loadRankingChart() {
     document.getElementById('rankChart').innerHTML = html;
 }
     
-// ========== 投注詳情（按賽日及場次順序排列）==========
+// ========== 投注詳情（顯示實際派彩）==========
 async function loadUserBets() {
     const user = document.getElementById('detailUserSelect').value;
     const raceDate = document.getElementById('detailRaceDate').value;
@@ -982,6 +982,12 @@ async function loadUserBets() {
         let reasonText = b.reason ? `📝 原因: ${b.reason}` : '';
         let borderColor = '#cbd5e1';
         
+        // 計算實際派彩（淨利潤 + 成本）
+        const netProfit = b.payout || 0;
+        const cost = b.amount || 120;
+        const actualPayout = netProfit + cost;
+        const displayPayout = actualPayout >= 0 ? actualPayout : 0;
+        
         // 自動扣款
         if (b.flexible_data && b.flexible_data.auto_deduct) {
             selectedHorses = '-';
@@ -997,7 +1003,6 @@ async function loadUserBets() {
             const banker = fd.banker;
             const horseCount = fd.horseCount || (horses ? horses.split('、').length : 1);
             
-            // 選馬顯示
             let comboInfo = '';
             if (comboType === 'banker' && banker) {
                 comboInfo = ` (膽拖 - 膽馬 ${banker})`;
@@ -1006,7 +1011,6 @@ async function loadUserBets() {
             }
             selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
             
-            // 分配顯示
             const winUnits = units.win || 0;
             const placeUnits = units.place || 0;
             const quinellaGroups = units.quinella || 0;
@@ -1040,9 +1044,8 @@ async function loadUserBets() {
             }
             allocation = `🎲 分配: ${allocationParts.join(' / ')}`;
             
-            // 退款標記
             if (b.refund === true && b.refund_amount > 0) {
-                if (b.refund_amount >= (b.amount || 120)) {
+                if (b.refund_amount >= cost) {
                     refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
                 } else {
                     refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`;
@@ -1056,7 +1059,7 @@ async function loadUserBets() {
             allocation = '🎲 分配: 膽馬獨贏1注 + 位置3注 + 連贏2注 + 位置Q2注';
             
             if (b.refund === true && b.refund_amount > 0) {
-                if (b.refund_amount >= (b.amount || 120)) {
+                if (b.refund_amount >= cost) {
                     refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
                 } else {
                     refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`;
@@ -1065,7 +1068,8 @@ async function loadUserBets() {
             }
         }
         
-        if (b.payout > 0 && b.payout > (b.amount || 120)) {
+        // 派彩獲利時邊框變綠色（實際派彩 > 成本）
+        if (actualPayout > cost) {
             borderColor = '#16a34a';
         }
         
@@ -1077,7 +1081,7 @@ async function loadUserBets() {
                 <div>${allocation}</div>
                 ${reasonText ? `<div>${reasonText}</div>` : ''}
                 ${refundMsg}
-                <div>💰 派彩: $${b.payout || 0}</div>
+                <div>💰 派彩: $${displayPayout}</div>
             </div>
         `;
     }).join('');
@@ -1219,7 +1223,7 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
                     race_date: raceDate,
                     race_no: 0,
                     banker: null, legs: null,
-                    payout: 0,
+                    payout: -120,
                     reason: `自動扣款 (${raceDate} 未投注)`,
                     flexible_data: { auto_deduct: true, amount: 120, message: `未在 ${raceDate} 投注，自動扣除 $120` },
                     amount: 120
@@ -1237,56 +1241,23 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
         }
     }
 
-// ========== 自動封盤計時器 ==========
+// ========== 香港時區自動封盤計時器 ==========
 let countdownInterval = null;
 let currentCutoffTime = '17:00:00';
 
-async function loadCutoffTime() {
-    try {
-        const { data, error } = await supabaseClient
-            .from('system_settings')
-            .select('value')
-            .eq('key', 'cutoff_time')
-            .single();
-        if (!error && data) {
-            currentCutoffTime = data.value;
-            const timeInput = document.getElementById('cutoffTime');
-            if (timeInput) timeInput.value = currentCutoffTime;
-            const statusDiv = document.getElementById('cutoffTimeStatus');
-            if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
-        } else {
-            const statusDiv = document.getElementById('cutoffTimeStatus');
-            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
-        }
-    } catch (e) {
-        console.error("載入封盤時間失敗:", e);
-    }
-}
-
-async function saveCutoffTime() {
-    const newTime = document.getElementById('cutoffTime')?.value;
-    if (!newTime) return alert("請輸入時間");
-    
-    const { error } = await supabaseClient
-        .from('system_settings')
-        .upsert({ key: 'cutoff_time', value: newTime }, { onConflict: 'key' });
-    
-    if (error) {
-        alert("儲存失敗: " + error.message);
-    } else {
-        currentCutoffTime = newTime;
-        alert("✅ 封盤時間已更新");
-        const statusDiv = document.getElementById('cutoffTimeStatus');
-        if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
-        startCountdown();
-    }
+// 獲取香港當前時間
+function getHKTime() {
+    const hkOffset = 8 * 60; // 香港時區 UTC+8 (分鐘)
+    const now = new Date();
+    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utcNow + (hkOffset * 60000));
 }
 
 function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
-    const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}`);
-    const now = new Date();
-    if (cutoffDateTime <= now) return 0;
-    return Math.floor((cutoffDateTime - now) / 1000);
+    const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
+    const hkNow = getHKTime();
+    if (cutoffDateTime <= hkNow) return 0;
+    return Math.floor((cutoffDateTime - hkNow) / 1000);
 }
 
 function formatCountdown(seconds) {
@@ -1326,7 +1297,6 @@ function updateCountdownDisplay() {
         }
     }
     
-    // 自動封盤時停用投注按鈕（但不覆蓋手動封盤）
     if (secondsLeft <= 0) {
         if (submitBtn) submitBtn.disabled = true;
         if (lockMsg) {
