@@ -1613,7 +1613,7 @@ async function loadStatsForCurrentUser() {
     `;
 }
     
-// ========== 每月排名（按總利潤排序，淨回報率）==========
+// ========== 每月排名（欄寬加闊，標題不換行）==========
 async function loadMonthlyRanking() {
     const now = new Date();
     const year = now.getFullYear();
@@ -1656,28 +1656,27 @@ async function loadMonthlyRanking() {
         s.totalProfit += bet.payout || 0;
     });
     
-    // 按總利潤從高到低排序
     const ranking = Array.from(statsMap.entries())
         .map(([name, s]) => ({
             name,
             totalStake: s.totalStake,
             totalProfit: s.totalProfit,
-            // 淨回報率 = (總利潤 / 總投入) × 100%
             roi: s.totalStake === 0 ? 0 : ((s.totalProfit / s.totalStake) * 100).toFixed(1)
         }))
         .sort((a, b) => b.totalProfit - a.totalProfit);
     
+    // 欄寬加闊，確保標題不換行
     let html = `
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.55rem; white-space: nowrap;">
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table style="width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.7rem;">
                 <thead>
                     <tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;">
-                        <th style="padding: 4px 5px; text-align: left; width: 40px;">排名</th>
-                        <th style="padding: 4px 5px; text-align: left;">參賽者</th>
-                        <th style="padding: 4px 5px; text-align: left; width: 55px;">總投入</th>
-                        <th style="padding: 4px 5px; text-align: left; width: 55px;">總利潤</th>
-                        <th style="padding: 4px 5px; text-align: left; width: 50px;">回報率</th>
-                     </tr>
+                        <th style="padding: 8px 6px; text-align: left; width: 55px;">排名</th>
+                        <th style="padding: 8px 6px; text-align: left; min-width: 90px;">參賽者</th>
+                        <th style="padding: 8px 6px; text-align: right; width: 70px;">總投入</th>
+                        <th style="padding: 8px 6px; text-align: right; width: 70px;">總利潤</th>
+                        <th style="padding: 8px 6px; text-align: right; width: 70px;">回報率</th>
+                    </tr>
                 </thead>
                 <tbody>
     `;
@@ -1694,18 +1693,18 @@ async function loadMonthlyRanking() {
         
         html += `
             <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 3px 5px; text-align: left;">${rankDisplay}</td>
-                <td style="padding: 3px 5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.name}">${item.name}</td>
-                <td style="padding: 3px 5px; text-align: left;">$${item.totalStake}</td>
-                <td style="padding: 3px 5px; text-align: left; color: ${profitColor};">$${item.totalProfit}</td>
-                <td style="padding: 3px 5px; text-align: left; color: ${roiColor};">${item.roi}%</td>
+                <td style="padding: 6px 6px; text-align: left;">${rankDisplay}</td>
+                <td style="padding: 6px 6px; text-align: left; white-space: nowrap;">${item.name}</td>
+                <td style="padding: 6px 6px; text-align: right;">$${item.totalStake}</td>
+                <td style="padding: 6px 6px; text-align: right; color: ${profitColor};">$${item.totalProfit}</td>
+                <td style="padding: 6px 6px; text-align: right; color: ${roiColor};">${item.roi}%</td>
              </tr>
         `;
     });
     
     html += `
                 </tbody>
-            </table>
+             </table>
         </div>
     `;
     
