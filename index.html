@@ -1349,7 +1349,7 @@ function stopCountdown() {
     }
 }
     
-// ========== 儲存賽果與結算（完整版，計算淨利潤）==========
+// ========== 儲存賽果與結算（完整版，正確計算淨利潤）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -1557,11 +1557,11 @@ async function saveRaceResult() {
         
         // 計算淨利潤（總派彩 - 總成本）
         const totalCost = bet.amount || 120;
-        const netProfit = grossPayout - totalCost;
+        const netProfit = grossPayout - totalCost;  // 虧損時為負數
         
         // 更新投注紀錄
         const updateData = { 
-            payout: netProfit,      // 淨利潤
+            payout: netProfit,      // 淨利潤（可正可負）
             amount: totalCost,
             refund: refund,
             refund_amount: refundAmount
