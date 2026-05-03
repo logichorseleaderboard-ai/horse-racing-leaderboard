@@ -1579,7 +1579,7 @@ async function saveRaceResult() {
     if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
 }
     
-// ========== 個人統計（內聯樣式，原公式回報率）==========
+// ========== 個人統計（內聯樣式，淨回報率）==========
 async function loadStatsForCurrentUser() {
     const user = document.getElementById('statsUserSelect').value;
     if (!user) {
@@ -1610,14 +1610,16 @@ async function loadStatsForCurrentUser() {
     
     const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 120), 0);
     const totalProfit = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
-    const totalGrossPayout = totalStake + totalProfit;  // 總派彩 = 總投入 + 總利潤
-    const roi = totalStake !== 0 ? ((totalGrossPayout / totalStake) * 100).toFixed(1) : 0;
+    
+    // 淨回報率 = (總利潤 / 總投入) × 100%
+    const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
+    
     const totalRaces = (data || []).length;
     const winningRaces = (data || []).filter(b => (b.payout || 0) > 0).length;
     const winRate = totalRaces !== 0 ? ((winningRaces / totalRaces) * 100).toFixed(1) : 0;
     
     const profitColor = totalProfit >= 0 ? '#16a34a' : '#b91c1c';
-    const roiColor = roi >= 100 ? '#16a34a' : (roi < 100 ? '#b91c1c' : '#475569');
+    const roiColor = roi >= 0 ? '#16a34a' : '#b91c1c';
     
     document.getElementById('statsDisplay').innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center;">
@@ -1641,7 +1643,7 @@ async function loadStatsForCurrentUser() {
     `;
 }
     
-// ========== 每月排名（按總利潤排序，原公式回報率）==========
+// ========== 每月排名（按總利潤排序，淨回報率）==========
 async function loadMonthlyRanking() {
     const now = new Date();
     const year = now.getFullYear();
@@ -1690,8 +1692,8 @@ async function loadMonthlyRanking() {
             name,
             totalStake: s.totalStake,
             totalProfit: s.totalProfit,
-            // 回報率 = (總派彩 / 總投入) × 100%，總派彩 = 總投入 + 總利潤
-            roi: s.totalStake === 0 ? 0 : (((s.totalStake + s.totalProfit) / s.totalStake) * 100).toFixed(1)
+            // 淨回報率 = (總利潤 / 總投入) × 100%
+            roi: s.totalStake === 0 ? 0 : ((s.totalProfit / s.totalStake) * 100).toFixed(1)
         }))
         .sort((a, b) => b.totalProfit - a.totalProfit);
     
@@ -1705,14 +1707,14 @@ async function loadMonthlyRanking() {
                         <th style="padding: 4px 5px; text-align: left; width: 55px;">總投入</th>
                         <th style="padding: 4px 5px; text-align: left; width: 55px;">總利潤</th>
                         <th style="padding: 4px 5px; text-align: left; width: 50px;">回報率</th>
-                    </tr>
+                     </tr>
                 </thead>
                 <tbody>
     `;
     
     ranking.forEach((item, idx) => {
         const roiValue = parseFloat(item.roi);
-        const roiColor = roiValue > 100 ? '#16a34a' : (roiValue < 100 ? '#b91c1c' : '#475569');
+        const roiColor = roiValue >= 0 ? '#16a34a' : '#b91c1c';
         const profitColor = item.totalProfit > 0 ? '#16a34a' : (item.totalProfit < 0 ? '#b91c1c' : '#475569');
         let rankDisplay;
         if (idx === 0) rankDisplay = '🥇';
@@ -1733,7 +1735,7 @@ async function loadMonthlyRanking() {
     
     html += `
                 </tbody>
-             </table>
+            </table>
         </div>
     `;
     
