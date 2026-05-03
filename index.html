@@ -1045,14 +1045,10 @@ async function loadUserBets() {
             allocation = `🎲 分配: ${allocationParts.join(' / ')}`;
             
             // 退款標記顯示條件
-            if (b.refund === true && b.refund_amount > 0) {
-                const originalAmount = b.amount + b.refund_amount;  // 計算原投入金額
-                if (b.refund_amount >= originalAmount) {
-                    refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
-                } else {
-                    refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`;
-                }
-                borderColor = '#f59e0b';
+            if (b.refund_amount >= originalAmount) {
+                refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
+            } else {
+                refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`;
             }
         // 舊玩法（膽拖）
         else if (b.banker && b.banker !== '' && b.legs) {
