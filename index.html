@@ -537,6 +537,104 @@ async function fetchRaceCount(raceDate) {
     }
     return 11;
 }
+
+    // ========== 自動封盤計時器相關函數 ==========
+let countdownInterval = null;
+let currentCutoffTime = '12:30:00';
+
+async function loadCutoffTime() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('system_settings')
+            .select('value')
+            .eq('key', 'cutoff_time')
+            .single();
+        if (!error && data) {
+            currentCutoffTime = data.value;
+            const timeInput = document.getElementById('cutoffTime');
+            if (timeInput) timeInput.value = currentCutoffTime;
+            const statusDiv = document.getElementById('cutoffTimeStatus');
+            if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
+        } else {
+            const statusDiv = document.getElementById('cutoffTimeStatus');
+            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
+        }
+    } catch (e) {
+        console.error("載入封盤時間失敗:", e);
+    }
+}
+
+async function saveCutoffTime() {
+    const newTime = document.getElementById('cutoffTime')?.value;
+    if (!newTime) return alert("請輸入時間");
+    
+    const { error } = await supabaseClient
+        .from('system_settings')
+        .upsert({ key: 'cutoff_time', value: newTime }, { onConflict: 'key' });
+    
+    if (error) {
+        alert("儲存失敗: " + error.message);
+    } else {
+        currentCutoffTime = newTime;
+        alert("✅ 封盤時間已更新");
+        const statusDiv = document.getElementById('cutoffTimeStatus');
+        if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
+        startCountdown();
+    }
+}
+
+function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
+    const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
+    const now = new Date();
+    if (cutoffDateTime <= now) return 0;
+    return Math.floor((cutoffDateTime - now) / 1000);
+}
+
+function formatCountdown(seconds) {
+    if (seconds <= 0) return "已封盤";
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+        return `${hours}小時 ${minutes}分鐘 ${secs}秒`;
+    } else if (minutes > 0) {
+        return `${minutes}分鐘 ${secs}秒`;
+    } else {
+        return `${secs}秒`;
+    }
+}
+
+function updateCountdownDisplay() {
+    const raceDate = document.getElementById('inputRaceDate')?.value;
+    const countdownEl = document.getElementById('countdownDisplay');
+    if (!raceDate) {
+        if (countdownEl) countdownEl.innerHTML = '請選擇賽日';
+        return;
+    }
+    const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
+    if (countdownEl) {
+        countdownEl.innerHTML = formatCountdown(secondsLeft);
+        if (secondsLeft <= 60 && secondsLeft > 0) {
+            countdownEl.style.color = '#ef4444';
+            countdownEl.style.fontWeight = 'bold';
+        } else {
+            countdownEl.style.color = '';
+        }
+    }
+}
+
+function startCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    updateCountdownDisplay();
+    countdownInterval = setInterval(updateCountdownDisplay, 1000);
+}
+
+function stopCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+}
     
 // ========== 初始化馬匹下拉選單（根據馬號排序）==========
 async function initHorseSelects() {
@@ -1236,104 +1334,6 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
             btn.disabled = false;
         }
     }
-
-// ========== 自動封盤計時器相關函數 ==========
-let countdownInterval = null;
-let currentCutoffTime = '12:30:00';
-
-async function loadCutoffTime() {
-    try {
-        const { data, error } = await supabaseClient
-            .from('system_settings')
-            .select('value')
-            .eq('key', 'cutoff_time')
-            .single();
-        if (!error && data) {
-            currentCutoffTime = data.value;
-            const timeInput = document.getElementById('cutoffTime');
-            if (timeInput) timeInput.value = currentCutoffTime;
-            const statusDiv = document.getElementById('cutoffTimeStatus');
-            if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
-        } else {
-            const statusDiv = document.getElementById('cutoffTimeStatus');
-            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
-        }
-    } catch (e) {
-        console.error("載入封盤時間失敗:", e);
-    }
-}
-
-async function saveCutoffTime() {
-    const newTime = document.getElementById('cutoffTime')?.value;
-    if (!newTime) return alert("請輸入時間");
-    
-    const { error } = await supabaseClient
-        .from('system_settings')
-        .upsert({ key: 'cutoff_time', value: newTime }, { onConflict: 'key' });
-    
-    if (error) {
-        alert("儲存失敗: " + error.message);
-    } else {
-        currentCutoffTime = newTime;
-        alert("✅ 封盤時間已更新");
-        const statusDiv = document.getElementById('cutoffTimeStatus');
-        if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
-        startCountdown();
-    }
-}
-
-function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
-    const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
-    const now = new Date();
-    if (cutoffDateTime <= now) return 0;
-    return Math.floor((cutoffDateTime - now) / 1000);
-}
-
-function formatCountdown(seconds) {
-    if (seconds <= 0) return "已封盤";
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) {
-        return `${hours}小時 ${minutes}分鐘 ${secs}秒`;
-    } else if (minutes > 0) {
-        return `${minutes}分鐘 ${secs}秒`;
-    } else {
-        return `${secs}秒`;
-    }
-}
-
-function updateCountdownDisplay() {
-    const raceDate = document.getElementById('inputRaceDate')?.value;
-    const countdownEl = document.getElementById('countdownDisplay');
-    if (!raceDate) {
-        if (countdownEl) countdownEl.innerHTML = '請選擇賽日';
-        return;
-    }
-    const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
-    if (countdownEl) {
-        countdownEl.innerHTML = formatCountdown(secondsLeft);
-        if (secondsLeft <= 60 && secondsLeft > 0) {
-            countdownEl.style.color = '#ef4444';
-            countdownEl.style.fontWeight = 'bold';
-        } else {
-            countdownEl.style.color = '';
-        }
-    }
-}
-
-function startCountdown() {
-    if (countdownInterval) clearInterval(countdownInterval);
-    updateCountdownDisplay();
-    countdownInterval = setInterval(updateCountdownDisplay, 1000);
-}
-
-function stopCountdown() {
-    if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-    }
-}
     
 // ========== 儲存賽果與結算（完整版，含調試資訊）==========
 async function saveRaceResult() {
