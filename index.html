@@ -1577,13 +1577,13 @@ async function loadStatsForCurrentUser() {
     const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
     const endDate = `${year}-${month}-${lastDay}`;
     
-    // 統計所有投注（包括部分退款的）
     const { data, error } = await supabaseClient
         .from('bets')
         .select('payout, amount, refund_amount, refund')
         .eq('participant', user)
         .gte('race_date', startDate)
         .lte('race_date', endDate);
+        // 注意：這裡沒有 .eq('refund', false)
     
     if (error) {
         console.error("統計查詢錯誤:", error);
@@ -1591,13 +1591,9 @@ async function loadStatsForCurrentUser() {
         return;
     }
     
-    // 實際總投入 = amount 總和（已扣除退款的實際支出）
     const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 0), 0);
-    // 總利潤
     const totalProfit = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
-    // 回報率 = (總利潤 / 實際總投入) × 100%
     const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
-    // 勝率 = 利潤 > 0 的場次 / 總場次
     const totalRaces = (data || []).length;
     const winningRaces = (data || []).filter(b => (b.payout || 0) > 0).length;
     const winRate = totalRaces !== 0 ? ((winningRaces / totalRaces) * 100).toFixed(1) : 0;
