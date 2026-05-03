@@ -1583,7 +1583,6 @@ async function loadStatsForCurrentUser() {
         .eq('participant', user)
         .gte('race_date', startDate)
         .lte('race_date', endDate);
-        // 注意：這裡沒有 .eq('refund', false)
     
     if (error) {
         console.error("統計查詢錯誤:", error);
@@ -1645,7 +1644,6 @@ async function loadMonthlyRanking() {
         .select('participant, payout, amount, refund')
         .gte('race_date', startDate)
         .lte('race_date', endDate)
-        .eq('refund', false);
     
     if (error) { 
         console.error("排名查詢錯誤:", error);
