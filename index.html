@@ -1319,7 +1319,7 @@ function stopCountdown() {
     }
 }
     
-// ========== 儲存賽果與結算（完整版，支援部分退款）==========
+// ========== 儲存賽果與結算（完整版，部分退款）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -1357,6 +1357,7 @@ async function saveRaceResult() {
     const qp13 = Number(document.getElementById('div_qp13').value) || 0;
     const qp23 = Number(document.getElementById('div_qp23').value) || 0;
     
+    // 儲存賽果
     const { error: resError } = await supabaseClient.from('race_results').upsert({
         race_date: raceDate, race_no: raceNo,
         first, second, third,
@@ -1367,6 +1368,7 @@ async function saveRaceResult() {
     }, { onConflict: 'race_date, race_no' });
     if (resError) { alert("賽果儲存失敗: " + resError.message); return; }
     
+    // 取得該場所有投注
     const { data: bets, error: betsError } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
     if (betsError) { alert("讀取投注失敗: " + betsError.message); return; }
     
@@ -1382,9 +1384,11 @@ async function saveRaceResult() {
         let amount = bet.amount || 120;
         let updatedFlexibleData = bet.flexible_data ? { ...bet.flexible_data } : null;
         
+        // 自動扣款
         if (bet.flexible_data && bet.flexible_data.auto_deduct) {
             grossPayout = 0;
         }
+        // 新玩法結算
         else if (bet.flexible_data && bet.flexible_data.units) {
             const fd = bet.flexible_data;
             const units = fd.units || {};
@@ -1502,12 +1506,14 @@ async function saveRaceResult() {
                 }
             }
         }
+        // 舊玩法（膽拖）
         else if (bet.banker && bet.banker !== '' && bet.legs) {
             const banker = parseInt(bet.banker);
             const legs = bet.legs.split(',').map(Number);
             const leg1 = legs[0], leg2 = legs[1];
             
             if (scratchedSet.has(banker)) {
+                // 膽馬退賽：整筆全額退款
                 refund = true;
                 refundAmount = amount;
                 amount = 0;
@@ -1515,10 +1521,12 @@ async function saveRaceResult() {
             } else {
                 let refundUnits = 0;
                 
+                // 獨贏 + 位置
                 if (banker === first) grossPayout += winDiv + (placeDiv1 * 3);
                 else if (banker === second) grossPayout += placeDiv2 * 3;
                 else if (banker === third) grossPayout += placeDiv3 * 3;
                 
+                // 連贏 - 逐個腳馬檢查
                 if (!scratchedSet.has(leg1) && ((banker === first && leg1 === second) || (banker === second && leg1 === first))) {
                     grossPayout += qinDiv;
                 } else if (scratchedSet.has(leg1)) {
@@ -1531,6 +1539,7 @@ async function saveRaceResult() {
                     refundUnits++;
                 }
                 
+                // 位置Q
                 const pairs = [[banker, leg1], [banker, leg2]];
                 for (let i = 0; i < pairs.length; i++) {
                     const pair = pairs[i];
@@ -1546,6 +1555,7 @@ async function saveRaceResult() {
             }
         }
         
+        // 計算淨利潤
         const totalCost = bet.amount || 120;
         const netProfit = grossPayout - totalCost;
         
