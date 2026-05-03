@@ -1315,7 +1315,7 @@ function stopCountdown() {
     }
 }
     
-// ========== 儲存賽果與結算（完整版，支援部分退款）==========
+// ========== 儲存賽果與結算（完整版，含調試資訊）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -1343,6 +1343,12 @@ async function saveRaceResult() {
     const scratchedRaw = document.getElementById('scratchedHorses').value;
     const scratchedHorses = scratchedRaw ? scratchedRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
     const scratchedSet = new Set(scratchedHorses);
+    
+    // 調試資訊
+    console.log("=== 賽果結算調試 ===");
+    console.log("退賽馬匹輸入框的值:", scratchedRaw);
+    console.log("退賽馬匹陣列:", scratchedHorses);
+    console.log("退賽馬匹Set:", scratchedSet);
     
     const winDiv = Number(document.getElementById('div_win').value) || 0;
     const qinDiv = Number(document.getElementById('div_q').value) || 0;
@@ -1390,6 +1396,10 @@ async function saveRaceResult() {
             
             let totalRefundUnits = 0;
             
+            // 調試：顯示選馬
+            console.log("參賽者:", bet.participant, "選馬:", legs, "膽馬:", banker, "組合方式:", comboType);
+            
+            // 獨贏
             const winUnits = units.win || 0;
             if (winUnits > 0) {
                 if (comboType === 'banker' && banker !== null) {
@@ -1409,6 +1419,7 @@ async function saveRaceResult() {
                 }
             }
             
+            // 位置
             const placeUnits = units.place || 0;
             if (placeUnits > 0) {
                 if (comboType === 'banker' && banker !== null) {
@@ -1436,6 +1447,7 @@ async function saveRaceResult() {
                 }
             }
             
+            // 連贏
             const quinellaGroups = units.quinella || 0;
             if (quinellaGroups > 0) {
                 let quinellaCombos = [];
@@ -1459,6 +1471,7 @@ async function saveRaceResult() {
                 }
             }
             
+            // 位置Q
             const qpGroups = units.quinellaPlace || 0;
             if (qpGroups > 0) {
                 let qpCombos = [];
@@ -1483,13 +1496,13 @@ async function saveRaceResult() {
                     }
                 }
             }
-
-            console.log("調試資訊 - 參賽者:", bet.participant, "退款金額:", refundAmount, "原始amount:", bet.amount);
             
             refundAmount = totalRefundUnits * 10;
+            console.log("參賽者:", bet.participant, "退款注數:", totalRefundUnits, "退款金額:", refundAmount);
+            
             if (refundAmount > 0) {
                 refund = true;
-                const originalAmount = bet.amount || 120;
+                const originalAmount = 120;  // 固定使用 120
                 amount = originalAmount - refundAmount;
                 if (amount < 0) amount = 0;
                 if (updatedFlexibleData) {
@@ -1507,7 +1520,7 @@ async function saveRaceResult() {
             if (scratchedSet.has(banker)) {
                 refund = true;
                 refundAmount = amount;
-                amount = amount;
+                amount = 0;
                 grossPayout = 0;
             } else {
                 let refundUnits = 0;
