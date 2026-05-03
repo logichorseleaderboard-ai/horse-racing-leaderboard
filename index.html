@@ -1357,7 +1357,6 @@ async function saveRaceResult() {
     const qp13 = Number(document.getElementById('div_qp13').value) || 0;
     const qp23 = Number(document.getElementById('div_qp23').value) || 0;
     
-    // 儲存賽果
     const { error: resError } = await supabaseClient.from('race_results').upsert({
         race_date: raceDate, race_no: raceNo,
         first, second, third,
@@ -1368,7 +1367,6 @@ async function saveRaceResult() {
     }, { onConflict: 'race_date, race_no' });
     if (resError) { alert("賽果儲存失敗: " + resError.message); return; }
     
-    // 取得該場所有投注
     const { data: bets, error: betsError } = await supabaseClient.from('bets').select('*').eq('race_date', raceDate).eq('race_no', raceNo);
     if (betsError) { alert("讀取投注失敗: " + betsError.message); return; }
     
@@ -1384,11 +1382,9 @@ async function saveRaceResult() {
         let amount = bet.amount || 120;
         let updatedFlexibleData = bet.flexible_data ? { ...bet.flexible_data } : null;
         
-        // 自動扣款
         if (bet.flexible_data && bet.flexible_data.auto_deduct) {
             grossPayout = 0;
         }
-        // 新玩法結算（支援部分退款）
         else if (bet.flexible_data && bet.flexible_data.units) {
             const fd = bet.flexible_data;
             const units = fd.units || {};
@@ -1398,7 +1394,6 @@ async function saveRaceResult() {
             
             let totalRefundUnits = 0;
             
-            // ========== 獨贏結算 ==========
             const winUnits = units.win || 0;
             if (winUnits > 0) {
                 if (comboType === 'banker' && banker !== null) {
@@ -1418,7 +1413,6 @@ async function saveRaceResult() {
                 }
             }
             
-            // ========== 位置結算 ==========
             const placeUnits = units.place || 0;
             if (placeUnits > 0) {
                 if (comboType === 'banker' && banker !== null) {
@@ -1446,7 +1440,6 @@ async function saveRaceResult() {
                 }
             }
             
-            // ========== 連贏結算（逐組合檢查退賽）==========
             const quinellaGroups = units.quinella || 0;
             if (quinellaGroups > 0) {
                 let quinellaCombos = [];
@@ -1470,7 +1463,6 @@ async function saveRaceResult() {
                 }
             }
             
-            // ========== 位置Q結算（逐組合檢查退賽）==========
             const qpGroups = units.quinellaPlace || 0;
             if (qpGroups > 0) {
                 let qpCombos = [];
@@ -1499,15 +1491,16 @@ async function saveRaceResult() {
             refundAmount = totalRefundUnits * 10;
             if (refundAmount > 0) {
                 refund = true;
-                // 總投入 = 原投入 - 退款金額
-                amount = (bet.amount || 120) - refundAmount;
+                const originalAmount = bet.amount || 120;
+                amount = originalAmount - refundAmount;
+                if (amount < 0) amount = 0;
                 if (updatedFlexibleData) {
                     updatedFlexibleData.refundAmount = refundAmount;
                     updatedFlexibleData.refundUnits = totalRefundUnits;
                     updatedFlexibleData.scratchedLegs = scratchedHorses;
                 }
             }
-        // 舊玩法（膽拖）
+        }
         else if (bet.banker && bet.banker !== '' && bet.legs) {
             const banker = parseInt(bet.banker);
             const legs = bet.legs.split(',').map(Number);
@@ -1552,9 +1545,7 @@ async function saveRaceResult() {
             }
         }
         
-        // 計算淨利潤
-        const totalCost = bet.amount || 120;
-        const netProfit = grossPayout - totalCost;
+        const netProfit = grossPayout - amount;
         
         const updateData = { 
             payout: netProfit,
