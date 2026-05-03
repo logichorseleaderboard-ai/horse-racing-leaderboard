@@ -975,7 +975,8 @@ async function loadUserBets() {
         return; 
     }
     
-    document.getElementById('detailList').innerHTML = data.map(b => {
+    let html = '';
+    for (let b of data) {
         let selectedHorses = '';
         let allocation = '';
         let refundMsg = '';
@@ -991,8 +992,7 @@ async function loadUserBets() {
             selectedHorses = '-';
             allocation = '⚠️ 自動扣款: $120 (未投注)';
             borderColor = '#ef4444';
-        }
-        else if (b.flexible_data && b.flexible_data.units) {
+        } else if (b.flexible_data && b.flexible_data.units) {
             const fd = b.flexible_data;
             const units = fd.units || {};
             const horses = fd.horses ? fd.horses.split(',').join('、') : '';
@@ -1042,7 +1042,7 @@ async function loadUserBets() {
             allocation = `🎲 分配: ${allocationParts.join(' / ')}`;
             
             if (b.refund === true && b.refund_amount > 0) {
-                const originalAmount = (b.amount || 0) + (b.refund_amount || 0);
+                const originalAmount = cost + b.refund_amount;
                 if (b.refund_amount >= originalAmount) {
                     refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
                 } else {
@@ -1050,12 +1050,11 @@ async function loadUserBets() {
                 }
                 borderColor = '#f59e0b';
             }
-        }
-        else if (b.banker && b.banker !== '' && b.legs) {
+        } else if (b.banker && b.banker !== '' && b.legs) {
             selectedHorses = `🐎 膽馬: ${b.banker} / 腳馬: ${b.legs}`;
             allocation = '🎲 分配: 膽馬獨贏1注 + 位置3注 + 連贏2注 + 位置Q2注';
             if (b.refund === true && b.refund_amount > 0) {
-                const originalAmount = (b.amount || 0) + (b.refund_amount || 0);
+                const originalAmount = cost + b.refund_amount;
                 if (b.refund_amount >= originalAmount) {
                     refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
                 } else {
@@ -1069,7 +1068,7 @@ async function loadUserBets() {
             borderColor = '#16a34a';
         }
         
-        return `
+        html += `
             <div class="card" style="border-left:4px solid ${borderColor}; margin-bottom:12px;">
                 <div><strong>📅 ${b.race_date} 第 ${b.race_no} 場</strong></div>
                 <div>👤 參賽者: ${b.participant}</div>
@@ -1080,7 +1079,8 @@ async function loadUserBets() {
                 <div>💰 派彩: $${displayPayout}</div>
             </div>
         `;
-    }).join('');
+    }
+    document.getElementById('detailList').innerHTML = html;
 }
     
 // ========== 提交投注 ==========
