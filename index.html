@@ -1499,13 +1499,14 @@ async function saveRaceResult() {
             refundAmount = totalRefundUnits * 10;
             if (refundAmount > 0) {
                 refund = true;
+                // 總投入 = 原投入 - 退款金額
+                amount = (bet.amount || 120) - refundAmount;
                 if (updatedFlexibleData) {
                     updatedFlexibleData.refundAmount = refundAmount;
                     updatedFlexibleData.refundUnits = totalRefundUnits;
                     updatedFlexibleData.scratchedLegs = scratchedHorses;
                 }
             }
-        }
         // 舊玩法（膽拖）
         else if (bet.banker && bet.banker !== '' && bet.legs) {
             const banker = parseInt(bet.banker);
@@ -1557,7 +1558,7 @@ async function saveRaceResult() {
         
         const updateData = { 
             payout: netProfit,
-            amount: totalCost,
+            amount: amount,
             refund: refund,
             refund_amount: refundAmount
         };
