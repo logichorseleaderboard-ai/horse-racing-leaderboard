@@ -456,7 +456,7 @@
                 <h3>⏰ 自動封盤設定</h3>
                 <div class="form-group">
                     <label>封盤時間 (賽日當天)</label>
-                    <input type="time" id="cutoffTime" step="1" value="17:00:00">
+                    <input type="time" id="cutoffTime" step="1" value="12:30:00">
                     <div class="bet-limit">設定後，投注頁會顯示距離封盤的倒計時</div>
                 </div>
                 <button id="saveCutoffTimeBtn" class="btn" style="background:#475569;">💾 儲存設定</button>
@@ -538,10 +538,18 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
 
-    // ========== 自動封盤計時器相關函數 ==========
+// ========== 自動封盤計時器（香港時區）==========
 let countdownInterval = null;
 let currentCutoffTime = '12:30:00';
 
+// 獲取當前香港時間 (UTC+8)
+function getHKTime() {
+    const now = new Date();
+    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utcNow + (8 * 60 * 60000));
+}
+
+// 載入封盤時間設定
 async function loadCutoffTime() {
     try {
         const { data, error } = await supabaseClient
@@ -557,13 +565,14 @@ async function loadCutoffTime() {
             if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
         } else {
             const statusDiv = document.getElementById('cutoffTimeStatus');
-            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
+            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 12:30:00';
         }
     } catch (e) {
         console.error("載入封盤時間失敗:", e);
     }
 }
 
+// 儲存封盤時間設定
 async function saveCutoffTime() {
     const newTime = document.getElementById('cutoffTime')?.value;
     if (!newTime) return alert("請輸入時間");
@@ -583,13 +592,15 @@ async function saveCutoffTime() {
     }
 }
 
+// 計算距離封盤還有多少秒（使用香港時區）
 function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
     const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
-    const now = new Date();
-    if (cutoffDateTime <= now) return 0;
-    return Math.floor((cutoffDateTime - now) / 1000);
+    const hkNow = getHKTime();
+    if (cutoffDateTime <= hkNow) return 0;
+    return Math.floor((cutoffDateTime - hkNow) / 1000);
 }
 
+// 格式化倒計時顯示
 function formatCountdown(seconds) {
     if (seconds <= 0) return "已封盤";
     const hours = Math.floor(seconds / 3600);
@@ -604,14 +615,20 @@ function formatCountdown(seconds) {
     }
 }
 
+// 更新倒計時顯示
 function updateCountdownDisplay() {
     const raceDate = document.getElementById('inputRaceDate')?.value;
     const countdownEl = document.getElementById('countdownDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const lockMsg = document.getElementById('inputLockMsg');
+    
     if (!raceDate) {
         if (countdownEl) countdownEl.innerHTML = '請選擇賽日';
         return;
     }
+    
     const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
+    
     if (countdownEl) {
         countdownEl.innerHTML = formatCountdown(secondsLeft);
         if (secondsLeft <= 60 && secondsLeft > 0) {
@@ -621,14 +638,25 @@ function updateCountdownDisplay() {
             countdownEl.style.color = '';
         }
     }
+    
+    // 自動封盤時停用投注按鈕
+    if (secondsLeft <= 0) {
+        if (submitBtn) submitBtn.disabled = true;
+        if (lockMsg) {
+            lockMsg.style.display = 'block';
+            lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`;
+        }
+    }
 }
 
+// 啟動倒計時
 function startCountdown() {
     if (countdownInterval) clearInterval(countdownInterval);
     updateCountdownDisplay();
     countdownInterval = setInterval(updateCountdownDisplay, 1000);
 }
 
+// 停止倒計時
 function stopCountdown() {
     if (countdownInterval) {
         clearInterval(countdownInterval);
