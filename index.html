@@ -538,15 +538,15 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
 
-// ========== 自動封盤計時器（香港時區）==========
+// ========== 自動封盤計時器（香港時區 - 修正版）==========
 let countdownInterval = null;
 let currentCutoffTime = '12:30:00';
 
-// 獲取當前香港時間 (UTC+8)
+// 獲取當前香港時間
 function getHKTime() {
     const now = new Date();
-    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
-    return new Date(utcNow + (8 * 60 * 60000));
+    const hkTimeString = now.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+    return new Date(hkTimeString);
 }
 
 // 載入封盤時間設定
@@ -592,7 +592,7 @@ async function saveCutoffTime() {
     }
 }
 
-// 計算距離封盤還有多少秒（使用香港時區）
+// 計算距離封盤還有多少秒
 function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
     const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
     const hkNow = getHKTime();
@@ -639,7 +639,6 @@ function updateCountdownDisplay() {
         }
     }
     
-    // 自動封盤時停用投注按鈕
     if (secondsLeft <= 0) {
         if (submitBtn) submitBtn.disabled = true;
         if (lockMsg) {
