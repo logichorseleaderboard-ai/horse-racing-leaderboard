@@ -594,9 +594,8 @@ async function syncServerTime() {
 function getHKTime() {
     if (isServerTimeSynced) {
         // 使用同步到的伺服器時間
-        const now = new Date();
-        const hkTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-        return hkTime;
+        const realUTC = new Date(Date.now() + serverTimeOffset);
+        return new Date(realUTC.getTime() + (8 * 60 * 60 * 1000));
     } else {
         // 備用方案：直接使用裝置時間計算
         const now = new Date();
