@@ -539,43 +539,62 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
 
-// ========== 自動封盤計時器（含備用方案）==========
+// ========== 自動封盤計時器（使用 Supabase 伺服器時間）==========
 let countdownInterval = null;
 let currentCutoffTime = '17:00:00';
-let timeOffset = 0;
-let useApiTime = false;  // 標記是否成功使用 API 時間
+let serverTimeOffset = 0;
+let isServerTimeSynced = false;
 
-// 從 API 獲取真實 UTC 時間
-async function fetchRealUTCTime() {
+// 從 Supabase 獲取伺服器 UTC 時間
+async function fetchServerUTCTime() {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超時
+        // 方法一：從回應標頭獲取時間
+        const { data, error, response } = await supabaseClient
+            .from('participants')
+            .select('id')
+            .limit(0);
         
-        const response = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', {
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+        const serverDateStr = response?.headers?.get('date');
+        if (serverDateStr) {
+            return new Date(serverDateStr);
+        }
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        const apiTime = new Date(data.utc_datetime);
-        const deviceTime = new Date();
-        timeOffset = apiTime.getTime() - deviceTime.getTime();
-        useApiTime = true;
-        console.log("✅ 時間同步成功，偏移量:", timeOffset, "毫秒");
-        return true;
+        // 方法二：使用 RPC 函數獲取時間
+        const { data: timeData, error: timeError } = await supabaseClient
+            .rpc('get_server_time');
+        if (timeError) throw timeError;
+        if (timeData) return new Date(timeData);
+        
+        throw new Error('無法從伺服器獲取時間');
     } catch (error) {
-        console.warn("⚠️ 獲取真實時間失敗，將使用裝置時間:", error.message);
-        useApiTime = false;
-        return false;
+        console.error("獲取伺服器時間失敗:", error);
+        return null;
     }
 }
 
-// 獲取校正後的香港時間
+// 與伺服器時間同步
+async function syncServerTime() {
+    try {
+        const serverUTC = await fetchServerUTCTime();
+        if (serverUTC) {
+            const deviceUTC = new Date();
+            serverTimeOffset = serverUTC.getTime() - deviceUTC.getTime();
+            isServerTimeSynced = true;
+            console.log("✅ 與伺服器時間同步成功，偏移量:", serverTimeOffset, "毫秒");
+        } else {
+            throw new Error('無法獲取伺服器時間');
+        }
+    } catch (error) {
+        console.warn("⚠️ 無法同步伺服器時間，將使用裝置時間:", error.message);
+        isServerTimeSynced = false;
+    }
+}
+
+// 獲取校正後的香港時間 (UTC+8)
 function getHKTime() {
-    if (useApiTime) {
-        // 使用 API 校正時間
-        const realUTC = new Date(Date.now() + timeOffset);
+    if (isServerTimeSynced) {
+        // 使用同步到的伺服器時間
+        const realUTC = new Date(Date.now() + serverTimeOffset);
         return new Date(realUTC.getTime() + (8 * 60 * 60 * 1000));
     } else {
         // 備用方案：直接使用裝置時間計算
@@ -691,14 +710,9 @@ function startCountdown() {
     countdownInterval = setInterval(updateCountdownDisplay, 1000);
 }
 
-// 初始化計時器
+// 初始化計時器（同步伺服器時間後啟動）
 async function initCountdown() {
-    // 先嘗試同步時間（不阻塞，後台進行）
-    fetchRealUTCTime().then(() => {
-        // 同步完成後立即更新顯示
-        updateCountdownDisplay();
-    });
-    // 立即啟動倒計時（使用備用方案）
+    await syncServerTime();
     startCountdown();
 }
     
@@ -2073,7 +2087,7 @@ window.onload = async () => {
     await loadCutoffTime();
     
     // 初始化計時器（同步時間後啟動）
-    initCountdown();
+    await initCountdown();
     
     // 套用封盤狀態
     await applyInputLockStatus();
