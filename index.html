@@ -539,16 +539,34 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
 
-// ========== 自動封盤計時器（香港時區 - 修正版）==========
+// ========== 自動封盤計時器（使用 WorldTimeAPI，不依賴裝置時間）==========
 let countdownInterval = null;
-let currentCutoffTime = '12:30:00';
+let currentCutoffTime = '17:00:00';
+let timeOffset = 0;  // 儲存 API 時間與裝置時間的差值（毫秒）
 
+// 從 API 獲取真實 UTC 時間，並計算與裝置時間的偏移
+async function fetchRealUTCTime() {
+    try {
+        const response = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+        const data = await response.json();
+        const apiTime = new Date(data.utc_datetime);
+        const deviceTime = new Date();
+        // 計算偏移量（API時間 - 裝置時間）
+        timeOffset = apiTime.getTime() - deviceTime.getTime();
+        console.log("時間同步成功，偏移量:", timeOffset, "毫秒");
+        return true;
+    } catch (error) {
+        console.error("獲取真實時間失敗:", error);
+        return false;
+    }
+}
+
+// 獲取校正後的香港時間
 function getHKTime() {
-    // 獲取當前 UTC 時間（不受系統時區影響）
-    const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    // 加上 8 小時（香港時區）
-    return new Date(utc + (8 * 60 * 60000));
+    // 裝置時間 + 偏移量 = 真實時間
+    const realUTC = new Date(Date.now() + timeOffset);
+    // 轉換為香港時間 (UTC+8)
+    return new Date(realUTC.getTime() + (8 * 60 * 60 * 1000));
 }
 
 // 載入封盤時間設定
@@ -567,7 +585,7 @@ async function loadCutoffTime() {
             if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
         } else {
             const statusDiv = document.getElementById('cutoffTimeStatus');
-            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 12:30:00';
+            if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
         }
     } catch (e) {
         console.error("載入封盤時間失敗:", e);
@@ -594,7 +612,7 @@ async function saveCutoffTime() {
     }
 }
 
-// 計算距離封盤還有多少秒
+// 計算距離封盤還有多少秒（使用 API 校正後的時間）
 function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
     const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
     const hkNow = getHKTime();
@@ -641,6 +659,7 @@ function updateCountdownDisplay() {
         }
     }
     
+    // 自動封盤時停用投注按鈕
     if (secondsLeft <= 0) {
         if (submitBtn) submitBtn.disabled = true;
         if (lockMsg) {
@@ -662,6 +681,19 @@ function stopCountdown() {
     if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
+    }
+}
+
+// 初始化計時器（同步時間後啟動）
+async function initCountdown() {
+    const success = await fetchRealUTCTime();
+    if (success) {
+        startCountdown();
+    } else {
+        console.warn("無法獲取真實時間，倒計時功能可能不準確");
+        // 可選：顯示錯誤提示
+        const countdownEl = document.getElementById('countdownDisplay');
+        if (countdownEl) countdownEl.innerHTML = '時間同步失敗';
     }
 }
     
@@ -2035,8 +2067,8 @@ window.onload = async () => {
     // 載入封盤時間設定
     await loadCutoffTime();
     
-    // 啟動倒計時
-    startCountdown();
+    // 初始化計時器（同步時間後啟動）
+    await initCountdown();
     
     // 套用封盤狀態
     await applyInputLockStatus();
