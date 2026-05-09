@@ -539,7 +539,7 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
 
-// ========== 自動封盤計時器（使用 Supabase 伺服器時間）==========
+// ========== 自動封盤計時器（修正版）==========
 let countdownInterval = null;
 let currentCutoffTime = '12:15:00';
 let serverTimeOffset = 0;
@@ -548,7 +548,6 @@ let isServerTimeSynced = false;
 // 從 Supabase 獲取伺服器 UTC 時間
 async function fetchServerUTCTime() {
     try {
-        // 方法一：從回應標頭獲取時間
         const { data, error, response } = await supabaseClient
             .from('participants')
             .select('id')
@@ -559,7 +558,6 @@ async function fetchServerUTCTime() {
             return new Date(serverDateStr);
         }
         
-        // 方法二：使用 RPC 函數獲取時間
         const { data: timeData, error: timeError } = await supabaseClient
             .rpc('get_server_time');
         if (timeError) throw timeError;
@@ -590,16 +588,19 @@ async function syncServerTime() {
     }
 }
 
-// 獲取校正後的香港時間 (UTC+8)
+// 獲取校正後的香港時間 (UTC+8) - 修正版
 function getHKTime() {
-    // 獲取當前 UTC 時間
-    const now = new Date();
-    // 計算香港時間戳 (UTC + 8小時)
-    const hkTimestamp = now.getTime() + (8 * 60 * 60 * 1000);
-    // 返回新的 Date 物件
-    return new Date(hkTimestamp);
+    if (isServerTimeSynced) {
+        // 使用同步到的伺服器時間
+        const realUTC = new Date(Date.now() + serverTimeOffset);
+        return new Date(realUTC.getTime() + (8 * 60 * 60 * 1000));
+    } else {
+        // 備用方案：直接計算香港時間
+        const now = new Date();
+        return new Date(now.getTime() + (8 * 60 * 60 * 1000));
+    }
 }
-    
+
 // 載入封盤時間設定
 async function loadCutoffTime() {
     try {
@@ -645,6 +646,7 @@ async function saveCutoffTime() {
 
 // 計算距離封盤還有多少秒
 function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
+    if (!raceDate || !cutoffTimeStr) return -1;
     const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
     const hkNow = getHKTime();
     if (cutoffDateTime <= hkNow) return 0;
@@ -696,6 +698,9 @@ function updateCountdownDisplay() {
             lockMsg.style.display = 'block';
             lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`;
         }
+    } else {
+        if (submitBtn) submitBtn.disabled = false;
+        if (lockMsg) lockMsg.style.display = 'none';
     }
 }
 
@@ -706,7 +711,7 @@ function startCountdown() {
     countdownInterval = setInterval(updateCountdownDisplay, 1000);
 }
 
-// 初始化計時器（同步伺服器時間後啟動）
+// 初始化計時器
 async function initCountdown() {
     await syncServerTime();
     startCountdown();
