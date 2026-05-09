@@ -588,17 +588,11 @@ async function syncServerTime() {
     }
 }
 
-// 獲取校正後的香港時間 (UTC+8) - 修正版
+// 獲取校正後的香港時間 (UTC+8) - 最終修正版
 function getHKTime() {
-    if (isServerTimeSynced) {
-        // 使用同步到的伺服器時間
-        const realUTC = new Date(Date.now() + serverTimeOffset);
-        return new Date(realUTC.getTime() + (8 * 60 * 60 * 1000));
-    } else {
-        // 備用方案：直接計算香港時間
-        const now = new Date();
-        return new Date(now.getTime() + (8 * 60 * 60 * 1000));
-    }
+    // 使用 toLocaleString 獲取香港時間字串，再轉回 Date 物件
+    const hkTimeString = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+    return new Date(hkTimeString);
 }
 
 // 載入封盤時間設定
