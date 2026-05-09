@@ -539,58 +539,12 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
 
-// ========== 自動封盤計時器（修正版）==========
+// ========== 自動封盤計時器（最終修正版）==========
 let countdownInterval = null;
 let currentCutoffTime = '12:15:00';
-let serverTimeOffset = 0;
-let isServerTimeSynced = false;
 
-// 從 Supabase 獲取伺服器 UTC 時間
-async function fetchServerUTCTime() {
-    try {
-        const { data, error, response } = await supabaseClient
-            .from('participants')
-            .select('id')
-            .limit(0);
-        
-        const serverDateStr = response?.headers?.get('date');
-        if (serverDateStr) {
-            return new Date(serverDateStr);
-        }
-        
-        const { data: timeData, error: timeError } = await supabaseClient
-            .rpc('get_server_time');
-        if (timeError) throw timeError;
-        if (timeData) return new Date(timeData);
-        
-        throw new Error('無法從伺服器獲取時間');
-    } catch (error) {
-        console.error("獲取伺服器時間失敗:", error);
-        return null;
-    }
-}
-
-// 與伺服器時間同步
-async function syncServerTime() {
-    try {
-        const serverUTC = await fetchServerUTCTime();
-        if (serverUTC) {
-            const deviceUTC = new Date();
-            serverTimeOffset = serverUTC.getTime() - deviceUTC.getTime();
-            isServerTimeSynced = true;
-            console.log("✅ 與伺服器時間同步成功，偏移量:", serverTimeOffset, "毫秒");
-        } else {
-            throw new Error('無法獲取伺服器時間');
-        }
-    } catch (error) {
-        console.warn("⚠️ 無法同步伺服器時間，將使用裝置時間:", error.message);
-        isServerTimeSynced = false;
-    }
-}
-
-// 獲取校正後的香港時間 (UTC+8) - 最終修正版
+// 獲取正確的香港時間
 function getHKTime() {
-    // 使用 toLocaleString 獲取香港時間字串，再轉回 Date 物件
     const hkTimeString = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
     return new Date(hkTimeString);
 }
@@ -647,7 +601,7 @@ function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
     return Math.floor((cutoffDateTime - hkNow) / 1000);
 }
 
-// 格式化倒計時顯示
+// 格式化倒計時
 function formatCountdown(seconds) {
     if (seconds <= 0) return "已封盤";
     const hours = Math.floor(seconds / 3600);
@@ -705,9 +659,8 @@ function startCountdown() {
     countdownInterval = setInterval(updateCountdownDisplay, 1000);
 }
 
-// 初始化計時器
-async function initCountdown() {
-    await syncServerTime();
+// 初始化
+function initCountdown() {
     startCountdown();
 }
     
@@ -2080,9 +2033,7 @@ window.onload = async () => {
     
     // 載入封盤時間設定
     await loadCutoffTime();
-    
-    // 初始化計時器（同步時間後啟動）
-    await initCountdown();
+    initCountdown();
     
     // 套用封盤狀態
     await applyInputLockStatus();
