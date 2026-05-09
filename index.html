@@ -541,7 +541,7 @@ async function fetchRaceCount(raceDate) {
 
 // ========== 自動封盤計時器（使用 Supabase 伺服器時間）==========
 let countdownInterval = null;
-let currentCutoffTime = '17:00:00';
+let currentCutoffTime = '12:15:00';
 let serverTimeOffset = 0;
 let isServerTimeSynced = false;
 
@@ -592,11 +592,12 @@ async function syncServerTime() {
 
 // 獲取校正後的香港時間 (UTC+8)
 function getHKTime() {
+    // 獲取當前 UTC 時間
     const now = new Date();
-    // 直接使用 UTC 小時 + 8
-    const hkDate = new Date(now.toUTCString());
-    hkDate.setHours(hkDate.getHours() + 8);
-    return hkDate;
+    // 計算香港時間戳 (UTC + 8小時)
+    const hkTimestamp = now.getTime() + (8 * 60 * 60 * 1000);
+    // 返回新的 Date 物件
+    return new Date(hkTimestamp);
 }
     
 // 載入封盤時間設定
