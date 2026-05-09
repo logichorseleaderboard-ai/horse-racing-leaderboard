@@ -545,30 +545,22 @@ let currentCutoffTime = '12:15:00';
 let serverHKTime = null;  // 儲存從伺服器獲取的最後香港時間
 let lastSyncTime = 0;     // 上次同步的時間戳（裝置時間）
 
-// 從 Supabase 獲取伺服器時間（不依賴裝置時間）
+// 從 Supabase 獲取伺服器時間（使用 RPC）
 async function fetchServerHKTime() {
     try {
-        // 方法一：從回應標頭獲取時間
-        const { data, error, response } = await supabaseClient
-            .from('participants')
-            .select('id')
-            .limit(0);
-        
-        const serverDateStr = response?.headers?.get('date');
-        if (serverDateStr) {
-            // 將伺服器 UTC 時間轉為香港時間
-            const serverUTC = new Date(serverDateStr);
-            const serverHK = new Date(serverUTC.getTime() + (8 * 60 * 60 * 1000));
-            return serverHK;
-        }
-        
-        // 方法二：使用 RPC 函數
+        // 直接使用 RPC 函數獲取伺服器 UTC 時間
         const { data: timeData, error: timeError } = await supabaseClient
             .rpc('get_server_time');
+        
         if (timeError) throw timeError;
+        
         if (timeData) {
             const serverUTC = new Date(timeData);
-            return new Date(serverUTC.getTime() + (8 * 60 * 60 * 1000));
+            console.log("伺服器 UTC 時間:", serverUTC.toISOString());
+            // 轉換為香港時間 (UTC+8)
+            const serverHK = new Date(serverUTC.getTime() + (8 * 60 * 60 * 1000));
+            console.log("伺服器香港時間:", serverHK.toLocaleString());
+            return serverHK;
         }
         
         throw new Error('無法從伺服器獲取時間');
