@@ -539,14 +539,69 @@ async function fetchRaceCount(raceDate) {
     return 11;
 }
 
-// ========== 自動封盤計時器（最終修正版）==========
+// ========== 完全依賴伺服器時間的計時器（不依賴裝置時間）==========
 let countdownInterval = null;
 let currentCutoffTime = '12:15:00';
+let serverHKTime = null;  // 儲存從伺服器獲取的最後香港時間
+let lastSyncTime = 0;     // 上次同步的時間戳（裝置時間）
 
-// 獲取正確的香港時間
+// 從 Supabase 獲取伺服器時間（不依賴裝置時間）
+async function fetchServerHKTime() {
+    try {
+        // 方法一：從回應標頭獲取時間
+        const { data, error, response } = await supabaseClient
+            .from('participants')
+            .select('id')
+            .limit(0);
+        
+        const serverDateStr = response?.headers?.get('date');
+        if (serverDateStr) {
+            // 將伺服器 UTC 時間轉為香港時間
+            const serverUTC = new Date(serverDateStr);
+            const serverHK = new Date(serverUTC.getTime() + (8 * 60 * 60 * 1000));
+            return serverHK;
+        }
+        
+        // 方法二：使用 RPC 函數
+        const { data: timeData, error: timeError } = await supabaseClient
+            .rpc('get_server_time');
+        if (timeError) throw timeError;
+        if (timeData) {
+            const serverUTC = new Date(timeData);
+            return new Date(serverUTC.getTime() + (8 * 60 * 60 * 1000));
+        }
+        
+        throw new Error('無法從伺服器獲取時間');
+    } catch (error) {
+        console.error("獲取伺服器時間失敗:", error);
+        return null;
+    }
+}
+
+// 同步伺服器時間（每 60 秒自動同步一次）
+async function syncServerTime() {
+    const serverTime = await fetchServerHKTime();
+    if (serverTime) {
+        serverHKTime = serverTime;
+        lastSyncTime = Date.now();
+        console.log("✅ 伺服器時間同步成功:", serverHKTime.toLocaleString());
+        return true;
+    }
+    return false;
+}
+
+// 獲取當前香港時間（基於最後同步的伺服器時間 + 本地計時）
 function getHKTime() {
-    const hkTimeString = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-    return new Date(hkTimeString);
+    if (serverHKTime) {
+        // 計算從上次同步到現在經過的秒數
+        const elapsed = Date.now() - lastSyncTime;
+        // 返回伺服器時間 + 經過時間
+        return new Date(serverHKTime.getTime() + elapsed);
+    }
+    // 備用：如果還未同步，返回裝置時間（盡量避免）
+    const fallback = new Date();
+    console.warn("⚠️ 使用備用時間（裝置時間）");
+    return fallback;
 }
 
 // 載入封盤時間設定
@@ -652,15 +707,30 @@ function updateCountdownDisplay() {
     }
 }
 
-// 啟動倒計時
+// 啟動倒計時（自動每 60 秒重新同步伺服器時間）
 function startCountdown() {
     if (countdownInterval) clearInterval(countdownInterval);
-    updateCountdownDisplay();
-    countdownInterval = setInterval(updateCountdownDisplay, 1000);
+    
+    // 立即同步一次
+    syncServerTime().then(() => {
+        updateCountdownDisplay();
+    });
+    
+    // 每秒更新顯示
+    countdownInterval = setInterval(() => {
+        updateCountdownDisplay();
+    }, 1000);
+    
+    // 每 60 秒重新同步伺服器時間（確保長時間運行準確）
+    setInterval(async () => {
+        await syncServerTime();
+        console.log("🔄 自動同步伺服器時間完成");
+    }, 60000);
 }
 
-// 初始化
-function initCountdown() {
+// 初始化計時器
+async function initCountdown() {
+    await syncServerTime();
     startCountdown();
 }
     
