@@ -592,23 +592,13 @@ async function syncServerTime() {
 
 // 獲取校正後的香港時間 (UTC+8)
 function getHKTime() {
-    if (isServerTimeSynced) {
-        const realUTC = new Date(Date.now() + serverTimeOffset);
-        // 直接返回 UTC+8 的 ISO 字串
-        const year = realUTC.getUTCFullYear();
-        const month = realUTC.getUTCMonth();
-        const day = realUTC.getUTCDate();
-        const hours = realUTC.getUTCHours() + 8;
-        const minutes = realUTC.getUTCMinutes();
-        const seconds = realUTC.getUTCSeconds();
-        return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-    } else {
-        const now = new Date();
-        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-        return new Date(utc + (8 * 60 * 60000));
-    }
+    const now = new Date();
+    // 直接使用 UTC 小時 + 8
+    const hkDate = new Date(now.toUTCString());
+    hkDate.setHours(hkDate.getHours() + 8);
+    return hkDate;
 }
-
+    
 // 載入封盤時間設定
 async function loadCutoffTime() {
     try {
