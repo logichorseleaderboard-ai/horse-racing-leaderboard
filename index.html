@@ -1685,7 +1685,7 @@ async function saveRaceResult() {
     if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
 }
     
-// ========== 個人統計（顯示實際投入金額）==========
+// ========== 個人統計（支援 6-7月合併，顯示實際投入金額）==========
 async function loadStatsForCurrentUser() {
     const user = document.getElementById('statsUserSelect').value;
     if (!user) {
@@ -1695,10 +1695,23 @@ async function loadStatsForCurrentUser() {
     
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const startDate = `${year}-${month}-01`;
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const endDate = `${year}-${month}-${lastDay}`;
+    const month = now.getMonth() + 1; // 1-12
+    
+    let startDate, endDate;
+    
+    // 判斷是否為 6月或7月 → 顯示 6-7月合併
+    if (month === 6 || month === 7) {
+        // 6-7月合併：從 6月1日 到 7月31日
+        startDate = `${year}-06-01`;
+        const lastDayOfJuly = new Date(year, 7, 0).getDate(); // 7月最後一天
+        endDate = `${year}-07-${lastDayOfJuly}`;
+    } else {
+        // 其他月份正常顯示單月
+        const monthStr = String(month).padStart(2, '0');
+        startDate = `${year}-${monthStr}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        endDate = `${year}-${monthStr}-${lastDay}`;
+    }
     
     const { data, error } = await supabaseClient
         .from('bets')
@@ -1745,15 +1758,32 @@ async function loadStatsForCurrentUser() {
     `;
 }
     
-// ========== 每月排名（欄寬加闊，標題不換行）==========
+// ========== 每月排名（支援 6-7月合併，欄寬加闊，標題不換行）==========
 async function loadMonthlyRanking() {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const startDate = `${year}-${month}-01`;
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const endDate = `${year}-${month}-${lastDay}`;
-    document.getElementById('monthDisplay').innerHTML = `📅 ${year}年${parseInt(month)}月 (${startDate} 至 ${endDate})`;
+    const month = now.getMonth() + 1; // 1-12
+    
+    let startDate, endDate;
+    let displayTitle = '';
+    
+    // 判斷是否為 6月或7月 → 顯示 6-7月合併
+    if (month === 6 || month === 7) {
+        // 6-7月合併：從 6月1日 到 7月31日
+        startDate = `${year}-06-01`;
+        const lastDayOfJuly = new Date(year, 7, 0).getDate(); // 7月最後一天
+        endDate = `${year}-07-${lastDayOfJuly}`;
+        displayTitle = `📅 ${year}年6-7月合併 (${startDate} 至 ${endDate})`;
+    } else {
+        // 其他月份正常顯示單月
+        const monthStr = String(month).padStart(2, '0');
+        startDate = `${year}-${monthStr}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        endDate = `${year}-${monthStr}-${lastDay}`;
+        displayTitle = `📅 ${year}年${month}月 (${startDate} 至 ${endDate})`;
+    }
+    
+    document.getElementById('monthDisplay').innerHTML = displayTitle;
     
     const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
     if (pErr) { 
@@ -1766,7 +1796,7 @@ async function loadMonthlyRanking() {
         .from('bets')
         .select('participant, payout, amount, refund')
         .gte('race_date', startDate)
-        .lte('race_date', endDate)
+        .lte('race_date', endDate);
     
     if (error) { 
         console.error("排名查詢錯誤:", error);
@@ -1829,13 +1859,13 @@ async function loadMonthlyRanking() {
                 <td style="padding: 6px 6px; text-align: left;">$${item.totalStake}</td>
                 <td style="padding: 6px 6px; text-align: left; color: ${profitColor};">$${item.totalProfit}</td>
                 <td style="padding: 6px 6px; text-align: left; color: ${roiColor};">${item.roi}%</td>
-             </tr>
+            </tr>
         `;
     });
     
     html += `
                 </tbody>
-             </table>
+            </table>
         </div>
     `;
     
