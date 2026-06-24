@@ -429,7 +429,7 @@
 <div id="result-page" class="page">
     <div id="resultAuth" class="card">
         <input type="password" id="resultPwd" placeholder="賽果管理密碼">
-        <button onclick="verifyResult()">驗證</button>
+        <button onclick="verifyResult()" style="margin-top:8px;">驗證</button>
     </div>
     <div id="resultContent" style="display:none;">
         <div class="card">
@@ -438,31 +438,54 @@
             <div class="form-group"><label>場次</label><select id="resultRaceNo"></select></div>
             <div class="form-group"><label>退賽馬匹 (號碼，逗號分隔)</label><input type="text" id="scratchedHorses" placeholder="例如: 4,7,10"></div>
             
-            <!-- 平頭支援：每個名次可輸入多個馬號，用逗號分隔 -->
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-                <div class="form-group">
-                    <label>第一名 (可多個，逗號分隔)</label>
-                    <input type="text" id="first" placeholder="例如: 1 或 1,2">
+            <!-- 平頭支援：動態馬號+派彩配對 -->
+            <div id="resultInputsContainer">
+                <!-- 第一名 -->
+                <div class="result-rank-group" style="border-left: 4px solid #f59e0b; padding-left: 12px; margin-bottom: 15px;">
+                    <h4>🏆 第一名 (平頭馬匹)</h4>
+                    <div id="firstRankInputs">
+                        <div class="rank-input-row" style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
+                            <input type="number" class="rank-horse" placeholder="馬號" style="width: 60px;">
+                            <input type="number" class="rank-div-win" placeholder="獨贏派彩" style="width: 100px;">
+                            <input type="number" class="rank-div-place" placeholder="位置派彩" style="width: 100px;">
+                            <button type="button" class="remove-rank-btn" style="width: 30px; background: #ef4444; padding: 4px;">✕</button>
+                        </div>
+                    </div>
+                    <button type="button" class="add-rank-btn" data-rank="first" style="width: auto; padding: 4px 12px; background: #475569; font-size: 0.8rem;">➕ 新增平頭馬</button>
                 </div>
-                <div class="form-group">
-                    <label>第二名 (可多個，逗號分隔)</label>
-                    <input type="text" id="second" placeholder="例如: 3 或 3,4">
+                
+                <!-- 第二名 -->
+                <div class="result-rank-group" style="border-left: 4px solid #94a3b8; padding-left: 12px; margin-bottom: 15px;">
+                    <h4>🥈 第二名 (平頭馬匹)</h4>
+                    <div id="secondRankInputs">
+                        <div class="rank-input-row" style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
+                            <input type="number" class="rank-horse" placeholder="馬號" style="width: 60px;">
+                            <input type="number" class="rank-div-place" placeholder="位置派彩" style="width: 100px;">
+                            <button type="button" class="remove-rank-btn" style="width: 30px; background: #ef4444; padding: 4px;">✕</button>
+                        </div>
+                    </div>
+                    <button type="button" class="add-rank-btn" data-rank="second" style="width: auto; padding: 4px 12px; background: #475569; font-size: 0.8rem;">➕ 新增平頭馬</button>
                 </div>
-                <div class="form-group">
-                    <label>第三名 (可多個，逗號分隔)</label>
-                    <input type="text" id="third" placeholder="例如: 5 或 5,6">
+                
+                <!-- 第三名 -->
+                <div class="result-rank-group" style="border-left: 4px solid #b45309; padding-left: 12px; margin-bottom: 15px;">
+                    <h4>🥉 第三名 (平頭馬匹)</h4>
+                    <div id="thirdRankInputs">
+                        <div class="rank-input-row" style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
+                            <input type="number" class="rank-horse" placeholder="馬號" style="width: 60px;">
+                            <input type="number" class="rank-div-place" placeholder="位置派彩" style="width: 100px;">
+                            <button type="button" class="remove-rank-btn" style="width: 30px; background: #ef4444; padding: 4px;">✕</button>
+                        </div>
+                    </div>
+                    <button type="button" class="add-rank-btn" data-rank="third" style="width: auto; padding: 4px 12px; background: #475569; font-size: 0.8rem;">➕ 新增平頭馬</button>
                 </div>
             </div>
             
-            <h3 style="margin:15px 0 8px;">派彩 (每$10)</h3>
+            <h3 style="margin:15px 0 8px;">其他派彩 (連贏/位置Q)</h3>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <input type="number" id="div_win" placeholder="獨贏">
-                <input type="number" id="div_q" placeholder="連贏">
-                <input type="number" id="div_pla1" placeholder="位置(1)">
+                <input type="number" id="div_q" placeholder="連贏派彩">
                 <input type="number" id="div_qp12" placeholder="位置Q 1-2">
-                <input type="number" id="div_pla2" placeholder="位置(2)">
                 <input type="number" id="div_qp13" placeholder="位置Q 1-3">
-                <input type="number" id="div_pla3" placeholder="位置(3)">
                 <input type="number" id="div_qp23" placeholder="位置Q 2-3">
             </div>
             <button onclick="saveRaceResult()" style="margin-top:16px;">💾 儲存並自動結算</button>
@@ -1442,7 +1465,7 @@ document.getElementById('betForm').addEventListener('submit', async (e) => {
         }
     }
     
-// ========== 儲存賽果與結算（支援平頭）==========
+// ========== 儲存賽果與結算（支援平頭獨立派彩）==========
 async function saveRaceResult() {
     const raceDate = document.getElementById('resultRaceDate').value;
     if (!raceDate) { alert("請選擇賽日"); return; }
@@ -1459,48 +1482,56 @@ async function saveRaceResult() {
         return;
     }
     
-    // 解析平頭馬匹（支援逗號分隔的多個馬號）
-    const firstRaw = document.getElementById('first').value;
-    const secondRaw = document.getElementById('second').value;
-    const thirdRaw = document.getElementById('third').value;
+    // 收集平頭馬匹數據
+    const firstData = collectRankData('first');
+    const secondData = collectRankData('second');
+    const thirdData = collectRankData('third');
     
-    const firstPlaced = firstRaw ? firstRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
-    const secondPlaced = secondRaw ? secondRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
-    const thirdPlaced = thirdRaw ? thirdRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
-    
-    if (firstPlaced.length === 0) {
+    if (firstData.length === 0) {
         alert("請輸入至少一匹第一名馬匹");
         return;
     }
     
-    const scratchedRaw = document.getElementById('scratchedHorses').value;
+    // 建立名次集合（用於快速查詢）
+    const firstSet = new Set(firstData.map(d => d.horse));
+    const secondSet = new Set(secondData.map(d => d.horse));
+    const thirdSet = new Set(thirdData.map(d => d.horse));
+    const allPlaced = [...firstSet, ...secondSet, ...thirdSet];
+    
+    // 建立馬匹→派彩的映射
+    const winDivMap = {};
+    const placeDivMap = {};
+    firstData.forEach(d => {
+        winDivMap[d.horse] = d.winDiv;
+        placeDivMap[d.horse] = d.placeDiv;
+    });
+    secondData.forEach(d => {
+        placeDivMap[d.horse] = d.placeDiv;
+    });
+    thirdData.forEach(d => {
+        placeDivMap[d.horse] = d.placeDiv;
+    });
+    
+    const scratchedRaw = document.getElementById('scratchedHorses').value.trim();
     const scratchedHorses = scratchedRaw ? scratchedRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
     const scratchedSet = new Set(scratchedHorses);
     
-    const winDiv = Number(document.getElementById('div_win').value) || 0;
+    // 讀取連贏/位置Q派彩
     const qinDiv = Number(document.getElementById('div_q').value) || 0;
-    const placeDiv1 = Number(document.getElementById('div_pla1').value) || 0;
-    const placeDiv2 = Number(document.getElementById('div_pla2').value) || 0;
-    const placeDiv3 = Number(document.getElementById('div_pla3').value) || 0;
     const qp12 = Number(document.getElementById('div_qp12').value) || 0;
     const qp13 = Number(document.getElementById('div_qp13').value) || 0;
     const qp23 = Number(document.getElementById('div_qp23').value) || 0;
     
-    // 將第一名、第二名、第三名轉為 Set 以便快速查詢
-    const firstSet = new Set(firstPlaced);
-    const secondSet = new Set(secondPlaced);
-    const thirdSet = new Set(thirdPlaced);
-    
-    // 所有入圍馬匹（用於位置Q計算）
-    const allPlaced = [...firstPlaced, ...secondPlaced, ...thirdPlaced];
-    
     // 儲存賽果
     const { error: resError } = await supabaseClient.from('race_results').upsert({
         race_date: raceDate, race_no: raceNo,
-        first: firstRaw, second: secondRaw, third: thirdRaw,
-        first_list: firstPlaced, second_list: secondPlaced, third_list: thirdPlaced,
-        win_div: winDiv, qin_div: qinDiv,
-        place_div1: placeDiv1, place_div2: placeDiv2, place_div3: placeDiv3,
+        first_data: firstData, second_data: secondData, third_data: thirdData,
+        first_list: firstData.map(d => d.horse),
+        second_list: secondData.map(d => d.horse),
+        third_list: thirdData.map(d => d.horse),
+        win_div_map: winDivMap,
+        place_div_map: placeDivMap,
+        qin_div: qinDiv,
         qin_place_div12: qp12, qin_place_div13: qp13, qin_place_div23: qp23,
         scratched: scratchedRaw
     }, { onConflict: 'race_date, race_no' });
@@ -1534,52 +1565,55 @@ async function saveRaceResult() {
             
             let totalRefundUnits = 0;
             
-            // 獨贏結算（平頭：只要馬匹在第一名集合中即中獎）
+            // ========== 獨贏結算（使用馬匹獨立派彩） ==========
             const winUnits = units.win || 0;
-            if (winUnits > 0 && banker !== null) {
-                if (scratchedSet.has(banker)) {
-                    totalRefundUnits += winUnits;
-                } else if (firstSet.has(banker)) {
-                    grossPayout += winUnits * winDiv;
-                }
-            } else if (winUnits > 0 && comboType !== 'banker') {
-                for (let horse of legs) {
-                    if (scratchedSet.has(horse)) {
+            if (winUnits > 0) {
+                if (comboType === 'banker' && banker !== null) {
+                    if (scratchedSet.has(banker)) {
                         totalRefundUnits += winUnits;
-                    } else if (firstSet.has(horse)) {
-                        grossPayout += winUnits * winDiv;
+                    } else if (firstSet.has(banker)) {
+                        grossPayout += winUnits * (winDivMap[banker] || 0);
+                    }
+                } else {
+                    for (let horse of legs) {
+                        if (scratchedSet.has(horse)) {
+                            totalRefundUnits += winUnits;
+                        } else if (firstSet.has(horse)) {
+                            grossPayout += winUnits * (winDivMap[horse] || 0);
+                        }
                     }
                 }
             }
             
-            // 位置結算（平頭：馬匹在第一名、第二名或第三名集合中即中獎）
+            // ========== 位置結算（使用馬匹獨立派彩） ==========
             const placeUnits = units.place || 0;
-            if (placeUnits > 0 && banker !== null) {
-                if (scratchedSet.has(banker)) {
-                    totalRefundUnits += placeUnits;
-                } else if (firstSet.has(banker)) {
-                    grossPayout += placeUnits * placeDiv1;
-                } else if (secondSet.has(banker)) {
-                    grossPayout += placeUnits * placeDiv2;
-                } else if (thirdSet.has(banker)) {
-                    grossPayout += placeUnits * placeDiv3;
-                }
-            } else if (placeUnits > 0 && comboType !== 'banker') {
-                for (let horse of legs) {
-                    if (scratchedSet.has(horse)) {
+            if (placeUnits > 0) {
+                if (comboType === 'banker' && banker !== null) {
+                    if (scratchedSet.has(banker)) {
                         totalRefundUnits += placeUnits;
-                    } else if (firstSet.has(horse)) {
-                        grossPayout += placeUnits * placeDiv1;
-                    } else if (secondSet.has(horse)) {
-                        grossPayout += placeUnits * placeDiv2;
-                    } else if (thirdSet.has(horse)) {
-                        grossPayout += placeUnits * placeDiv3;
+                    } else if (firstSet.has(banker)) {
+                        grossPayout += placeUnits * (placeDivMap[banker] || 0);
+                    } else if (secondSet.has(banker)) {
+                        grossPayout += placeUnits * (placeDivMap[banker] || 0);
+                    } else if (thirdSet.has(banker)) {
+                        grossPayout += placeUnits * (placeDivMap[banker] || 0);
+                    }
+                } else {
+                    for (let horse of legs) {
+                        if (scratchedSet.has(horse)) {
+                            totalRefundUnits += placeUnits;
+                        } else if (firstSet.has(horse)) {
+                            grossPayout += placeUnits * (placeDivMap[horse] || 0);
+                        } else if (secondSet.has(horse)) {
+                            grossPayout += placeUnits * (placeDivMap[horse] || 0);
+                        } else if (thirdSet.has(horse)) {
+                            grossPayout += placeUnits * (placeDivMap[horse] || 0);
+                        }
                     }
                 }
             }
             
-            // 連贏結算（平頭：組合中的兩匹馬都在前三名內，且分別在第一、二名？需根據實際規則調整）
-            // 簡化：連贏需要兩匹馬分別為第一名和第二名（考慮平頭）
+            // ========== 連贏結算（使用統一連贏派彩） ==========
             const quinellaGroups = units.quinella || 0;
             if (quinellaGroups > 0) {
                 let quinellaCombos = [];
@@ -1607,7 +1641,7 @@ async function saveRaceResult() {
                 }
             }
             
-            // 位置Q結算（平頭：組合中的兩匹馬都在前三名內）
+            // ========== 位置Q結算（使用統一位置Q派彩） ==========
             const qpGroups = units.quinellaPlace || 0;
             if (qpGroups > 0) {
                 let qpCombos = [];
@@ -1627,20 +1661,16 @@ async function saveRaceResult() {
                     if (scratchedSet.has(a) || scratchedSet.has(b)) {
                         totalRefundUnits += qpGroups;
                     } else if (allPlaced.includes(a) && allPlaced.includes(b)) {
-                        // 兩匹馬都在前三名內，需要判斷具體派彩
-                        // 根據位置組合計算不同的位置Q派彩
                         const aInFirst = firstSet.has(a);
                         const aInSecond = secondSet.has(a);
-                        const aInThird = thirdSet.has(a);
                         const bInFirst = firstSet.has(b);
                         const bInSecond = secondSet.has(b);
-                        const bInThird = thirdSet.has(b);
                         
                         if ((aInFirst && bInSecond) || (aInSecond && bInFirst)) {
                             grossPayout += qpGroups * qp12;
-                        } else if ((aInFirst && bInThird) || (aInThird && bInFirst)) {
+                        } else if ((aInFirst && thirdSet.has(b)) || (bInFirst && thirdSet.has(a))) {
                             grossPayout += qpGroups * qp13;
-                        } else if ((aInSecond && bInThird) || (aInThird && bInSecond)) {
+                        } else if ((aInSecond && thirdSet.has(b)) || (bInSecond && thirdSet.has(a))) {
                             grossPayout += qpGroups * qp23;
                         }
                     }
@@ -1661,7 +1691,7 @@ async function saveRaceResult() {
             }
         }
         else if (bet.banker && bet.banker !== '' && bet.legs) {
-            // 舊玩法膽拖結算（同樣支援平頭）
+            // 舊玩法（膽拖）- 使用馬匹獨立派彩
             const banker = parseInt(bet.banker);
             const legs = bet.legs.split(',').map(Number);
             const leg1 = legs[0], leg2 = legs[1];
@@ -1676,11 +1706,11 @@ async function saveRaceResult() {
                 
                 // 獨贏 + 位置
                 if (firstSet.has(banker)) {
-                    grossPayout += winDiv + (placeDiv1 * 3);
+                    grossPayout += (winDivMap[banker] || 0) + ((placeDivMap[banker] || 0) * 3);
                 } else if (secondSet.has(banker)) {
-                    grossPayout += placeDiv2 * 3;
+                    grossPayout += (placeDivMap[banker] || 0) * 3;
                 } else if (thirdSet.has(banker)) {
-                    grossPayout += placeDiv3 * 3;
+                    grossPayout += (placeDivMap[banker] || 0) * 3;
                 }
                 
                 // 連贏
@@ -1689,7 +1719,6 @@ async function saveRaceResult() {
                 } else if (scratchedSet.has(leg1)) {
                     refundUnits++;
                 }
-                
                 if (!scratchedSet.has(leg2) && ((firstSet.has(banker) && secondSet.has(leg2)) || (secondSet.has(banker) && firstSet.has(leg2)))) {
                     grossPayout += qinDiv;
                 } else if (scratchedSet.has(leg2)) {
@@ -1742,6 +1771,85 @@ async function saveRaceResult() {
     if (document.getElementById('detail-page').classList.contains('active-page')) loadUserBets();
     loadMonthlyRanking();
     if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
+}
+
+// ========== 管理平頭馬匹輸入 ==========
+function setupRankInputs() {
+    // 新增平頭馬
+    document.querySelectorAll('.add-rank-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const rank = this.dataset.rank;
+            const containerId = rank + 'RankInputs';
+            const container = document.getElementById(containerId);
+            
+            const row = document.createElement('div');
+            row.className = 'rank-input-row';
+            row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 6px; align-items: center;';
+            
+            if (rank === 'first') {
+                row.innerHTML = `
+                    <input type="number" class="rank-horse" placeholder="馬號" style="width: 60px;">
+                    <input type="number" class="rank-div-win" placeholder="獨贏派彩" style="width: 100px;">
+                    <input type="number" class="rank-div-place" placeholder="位置派彩" style="width: 100px;">
+                    <button type="button" class="remove-rank-btn" style="width: 30px; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 4px; cursor: pointer;">✕</button>
+                `;
+            } else {
+                row.innerHTML = `
+                    <input type="number" class="rank-horse" placeholder="馬號" style="width: 60px;">
+                    <input type="number" class="rank-div-place" placeholder="位置派彩" style="width: 100px;">
+                    <button type="button" class="remove-rank-btn" style="width: 30px; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 4px; cursor: pointer;">✕</button>
+                `;
+            }
+            
+            container.appendChild(row);
+            
+            // 綁定刪除按鈕
+            row.querySelector('.remove-rank-btn').addEventListener('click', function() {
+                if (container.children.length > 1) {
+                    row.remove();
+                } else {
+                    alert("至少保留一個輸入欄位");
+                }
+            });
+        });
+    });
+    
+    // 初始綁定刪除按鈕
+    document.querySelectorAll('.remove-rank-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const row = this.closest('.rank-input-row');
+            const container = row.parentElement;
+            if (container.children.length > 1) {
+                row.remove();
+            } else {
+                alert("至少保留一個輸入欄位");
+            }
+        });
+    });
+}
+
+// 收集平頭馬匹數據
+function collectRankData(rank) {
+    const containerId = rank + 'RankInputs';
+    const container = document.getElementById(containerId);
+    const rows = container.querySelectorAll('.rank-input-row');
+    const result = [];
+    
+    rows.forEach(row => {
+        const horse = parseInt(row.querySelector('.rank-horse').value);
+        if (isNaN(horse)) return;
+        
+        if (rank === 'first') {
+            const winDiv = parseFloat(row.querySelector('.rank-div-win').value) || 0;
+            const placeDiv = parseFloat(row.querySelector('.rank-div-place').value) || 0;
+            result.push({ horse, winDiv, placeDiv });
+        } else {
+            const placeDiv = parseFloat(row.querySelector('.rank-div-place').value) || 0;
+            result.push({ horse, placeDiv });
+        }
+    });
+    
+    return result;
 }
     
 // ========== 個人統計（支援 6-7月合併，顯示實際投入金額）==========
@@ -2178,6 +2286,9 @@ window.onload = async () => {
     
     // 綁定投注表單事件
     bindBetFormEvents();
+    
+    // 設定平頭馬匹輸入功能（賽果頁動態輸入）
+    setupRankInputs();
     
     // 載入封盤時間設定
     await loadCutoffTime();
