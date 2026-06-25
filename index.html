@@ -1086,19 +1086,46 @@
                         }
                     }
                 }
-                // 位置Q
+                // ========== 位置Q結算（正確處理平頭） ==========
                 const qpGroups = units.quinellaPlace || 0;
                 if (qpGroups > 0) {
                     let qpCombos = [];
-                    if (comboType === 'all') { for (let i = 0; i < legs.length; i++) { for (let j = i+1; j < legs.length; j++) { qpCombos.push([legs[i], legs[j]]); } } }
-                    else if (comboType === 'banker' && banker !== null) { for (let leg of legs) { if (leg !== banker) qpCombos.push([banker, leg]); } }
+                    if (comboType === 'all') {
+                        for (let i = 0; i < legs.length; i++) {
+                            for (let j = i+1; j < legs.length; j++) {
+                                qpCombos.push([legs[i], legs[j]]);
+                            }
+                        }
+                    } else if (comboType === 'banker' && banker !== null) {
+                        for (let leg of legs) {
+                            if (leg !== banker) qpCombos.push([banker, leg]);
+                        }
+                    }
                     for (let combo of qpCombos) {
                         const [a, b] = combo;
-                        if (scratchedSet.has(a) || scratchedSet.has(b)) { totalRefundUnits += qpGroups; }
-                        else {
-                            const pairKey = `${Math.min(a,b)}-${Math.max(a,b)}`;
-                            const qpDiv = matrixData[pairKey]?.qp || 0;
-                            if (qpDiv > 0 && allPlaced.includes(a) && allPlaced.includes(b)) { grossPayout += qpGroups * qpDiv; }
+                        // 檢查退賽
+                        if (scratchedSet.has(a) || scratchedSet.has(b)) {
+                            totalRefundUnits += qpGroups;
+                        } else if (allPlaced.includes(a) && allPlaced.includes(b)) {
+                            // 兩匹馬都在前三名內
+                            const aInFirst = firstSet.has(a);
+                            const aInSecond = secondSet.has(a);
+                            const aInThird = thirdSet.has(a);
+                            const bInFirst = firstSet.has(b);
+                            const bInSecond = secondSet.has(b);
+                            const bInThird = thirdSet.has(b);
+            
+                            // 判斷名次組合，選擇對應的派彩
+                            if ((aInFirst && bInSecond) || (aInSecond && bInFirst)) {
+                                // 一匹第一，一匹第二 → 使用 qp12
+                                grossPayout += qpGroups * qp12;
+                            } else if ((aInFirst && bInThird) || (aInThird && bInFirst)) {
+                                // 一匹第一，一匹第三 → 使用 qp13
+                                grossPayout += qpGroups * qp13;
+                            } else if ((aInSecond && bInThird) || (aInThird && bInSecond)) {
+                                // 一匹第二，一匹第三 → 使用 qp23
+                                grossPayout += qpGroups * qp23;
+                            }
                         }
                     }
                 }
