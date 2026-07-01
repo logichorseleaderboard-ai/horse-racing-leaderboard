@@ -1080,6 +1080,161 @@ function bindRowEvents(row) {
         inp.addEventListener('input', updateDeadHeatMatrix); 
     });
 }
+
+    // ========== 強制更新矩陣（完整獨立版）==========
+function updateDeadHeatMatrix() {
+    console.log('🔄 強制更新矩陣...');
+    
+    // 直接從 DOM 讀取所有馬匹資料
+    function getHorsesFromRank(rank) {
+        const container = document.getElementById(rank + 'RankInputs');
+        if (!container) return [];
+        const rows = container.querySelectorAll('.rank-input-row');
+        const result = [];
+        rows.forEach(row => {
+            const horseInput = row.querySelector('.rank-horse');
+            if (horseInput && horseInput.value.trim() !== '') {
+                const horse = parseInt(horseInput.value.trim());
+                if (!isNaN(horse)) {
+                    if (rank === 'first') {
+                        const winDiv = parseFloat(row.querySelector('.rank-div-win')?.value) || 0;
+                        const placeDiv = parseFloat(row.querySelector('.rank-div-place')?.value) || 0;
+                        result.push({ horse, winDiv, placeDiv });
+                    } else {
+                        const placeDiv = parseFloat(row.querySelector('.rank-div-place')?.value) || 0;
+                        result.push({ horse, placeDiv });
+                    }
+                }
+            }
+        });
+        return result;
+    }
+    
+    const firstData = getHorsesFromRank('first');
+    const secondData = getHorsesFromRank('second');
+    const thirdData = getHorsesFromRank('third');
+    const allHorses = [...firstData, ...secondData, ...thirdData];
+    
+    console.log('📊 入圍馬匹:', allHorses.map(h => h.horse));
+    
+    const matrixDiv = document.getElementById('deadHeatMatrix');
+    if (!matrixDiv) {
+        console.error('❌ 找不到 deadHeatMatrix');
+        return;
+    }
+    
+    // 少於 2 匹馬，顯示提示
+    if (allHorses.length < 2) {
+        matrixDiv.innerHTML = '<div class="info-note">請輸入至少兩匹入圍馬匹，以顯示連贏/位置Q派彩矩陣</div>';
+        const summary = document.getElementById('deadHeatSummary');
+        if (summary) summary.style.display = 'none';
+        return;
+    }
+    
+    // 讀取已儲存的矩陣資料
+    let savedMatrix = {};
+    if (cachedRaceResult && cachedRaceResult.matrix_data) {
+        savedMatrix = cachedRaceResult.matrix_data;
+        console.log('📊 使用已儲存矩陣:', savedMatrix);
+    }
+    
+    // 建立矩陣 HTML
+    let html = '<h3 style="margin:15px 0 8px;">連贏 / 位置Q 派彩矩陣 (每$10)</h3><div class="matrix-grid">';
+    for (let i = 0; i < allHorses.length; i++) {
+        for (let j = i + 1; j < allHorses.length; j++) {
+            const h1 = allHorses[i];
+            const h2 = allHorses[j];
+            const pairKey = `${Math.min(h1.horse, h2.horse)}-${Math.max(h1.horse, h2.horse)}`;
+            const saved = savedMatrix[pairKey] || { q: 0, qp: 0 };
+            
+            html += `<div class="matrix-cell">
+                <div><strong>${h1.horse} & ${h2.horse}</strong></div>
+                <div style="display:flex; gap:4px; margin-top:4px;">
+                    <input type="number" class="matrix-q-div" data-pair="${pairKey}" placeholder="連贏" style="width:50%;" value="${saved.q || ''}">
+                    <input type="number" class="matrix-qp-div" data-pair="${pairKey}" placeholder="位置Q" style="width:50%;" value="${saved.qp || ''}">
+                </div>
+            </div>`;
+        }
+    }
+    html += '</div>';
+    matrixDiv.innerHTML = html;
+    
+    // 綁定輸入事件
+    matrixDiv.querySelectorAll('.matrix-q-div, .matrix-qp-div').forEach(inp => {
+        inp.addEventListener('input', function() {
+            if (!cachedRaceResult) cachedRaceResult = {};
+            if (!cachedRaceResult.matrix_data) cachedRaceResult.matrix_data = {};
+            const pair = this.dataset.pair;
+            if (!cachedRaceResult.matrix_data[pair]) {
+                cachedRaceResult.matrix_data[pair] = { q: 0, qp: 0 };
+            }
+            if (this.classList.contains('matrix-q-div')) {
+                cachedRaceResult.matrix_data[pair].q = parseFloat(this.value) || 0;
+            } else {
+                cachedRaceResult.matrix_data[pair].qp = parseFloat(this.value) || 0;
+            }
+        });
+    });
+    
+    // 更新摘要
+    const summary = document.getElementById('deadHeatSummary');
+    if (summary) {
+        summary.style.display = 'block';
+        summary.innerHTML = `<strong>📋 賽果摘要</strong><br>
+            🏆 第一名: ${firstData.map(d => `${d.horse}號 (獨贏${d.winDiv||0} 位置${d.placeDiv||0})`).join('、') || '無'}<br>
+            🥈 第二名: ${secondData.map(d => `${d.horse}號 (位置${d.placeDiv||0})`).join('、') || '無'}<br>
+            🥉 第三名: ${thirdData.map(d => `${d.horse}號 (位置${d.placeDiv||0})`).join('、') || '無'}<br>
+            <span style="color:#64748b;">💡 請為每個組合輸入連贏及位置Q派彩</span>`;
+    }
+    
+    console.log('✅ 矩陣更新完成');
+}
+
+// ========== 重新綁定所有輸入事件（確保觸發矩陣更新）==========
+function bindAllMatrixEvents() {
+    // 綁定所有馬號輸入框的變更事件
+    document.querySelectorAll('.rank-horse, .rank-div-win, .rank-div-place').forEach(inp => {
+        inp.removeEventListener('input', updateDeadHeatMatrix);
+        inp.addEventListener('input', function() {
+            console.log('📝 輸入變更，更新矩陣');
+            updateDeadHeatMatrix();
+        });
+        inp.removeEventListener('change', updateDeadHeatMatrix);
+        inp.addEventListener('change', function() {
+            console.log('📝 輸入變更 (change)，更新矩陣');
+            updateDeadHeatMatrix();
+        });
+    });
+    
+    // 綁定新增按鈕
+    document.querySelectorAll('.add-rank-btn').forEach(btn => {
+        btn.removeEventListener('click', btn._matrixListener);
+        btn._matrixListener = function() {
+            // 延遲執行，確保新行已加入 DOM
+            setTimeout(() => {
+                // 綁定新行的輸入事件
+                const container = document.getElementById(this.dataset.rank + 'RankInputs');
+                if (container) {
+                    container.querySelectorAll('.rank-input-row:last-child input').forEach(inp => {
+                        inp.addEventListener('input', updateDeadHeatMatrix);
+                        inp.addEventListener('change', updateDeadHeatMatrix);
+                    });
+                }
+                updateDeadHeatMatrix();
+            }, 50);
+        };
+        btn.addEventListener('click', btn._matrixListener);
+    });
+    
+    console.log('✅ 所有輸入事件已綁定');
+}
+
+// ========== 手動觸發矩陣更新（測試用）==========
+function forceUpdateMatrix() {
+    console.log('🔧 手動強制更新矩陣');
+    updateDeadHeatMatrix();
+    return '✅ 已執行矩陣更新，請查看畫面';
+}
     
 // ========== 儲存賽果與結算（完整版）==========
 async function saveRaceResult() {
