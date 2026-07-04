@@ -378,6 +378,98 @@ function updateCutoffTimeUI(time) {
     currentCutoffTime = time;
     console.log("🔄 UI 已更新，currentCutoffTime =", currentCutoffTime);
 }
+
+    // ========== 儲存封盤時間（修復版）==========
+async function saveCutoffTime() {
+    const timeInput = document.getElementById('cutoffTime');
+    if (!timeInput) {
+        alert("找不到時間輸入框");
+        return;
+    }
+    
+    const newTime = timeInput.value.trim();
+    if (!newTime) {
+        alert("請輸入時間");
+        return;
+    }
+    
+    // 驗證時間格式
+    const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])(:[0-5][0-9])?$/;
+    if (!timeRegex.test(newTime)) {
+        alert("請輸入有效時間格式 (HH:MM 或 HH:MM:SS)");
+        return;
+    }
+    
+    // 標準化時間格式 (補上秒數)
+    let normalizedTime = newTime;
+    if (normalizedTime.split(':').length === 2) {
+        normalizedTime += ':00';
+    }
+    
+    console.log("💾 正在儲存封盤時間:", normalizedTime);
+    
+    try {
+        // 使用 upsert 儲存
+        const { error } = await supabaseClient
+            .from('system_settings')
+            .upsert(
+                { key: 'cutoff_time', value: normalizedTime },
+                { onConflict: 'key' }
+            );
+        
+        if (error) {
+            console.error("儲存失敗:", error);
+            alert("儲存失敗: " + error.message);
+            return;
+        }
+        
+        // ★★★ 儲存成功後立即更新全域變數 ★★★
+        currentCutoffTime = normalizedTime;
+        console.log("✅ 封盤時間已儲存:", normalizedTime);
+        
+        // 更新 UI
+        updateCutoffTimeUI(normalizedTime);
+        
+        // 更新倒數計時
+        updateCountdownDisplay();
+        
+        alert("✅ 封盤時間已更新為: " + normalizedTime);
+        
+        // 驗證是否真的儲存成功
+        await verifyCutoffTimeSaved(normalizedTime);
+        
+    } catch (err) {
+        console.error("儲存異常:", err);
+        alert("儲存失敗: " + err.message);
+    }
+}
+
+// ========== 驗證封盤時間是否正確儲存 ==========
+async function verifyCutoffTimeSaved(expectedTime) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('system_settings')
+            .select('value')
+            .eq('key', 'cutoff_time')
+            .single();
+        
+        if (error) {
+            console.warn("驗證失敗:", error);
+            return;
+        }
+        
+        if (data && data.value === expectedTime) {
+            console.log("✅ 驗證成功: 封盤時間已正確儲存為", expectedTime);
+        } else {
+            console.warn("⚠️ 驗證失敗: 儲存的值為", data?.value, "，預期為", expectedTime);
+            // 強制修正
+            currentCutoffTime = data?.value || '12:15:00';
+            updateCutoffTimeUI(currentCutoffTime);
+        }
+    } catch (err) {
+        console.warn("驗證異常:", err);
+    }
+}
     
     // ========== 投注相關函數 ==========
     async function initHorseSelects() {
