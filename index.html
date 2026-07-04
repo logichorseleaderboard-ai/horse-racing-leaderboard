@@ -418,6 +418,35 @@ function updateCutoffTimeUI(time) {
     
     currentCutoffTime = time;
 }
+
+    // ========== 初始化倒數計時 ==========
+function initCountdown() {
+    console.log('⏰ 初始化倒數計時...');
+    
+    // 清除舊的 interval
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+    
+    // 先同步伺服器時間，然後更新顯示
+    syncServerTime().then(() => {
+        updateCountdownDisplay();
+    });
+    
+    // 每秒更新一次顯示
+    countdownInterval = setInterval(() => {
+        updateCountdownDisplay();
+    }, 1000);
+    
+    // 每 60 秒重新同步伺服器時間
+    setInterval(async () => {
+        await syncServerTime();
+        console.log("🔄 自動同步伺服器時間完成");
+    }, 60000);
+    
+    console.log('✅ 倒數計時初始化完成');
+}
     
     // ========== 外部 API 函數 ==========
     async function fetchHorsesFromAPI(raceDate, raceNo) {
@@ -1846,21 +1875,51 @@ function setupRankInputs() {
     document.getElementById('inputRaceNo')?.addEventListener('change', async () => { await initHorseSelects(); document.getElementById('horse1').value = ''; document.getElementById('horse2').value = ''; document.getElementById('horse3').value = ''; });
     
     window.onload = async () => {
-        if (sessionStorage.getItem('betUnlocked') === 'true') betUnlocked = true;
-        if (sessionStorage.getItem('resultUnlocked') === 'true') resultUnlocked = true;
-        const emptyOpts = '<option value="">-- 請選擇 --</option>';
-        ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = emptyOpts; });
-        const loadingOpts = '<option value="">載入中...</option>';
-        ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = loadingOpts; });
-        await loadParticipants(); await loadRaceDays(); await initRaceNoSelects(); await loadRankingChart(); bindBetFormEvents();
-        setupRankInputs();
-        await loadCutoffTime(); initCountdown(); await applyInputLockStatus();
-        showPage('ranking');
-        document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
-        document.getElementById('saveCutoffTimeBtn')?.addEventListener('click', saveCutoffTime);
-        document.getElementById('inputRaceNo')?.addEventListener('change', async () => { await initHorseSelects(); document.getElementById('horse1').value = ''; document.getElementById('horse2').value = ''; document.getElementById('horse3').value = ''; });
-        document.getElementById('rankRaceNo')?.addEventListener('change', loadRankingChart);
-    };
+    if (sessionStorage.getItem('betUnlocked') === 'true') betUnlocked = true;
+    if (sessionStorage.getItem('resultUnlocked') === 'true') resultUnlocked = true;
+    
+    const emptyOpts = '<option value="">-- 請選擇 --</option>';
+    ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => { 
+        const el = document.getElementById(id); 
+        if (el) el.innerHTML = emptyOpts; 
+    });
+    
+    const loadingOpts = '<option value="">載入中...</option>';
+    ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => { 
+        const el = document.getElementById(id); 
+        if (el) el.innerHTML = loadingOpts; 
+    });
+    
+    await loadParticipants(); 
+    await loadRaceDays(); 
+    await initRaceNoSelects(); 
+    await loadRankingChart(); 
+    bindBetFormEvents();
+    setupRankInputs();
+    
+    // ★★★ 使用 await 等待載入完成 ★★★
+    await loadCutoffTime();  // ← 加上 await
+    
+    // ★★★ initCountdown 可能也需要 await ★★★
+    if (typeof initCountdown === 'function') {
+        initCountdown();
+    } else {
+        console.warn('⚠️ initCountdown 未定義');
+    }
+    
+    await applyInputLockStatus();
+    showPage('ranking');
+    
+    document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
+    document.getElementById('saveCutoffTimeBtn')?.addEventListener('click', saveCutoffTime);
+    document.getElementById('inputRaceNo')?.addEventListener('change', async () => { 
+        await initHorseSelects(); 
+        document.getElementById('horse1').value = ''; 
+        document.getElementById('horse2').value = ''; 
+        document.getElementById('horse3').value = ''; 
+    });
+    document.getElementById('rankRaceNo')?.addEventListener('change', loadRankingChart);
+};
 </script>
 </body>
 </html>
