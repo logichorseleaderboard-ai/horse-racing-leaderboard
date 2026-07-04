@@ -307,89 +307,77 @@
         return fallback;
     }
     
-    async function loadCutoffTime() {
-        try {
-            const { data, error } = await supabaseClient.from('system_settings').select('value').eq('key', 'cutoff_time').single();
-            if (!error && data) {
-                currentCutoffTime = data.value;
-                const timeInput = document.getElementById('cutoffTime');
-                if (timeInput) timeInput.value = currentCutoffTime;
-                const statusDiv = document.getElementById('cutoffTimeStatus');
-                if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
-            } else {
-                const statusDiv = document.getElementById('cutoffTimeStatus');
-                if (statusDiv) statusDiv.innerHTML = '⚠️ 使用預設封盤時間: 17:00:00';
-            }
-        } catch (e) {
-            console.error("載入封盤時間失敗:", e);
-        }
-    }
-    
-    async function saveCutoffTime() {
-        const newTime = document.getElementById('cutoffTime')?.value;
-        if (!newTime) return alert("請輸入時間");
-        const { error } = await supabaseClient.from('system_settings').upsert({ key: 'cutoff_time', value: newTime }, { onConflict: 'key' });
+    // ========== 載入封盤時間（修復版）==========
+async function loadCutoffTime() {
+    try {
+        console.log("🔍 正在載入封盤時間...");
+        
+        const { data, error } = await supabaseClient
+            .from('system_settings')
+            .select('value')
+            .eq('key', 'cutoff_time')
+            .maybeSingle();
+        
         if (error) {
-            alert("儲存失敗: " + error.message);
+            console.error("載入封盤時間失敗:", error);
+            currentCutoffTime = '12:15:00';
+            updateCutoffTimeUI(currentCutoffTime);
+            return;
+        }
+        
+        if (data && data.value) {
+            // ★★★ 關鍵修復：正確更新全域變數 ★★★
+            currentCutoffTime = data.value;
+            console.log("✅ 已載入封盤時間:", currentCutoffTime);
+            updateCutoffTimeUI(currentCutoffTime);
         } else {
-            currentCutoffTime = newTime;
-            alert("✅ 封盤時間已更新");
-            const statusDiv = document.getElementById('cutoffTimeStatus');
-            if (statusDiv) statusDiv.innerHTML = '✅ 目前封盤時間: ' + currentCutoffTime;
-            updateCountdownDisplay();
+            console.warn("⚠️ 無封盤時間設定，使用預設值");
+            currentCutoffTime = '12:15:00';
+            updateCutoffTimeUI(currentCutoffTime);
+            
+            // 嘗試建立預設記錄
+            try {
+                await supabaseClient
+                    .from('system_settings')
+                    .insert({ key: 'cutoff_time', value: '12:15:00' });
+                console.log("✅ 已建立預設封盤時間記錄");
+            } catch (insertErr) {
+                console.warn("無法建立預設記錄:", insertErr);
+            }
         }
+        
+        // 更新倒數計時
+        updateCountdownDisplay();
+        
+        // ★★★ 額外驗證 ★★★
+        console.log("📌 currentCutoffTime 目前值:", currentCutoffTime);
+        
+    } catch (err) {
+        console.error("載入封盤時間異常:", err);
+        currentCutoffTime = '12:15:00';
+        updateCutoffTimeUI(currentCutoffTime);
+    }
+}
+
+// ========== 更新封盤時間 UI ==========
+function updateCutoffTimeUI(time) {
+    // 更新輸入框
+    const timeInput = document.getElementById('cutoffTime');
+    if (timeInput) {
+        timeInput.value = time;
     }
     
-    function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
-        if (!raceDate || !cutoffTimeStr) return -1;
-        const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
-        const hkNow = getHKTime();
-        if (cutoffDateTime <= hkNow) return 0;
-        return Math.floor((cutoffDateTime - hkNow) / 1000);
+    // 更新狀態顯示
+    const statusDiv = document.getElementById('cutoffTimeStatus');
+    if (statusDiv) {
+        statusDiv.innerHTML = '✅ 目前封盤時間: ' + time;
+        statusDiv.style.color = '#16a34a';
     }
     
-    function formatCountdown(seconds) {
-        if (seconds <= 0) return "已封盤";
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-        if (hours > 0) return `${hours}小時 ${minutes}分鐘 ${secs}秒`;
-        else if (minutes > 0) return `${minutes}分鐘 ${secs}秒`;
-        else return `${secs}秒`;
-    }
-    
-    function updateCountdownDisplay() {
-        const raceDate = document.getElementById('inputRaceDate')?.value;
-        const countdownEl = document.getElementById('countdownDisplay');
-        const submitBtn = document.getElementById('submitBtn');
-        const lockMsg = document.getElementById('inputLockMsg');
-        if (!raceDate) { if (countdownEl) countdownEl.innerHTML = '請選擇賽日'; return; }
-        const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
-        if (countdownEl) {
-            countdownEl.innerHTML = formatCountdown(secondsLeft);
-            if (secondsLeft <= 60 && secondsLeft > 0) { countdownEl.style.color = '#ef4444'; countdownEl.style.fontWeight = 'bold'; } 
-            else { countdownEl.style.color = ''; }
-        }
-        if (secondsLeft <= 0) {
-            if (submitBtn) submitBtn.disabled = true;
-            if (lockMsg) { lockMsg.style.display = 'block'; lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`; }
-        } else {
-            if (submitBtn) submitBtn.disabled = false;
-            if (lockMsg) lockMsg.style.display = 'none';
-        }
-    }
-    
-    function startCountdown() {
-        if (countdownInterval) clearInterval(countdownInterval);
-        syncServerTime().then(() => { updateCountdownDisplay(); });
-        countdownInterval = setInterval(() => { updateCountdownDisplay(); }, 1000);
-        setInterval(async () => { await syncServerTime(); console.log("🔄 自動同步伺服器時間完成"); }, 60000);
-    }
-    
-    async function initCountdown() {
-        await syncServerTime();
-        startCountdown();
-    }
+    // ★★★ 確保全域變數同步 ★★★
+    currentCutoffTime = time;
+    console.log("🔄 UI 已更新，currentCutoffTime =", currentCutoffTime);
+}
     
     // ========== 投注相關函數 ==========
     async function initHorseSelects() {
