@@ -294,6 +294,81 @@ async function saveCutoffTime() {
     }
 }
 
+    // ========== 計算距離封盤的秒數 ==========
+function getSecondsUntilCutoff(raceDate, cutoffTimeStr) {
+    if (!raceDate || !cutoffTimeStr) return -1;
+    
+    try {
+        const cutoffDateTime = new Date(`${raceDate}T${cutoffTimeStr}+08:00`);
+        const hkNow = getHKTime();
+        
+        if (cutoffDateTime <= hkNow) return 0;
+        return Math.floor((cutoffDateTime - hkNow) / 1000);
+    } catch (err) {
+        console.error("計算封盤時間錯誤:", err);
+        return -1;
+    }
+}
+
+// ========== 格式化倒數計時 ==========
+function formatCountdown(seconds) {
+    if (seconds <= 0) return "已封盤";
+    if (seconds < 0) return "--:--:--";
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+        return `${hours}小時 ${minutes}分鐘 ${secs}秒`;
+    } else if (minutes > 0) {
+        return `${minutes}分鐘 ${secs}秒`;
+    } else {
+        return `${secs}秒`;
+    }
+}
+
+// ========== 更新倒數計時顯示 ==========
+function updateCountdownDisplay() {
+    console.log("⏰ 更新倒數計時...");
+    
+    const raceDate = document.getElementById('inputRaceDate')?.value;
+    const countdownEl = document.getElementById('countdownDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const lockMsg = document.getElementById('inputLockMsg');
+    
+    if (!raceDate) {
+        if (countdownEl) countdownEl.innerHTML = '請選擇賽日';
+        return;
+    }
+    
+    const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
+    
+    if (countdownEl) {
+        countdownEl.innerHTML = formatCountdown(secondsLeft);
+        if (secondsLeft <= 60 && secondsLeft > 0) {
+            countdownEl.style.color = '#ef4444';
+            countdownEl.style.fontWeight = 'bold';
+        } else {
+            countdownEl.style.color = '';
+            countdownEl.style.fontWeight = '';
+        }
+    }
+    
+    if (secondsLeft <= 0) {
+        if (submitBtn) submitBtn.disabled = true;
+        if (lockMsg) {
+            lockMsg.style.display = 'block';
+            lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`;
+        }
+    } else {
+        if (submitBtn) submitBtn.disabled = false;
+        if (lockMsg) lockMsg.style.display = 'none';
+    }
+    
+    console.log("⏰ 倒數計時已更新, 剩餘秒數:", secondsLeft);
+}
+
 // 載入封盤時間
 async function loadCutoffTime() {
     try {
