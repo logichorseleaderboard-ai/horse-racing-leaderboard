@@ -1754,6 +1754,41 @@ function collectRankData(rank) {
     });
     return result;
 }
+
+    // ========== 設定平頭馬匹輸入功能 ==========
+function setupRankInputs() {
+    console.log('🔧 設定平頭馬匹輸入...');
+    
+    // 1. 綁定新增按鈕
+    document.querySelectorAll('.add-rank-btn').forEach(btn => {
+        btn.removeEventListener('click', btn._listener);
+        btn._listener = function() {
+            const rank = this.dataset.rank;
+            const containerId = rank + 'RankInputs';
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const row = document.createElement('div');
+            row.className = 'rank-input-row';
+            if (rank === 'first') {
+                row.innerHTML = `<input type="number" class="rank-horse" placeholder="馬號" style="width:60px;"><input type="number" class="rank-div-win" placeholder="獨贏派彩" style="width:100px;"><input type="number" class="rank-div-place" placeholder="位置派彩" style="width:100px;"><button type="button" class="remove-rank-btn" style="width:30px; background:#ef4444; color:white; border:none; border-radius:6px; padding:4px; cursor:pointer;">✕</button>`;
+            } else {
+                row.innerHTML = `<input type="number" class="rank-horse" placeholder="馬號" style="width:60px;"><input type="number" class="rank-div-place" placeholder="位置派彩" style="width:100px;"><button type="button" class="remove-rank-btn" style="width:30px; background:#ef4444; color:white; border:none; border-radius:6px; padding:4px; cursor:pointer;">✕</button>`;
+            }
+            container.appendChild(row);
+            bindRowEvents(row);
+            updateDeadHeatMatrix();
+        };
+        btn.addEventListener('click', btn._listener);
+    });
+    
+    // 2. 綁定現有行的刪除按鈕
+    document.querySelectorAll('.rank-input-row').forEach(row => {
+        bindRowEvents(row);
+    });
+    
+    console.log('✅ 平頭馬匹輸入設定完成');
+}
     
     // ========== 頁面切換與驗證 ==========
     function showPage(pageId) {
