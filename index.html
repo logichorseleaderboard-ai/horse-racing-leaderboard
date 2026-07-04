@@ -224,7 +224,7 @@
     
     let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false, resultUnlocked = false, betUnlocked = false;
     let countdownInterval = null;
-    let currentCutoffTime = '12:15:00';
+    let currentCutoffTime = '15:45:00';
     let serverHKTime = null;
     let lastSyncTime = 0;
     let cachedRaceResult = null; // 快取已儲存的賽果
@@ -380,7 +380,7 @@ async function loadCutoffTime() {
         
         if (error) {
             console.error("載入封盤時間失敗:", error);
-            currentCutoffTime = '12:15:00';
+            currentCutoffTime = '15:45:00';
             updateCutoffTimeUI(currentCutoffTime);
             return;
         }
@@ -390,7 +390,7 @@ async function loadCutoffTime() {
             console.log("✅ 已載入封盤時間:", currentCutoffTime);
             updateCutoffTimeUI(currentCutoffTime);
         } else {
-            currentCutoffTime = '12:15:00';
+            currentCutoffTime = '15:45:00';
             updateCutoffTimeUI(currentCutoffTime);
         }
         
@@ -398,7 +398,7 @@ async function loadCutoffTime() {
         
     } catch (err) {
         console.error("載入封盤時間異常:", err);
-        currentCutoffTime = '12:15:00';
+        currentCutoffTime = '15:45:00';
         updateCutoffTimeUI(currentCutoffTime);
     }
 }
@@ -497,7 +497,7 @@ function updateCutoffTimeUI(time) {
         return fallback;
     }
     
-    // ========== 載入封盤時間（修復版）==========
+    // ========== 載入封盤時間（最終修復版）==========
 async function loadCutoffTime() {
     try {
         console.log("🔍 正在載入封盤時間...");
@@ -510,26 +510,26 @@ async function loadCutoffTime() {
         
         if (error) {
             console.error("載入封盤時間失敗:", error);
-            currentCutoffTime = '12:15:00';
+            currentCutoffTime = '15:45:00';
             updateCutoffTimeUI(currentCutoffTime);
             return;
         }
         
         if (data && data.value) {
-            // ★★★ 關鍵修復：正確更新全域變數 ★★★
+            // ★★★ 關鍵修復：強制更新全域變數 ★★★
             currentCutoffTime = data.value;
             console.log("✅ 已載入封盤時間:", currentCutoffTime);
             updateCutoffTimeUI(currentCutoffTime);
         } else {
             console.warn("⚠️ 無封盤時間設定，使用預設值");
-            currentCutoffTime = '12:15:00';
+            currentCutoffTime = '15:45:00';
             updateCutoffTimeUI(currentCutoffTime);
             
             // 嘗試建立預設記錄
             try {
                 await supabaseClient
                     .from('system_settings')
-                    .insert({ key: 'cutoff_time', value: '12:15:00' });
+                    .insert({ key: 'cutoff_time', value: '15:45:00' });
                 console.log("✅ 已建立預設封盤時間記錄");
             } catch (insertErr) {
                 console.warn("無法建立預設記錄:", insertErr);
@@ -544,12 +544,12 @@ async function loadCutoffTime() {
         
     } catch (err) {
         console.error("載入封盤時間異常:", err);
-        currentCutoffTime = '12:15:00';
+        currentCutoffTime = '15:45:00';
         updateCutoffTimeUI(currentCutoffTime);
     }
 }
 
-// ========== 更新封盤時間 UI ==========
+// ========== 更新封盤時間 UI（確保同步）==========
 function updateCutoffTimeUI(time) {
     // 更新輸入框
     const timeInput = document.getElementById('cutoffTime');
@@ -564,7 +564,7 @@ function updateCutoffTimeUI(time) {
         statusDiv.style.color = '#16a34a';
     }
     
-    // ★★★ 確保全域變數同步 ★★★
+    // ★★★ 強制同步全域變數 ★★★
     currentCutoffTime = time;
     console.log("🔄 UI 已更新，currentCutoffTime =", currentCutoffTime);
 }
