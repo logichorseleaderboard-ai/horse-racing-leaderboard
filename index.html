@@ -1016,7 +1016,7 @@ function updateCutoffTimeUI(time) {
         `;
     }
     
-    // ========== 每月排名（加強除錯版）==========
+    // ========== 每月排名（完整資料版）==========
 async function loadMonthlyRanking() {
     console.log("📊 開始載入每月排名...");
     
@@ -1042,8 +1042,6 @@ async function loadMonthlyRanking() {
         const monthDisplay = document.getElementById('monthDisplay');
         if (monthDisplay) {
             monthDisplay.innerHTML = displayTitle;
-        } else {
-            console.error("❌ 找不到 monthDisplay 元素");
         }
         
         console.log(`📅 統計區間: ${startDate} 至 ${endDate}`);
@@ -1055,29 +1053,50 @@ async function loadMonthlyRanking() {
         
         if (pErr) { 
             console.error("載入參賽者失敗:", pErr);
-            const table = document.getElementById('rankingTable');
-            if (table) table.innerHTML = '<div class="card">載入參賽者失敗</div>';
             return; 
         }
         
         const participantNames = allParticipants.map(p => p.name);
         console.log(`👤 參賽者人數: ${participantNames.length}`);
         
-        // 取得該月份所有投注
-        const { data, error } = await supabaseClient
+        // ★★★ 關鍵修復：使用 range(0, 0) 移除限制，或設定較大數值 ★★★
+        // 方法1: 使用 range(0, 9999) 抓取更多筆
+        let { data, error, count } = await supabaseClient
             .from('bets')
-            .select('participant, payout, amount, refund')
+            .select('participant, payout, amount, refund', { count: 'exact' })
             .gte('race_date', startDate)
-            .lte('race_date', endDate);
+            .lte('race_date', endDate)
+            .range(0, 9999);  // ← 移除 1000 筆限制
+        
+        // 如果還是不夠，可以分頁查詢
+        if (count > 9999) {
+            console.log(`⚠️ 資料超過 10000 筆，需要分頁查詢`);
+            let allData = [];
+            let page = 0;
+            const pageSize = 1000;
+            
+            while (true) {
+                const { data: pageData, error: pageError } = await supabaseClient
+                    .from('bets')
+                    .select('participant, payout, amount, refund')
+                    .gte('race_date', startDate)
+                    .lte('race_date', endDate)
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+                
+                if (pageError || !pageData || pageData.length === 0) break;
+                allData = allData.concat(pageData);
+                page++;
+                if (pageData.length < pageSize) break;
+            }
+            data = allData;
+        }
         
         if (error) { 
             console.error("排名查詢錯誤:", error);
-            const table = document.getElementById('rankingTable');
-            if (table) table.innerHTML = '<div class="card">載入排名失敗</div>';
             return; 
         }
         
-        console.log(`📊 找到 ${data?.length || 0} 筆投注紀錄`);
+        console.log(`📊 找到 ${data?.length || 0} 筆投注紀錄 (總計 ${count || data?.length || 0} 筆)`);
         
         // 統計每位參賽者的數據
         const statsMap = new Map();
@@ -1106,7 +1125,6 @@ async function loadMonthlyRanking() {
             .sort((a, b) => b.totalProfit - a.totalProfit);
         
         console.log(`🏆 排名計算完成，共 ${ranking.length} 位參賽者`);
-        console.log(`📊 排名前3名:`, ranking.slice(0, 3).map(r => `${r.name}: $${r.totalProfit}`));
         
         // 建立表格 HTML
         let html = `<div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
@@ -1150,15 +1168,11 @@ async function loadMonthlyRanking() {
         const table = document.getElementById('rankingTable');
         if (table) {
             table.innerHTML = html;
-            console.log("✅ 排名表格已更新");
-        } else {
-            console.error("❌ 找不到 rankingTable 元素");
+            console.log("✅ 排名表格已更新 (共 " + (data?.length || 0) + " 筆資料)");
         }
         
     } catch (err) {
         console.error("排名計算異常:", err);
-        const table = document.getElementById('rankingTable');
-        if (table) table.innerHTML = `<tbody><tr><td colspan="5">❌ 錯誤: ${err.message}</td></tr></tbody>`;
     }
 }
     
