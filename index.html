@@ -1016,12 +1016,16 @@ function updateCutoffTimeUI(time) {
         `;
     }
     
-    // ========== 每月排名 ==========
-    async function loadMonthlyRanking() {
+    // ========== 每月排名（加強除錯版）==========
+async function loadMonthlyRanking() {
+    console.log("📊 開始載入每月排名...");
+    
+    try {
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth() + 1;
         let startDate, endDate, displayTitle = '';
+        
         if (month === 6 || month === 7) {
             startDate = `${year}-06-01`;
             const lastDayOfJuly = new Date(year, 7, 0).getDate();
@@ -1034,25 +1038,129 @@ function updateCutoffTimeUI(time) {
             endDate = `${year}-${monthStr}-${lastDay}`;
             displayTitle = `📅 ${year}年${month}月 (${startDate} 至 ${endDate})`;
         }
-        document.getElementById('monthDisplay').innerHTML = displayTitle;
-        const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
-        if (pErr) { document.getElementById('rankingTable').innerHTML = '<div class="card">載入參賽者失敗</div>'; return; }
+        
+        const monthDisplay = document.getElementById('monthDisplay');
+        if (monthDisplay) {
+            monthDisplay.innerHTML = displayTitle;
+        } else {
+            console.error("❌ 找不到 monthDisplay 元素");
+        }
+        
+        console.log(`📅 統計區間: ${startDate} 至 ${endDate}`);
+        
+        // 取得所有參賽者
+        const { data: allParticipants, error: pErr } = await supabaseClient
+            .from('participants')
+            .select('name');
+        
+        if (pErr) { 
+            console.error("載入參賽者失敗:", pErr);
+            const table = document.getElementById('rankingTable');
+            if (table) table.innerHTML = '<div class="card">載入參賽者失敗</div>';
+            return; 
+        }
+        
         const participantNames = allParticipants.map(p => p.name);
-        const { data, error } = await supabaseClient.from('bets').select('participant, payout, amount, refund').gte('race_date', startDate).lte('race_date', endDate);
-        if (error) { console.error("排名查詢錯誤:", error); document.getElementById('rankingTable').innerHTML = '<div class="card">載入排名失敗</div>'; return; }
+        console.log(`👤 參賽者人數: ${participantNames.length}`);
+        
+        // 取得該月份所有投注
+        const { data, error } = await supabaseClient
+            .from('bets')
+            .select('participant, payout, amount, refund')
+            .gte('race_date', startDate)
+            .lte('race_date', endDate);
+        
+        if (error) { 
+            console.error("排名查詢錯誤:", error);
+            const table = document.getElementById('rankingTable');
+            if (table) table.innerHTML = '<div class="card">載入排名失敗</div>';
+            return; 
+        }
+        
+        console.log(`📊 找到 ${data?.length || 0} 筆投注紀錄`);
+        
+        // 統計每位參賽者的數據
         const statsMap = new Map();
-        participantNames.forEach(name => { statsMap.set(name, { totalStake: 0, totalProfit: 0 }); });
-        (data || []).forEach(bet => { const name = bet.participant; if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalProfit: 0 }); const s = statsMap.get(name); s.totalStake += bet.amount || 0; s.totalProfit += bet.payout || 0; });
-        const ranking = Array.from(statsMap.entries()).map(([name, s]) => ({ name, totalStake: s.totalStake, totalProfit: s.totalProfit, roi: s.totalStake === 0 ? 0 : ((s.totalProfit / s.totalStake) * 100).toFixed(1) })).sort((a, b) => b.totalProfit - a.totalProfit);
-        let html = `<div style="overflow-x: auto; -webkit-overflow-scrolling: touch;"><table style="width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.7rem;"><thead><tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;"><th style="padding: 8px 6px; text-align: center; width: 55px;">排名</th><th style="padding: 8px 6px; text-align: left; min-width: 90px;">參賽者</th><th style="padding: 8px 6px; text-align: left; width: 70px;">總投入</th><th style="padding: 8px 6px; text-align: left; width: 70px;">總利潤</th><th style="padding: 8px 6px; text-align: left; width: 70px;">回報率</th></tr></thead><tbody>`;
-        ranking.forEach((item, idx) => {
-            const roiValue = parseFloat(item.roi); const roiColor = roiValue >= 0 ? '#16a34a' : '#b91c1c'; const profitColor = item.totalProfit > 0 ? '#16a34a' : (item.totalProfit < 0 ? '#b91c1c' : '#475569');
-            let rankDisplay; if (idx === 0) rankDisplay = '🥇'; else if (idx === 1) rankDisplay = '🥈'; else if (idx === 2) rankDisplay = '🥉'; else rankDisplay = `${idx+1}`;
-            html += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 6px 6px; text-align: center;">${rankDisplay}</td><td style="padding: 6px 6px; text-align: left; white-space: nowrap;">${item.name}</td><td style="padding: 6px 6px; text-align: left;">$${item.totalStake}</td><td style="padding: 6px 6px; text-align: left; color: ${profitColor};">$${item.totalProfit}</td><td style="padding: 6px 6px; text-align: left; color: ${roiColor};">${item.roi}%</td></tr>`;
+        participantNames.forEach(name => { 
+            statsMap.set(name, { totalStake: 0, totalProfit: 0 }); 
         });
+        
+        (data || []).forEach(bet => { 
+            const name = bet.participant; 
+            if (!statsMap.has(name)) {
+                statsMap.set(name, { totalStake: 0, totalProfit: 0 }); 
+            }
+            const s = statsMap.get(name); 
+            s.totalStake += bet.amount || 0; 
+            s.totalProfit += bet.payout || 0; 
+        });
+        
+        // 計算排名
+        const ranking = Array.from(statsMap.entries())
+            .map(([name, s]) => ({ 
+                name, 
+                totalStake: s.totalStake, 
+                totalProfit: s.totalProfit, 
+                roi: s.totalStake === 0 ? 0 : ((s.totalProfit / s.totalStake) * 100).toFixed(1) 
+            }))
+            .sort((a, b) => b.totalProfit - a.totalProfit);
+        
+        console.log(`🏆 排名計算完成，共 ${ranking.length} 位參賽者`);
+        console.log(`📊 排名前3名:`, ranking.slice(0, 3).map(r => `${r.name}: $${r.totalProfit}`));
+        
+        // 建立表格 HTML
+        let html = `<div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table style="width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.7rem;">
+                <thead>
+                    <tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;">
+                        <th style="padding: 8px 6px; text-align: center; width: 55px;">排名</th>
+                        <th style="padding: 8px 6px; text-align: left; min-width: 90px;">參賽者</th>
+                        <th style="padding: 8px 6px; text-align: left; width: 70px;">總投入</th>
+                        <th style="padding: 8px 6px; text-align: left; width: 70px;">總利潤</th>
+                        <th style="padding: 8px 6px; text-align: left; width: 70px;">回報率</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
+        if (ranking.length === 0) {
+            html += `<tr><td colspan="5" style="text-align:center; padding:20px;">📭 該月份尚無投注紀錄</td></tr>`;
+        } else {
+            ranking.forEach((item, idx) => {
+                const roiValue = parseFloat(item.roi); 
+                const roiColor = roiValue >= 0 ? '#16a34a' : '#b91c1c'; 
+                const profitColor = item.totalProfit > 0 ? '#16a34a' : (item.totalProfit < 0 ? '#b91c1c' : '#475569');
+                let rankDisplay; 
+                if (idx === 0) rankDisplay = '🥇'; 
+                else if (idx === 1) rankDisplay = '🥈'; 
+                else if (idx === 2) rankDisplay = '🥉'; 
+                else rankDisplay = `${idx+1}`;
+                
+                html += `<tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 6px 6px; text-align: center;">${rankDisplay}</td>
+                    <td style="padding: 6px 6px; text-align: left; white-space: nowrap;">${item.name}</td>
+                    <td style="padding: 6px 6px; text-align: left;">$${item.totalStake}</td>
+                    <td style="padding: 6px 6px; text-align: left; color: ${profitColor};">$${item.totalProfit}</td>
+                    <td style="padding: 6px 6px; text-align: left; color: ${roiColor};">${item.roi}%</td>
+                </tr>`;
+            });
+        }
+        
         html += `</tbody></table></div>`;
-        document.getElementById('rankingTable').innerHTML = html;
+        
+        const table = document.getElementById('rankingTable');
+        if (table) {
+            table.innerHTML = html;
+            console.log("✅ 排名表格已更新");
+        } else {
+            console.error("❌ 找不到 rankingTable 元素");
+        }
+        
+    } catch (err) {
+        console.error("排名計算異常:", err);
+        const table = document.getElementById('rankingTable');
+        if (table) table.innerHTML = `<tbody><tr><td colspan="5">❌ 錯誤: ${err.message}</td></tr></tbody>`;
     }
+}
     
     // ========== 管理頁面 ==========
     async function loadAdminBets() {
