@@ -978,49 +978,89 @@ function updateCutoffTimeUI(time) {
         } finally { btn.disabled = false; }
     }
     
-    // ========== 個人統計 ==========
-    async function loadStatsForCurrentUser() {
-        const user = document.getElementById('statsUserSelect').value;
-        if (!user) { document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
-        let startDate, endDate;
-        if (month === 6 || month === 7) {
-            startDate = `${year}-06-01`;
-            const lastDayOfJuly = new Date(year, 7, 0).getDate();
-            endDate = `${year}-07-${lastDayOfJuly}`;
-        } else {
-            const monthStr = String(month).padStart(2, '0');
-            startDate = `${year}-${monthStr}-01`;
-            const lastDay = new Date(year, month, 0).getDate();
-            endDate = `${year}-${monthStr}-${lastDay}`;
-        }
-        const { data, error } = await supabaseClient.from('bets').select('payout, amount, refund_amount, refund').eq('participant', user).gte('race_date', startDate).lte('race_date', endDate);
-        if (error) { console.error("統計查詢錯誤:", error); document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>'; return; }
-        const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 0), 0);
-        const totalProfit = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
-        const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
-        const totalRaces = (data || []).length;
-        const winningRaces = (data || []).filter(b => (b.payout || 0) > 0).length;
-        const winRate = totalRaces !== 0 ? ((winningRaces / totalRaces) * 100).toFixed(1) : 0;
-        const profitColor = totalProfit >= 0 ? '#16a34a' : '#b91c1c';
-        const roiColor = roi >= 0 ? '#16a34a' : '#b91c1c';
-        document.getElementById('statsDisplay').innerHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center;">
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">總投入</div><div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">$${totalStake.toLocaleString()}</div></div>
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">總利潤</div><div style="font-size: 1.3rem; font-weight: bold; color: ${profitColor};">$${totalProfit.toLocaleString()}</div></div>
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">勝率</div><div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">${winRate}%</div></div>
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">回報率</div><div style="font-size: 1.3rem; font-weight: bold; color: ${roiColor};">${roi}%</div></div>
-            </div>
-        `;
+// ========== 個人統計（統一邏輯版）==========
+async function loadStatsForCurrentUser() {
+    const user = document.getElementById('statsUserSelect').value;
+    if (!user) { 
+        document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>'; 
+        return; 
     }
     
-    // ========== 每月排名（修復版 - 包含退款和自動扣款）==========
+    // ★★★ 使用與排名表格完全相同的日期範圍 ★★★
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    let startDate, endDate;
+    
+    if (month === 6 || month === 7) {
+        startDate = `${year}-06-01`;
+        const lastDayOfJuly = new Date(year, 7, 0).getDate();
+        endDate = `${year}-07-${lastDayOfJuly}`;
+    } else {
+        const monthStr = String(month).padStart(2, '0');
+        startDate = `${year}-${monthStr}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        endDate = `${year}-${monthStr}-${lastDay}`;
+    }
+    
+    // ★★★ 查詢所有投注，不排除任何資料 ★★★
+    const { data, error } = await supabaseClient
+        .from('bets')
+        .select('payout, amount, refund_amount, refund, flexible_data')
+        .eq('participant', user)
+        .gte('race_date', startDate)
+        .lte('race_date', endDate)
+        .range(0, 9999);
+    
+    if (error) { 
+        console.error("統計查詢錯誤:", error); 
+        document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>'; 
+        return; 
+    }
+    
+    // ★★★ 直接使用所有資料，不做任何過濾 ★★★
+    const allData = data || [];
+    const totalStake = allData.reduce((sum, b) => sum + (b.amount || 0), 0);
+    const totalProfit = allData.reduce((sum, b) => sum + (b.payout || 0), 0);
+    const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
+    const totalRaces = allData.length;
+    const winningRaces = allData.filter(b => (b.payout || 0) > 0).length;
+    const winRate = totalRaces !== 0 ? ((winningRaces / totalRaces) * 100).toFixed(1) : 0;
+    
+    const profitColor = totalProfit >= 0 ? '#16a34a' : '#b91c1c';
+    const roiColor = roi >= 0 ? '#16a34a' : '#b91c1c';
+    
+    document.getElementById('statsDisplay').innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center;">
+            <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+                <div style="font-size: 0.75rem; color: #64748b;">總投入</div>
+                <div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">$${totalStake.toLocaleString()}</div>
+            </div>
+            <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+                <div style="font-size: 0.75rem; color: #64748b;">總利潤</div>
+                <div style="font-size: 1.3rem; font-weight: bold; color: ${profitColor};">$${totalProfit.toLocaleString()}</div>
+            </div>
+            <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+                <div style="font-size: 0.75rem; color: #64748b;">勝率</div>
+                <div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">${winRate}%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+                <div style="font-size: 0.75rem; color: #64748b;">回報率</div>
+                <div style="font-size: 1.3rem; font-weight: bold; color: ${roiColor};">${roi}%</div>
+            </div>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.7rem; color: #64748b; text-align: center;">
+            共 ${totalRaces} 筆投注 (${winningRaces} 筆獲利)
+        </div>
+    `;
+}
+    
+// ========== 每月排名（統一統計邏輯版）==========
 async function loadMonthlyRanking() {
-    console.log("📊 開始載入每月排名...");
+    console.log("📊 開始載入每月排名（統一邏輯）...");
     
     try {
+        // ----- 1. 計算日期範圍 (與個人統計完全一致) -----
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth() + 1;
@@ -1040,70 +1080,81 @@ async function loadMonthlyRanking() {
         }
         
         const monthDisplay = document.getElementById('monthDisplay');
-        if (monthDisplay) {
-            monthDisplay.innerHTML = displayTitle;
-        }
-        
+        if (monthDisplay) monthDisplay.innerHTML = displayTitle;
         console.log(`📅 統計區間: ${startDate} 至 ${endDate}`);
         
-        // 取得所有參賽者
+        // ----- 2. 取得所有參賽者 -----
         const { data: allParticipants, error: pErr } = await supabaseClient
             .from('participants')
             .select('name');
-        
         if (pErr) { 
             console.error("載入參賽者失敗:", pErr);
             return; 
         }
-        
         const participantNames = allParticipants.map(p => p.name);
         console.log(`👤 參賽者人數: ${participantNames.length}`);
         
-        // ★★★ 查詢所有投注（包含退款和自動扣款）★★★
-        let { data, error, count } = await supabaseClient
-            .from('bets')
-            .select('participant, payout, amount, refund', { count: 'exact' })
-            .gte('race_date', startDate)
-            .lte('race_date', endDate)
-            .range(0, 9999);
+        // ----- 3. 取得所有投注紀錄 (包含退款與自動扣款，不排除任何資料) -----
+        // 使用分頁查詢確保取得所有資料 (避免 Supabase 1000 筆限制)
+        let allBets = [];
+        let hasMore = true;
+        let page = 0;
+        const pageSize = 1000;
         
-        if (error) { 
-            console.error("排名查詢錯誤:", error);
-            return; 
+        while (hasMore) {
+            const { data: pageData, error } = await supabaseClient
+                .from('bets')
+                .select('participant, payout, amount, refund')
+                .gte('race_date', startDate)
+                .lte('race_date', endDate)
+                .range(page * pageSize, (page + 1) * pageSize - 1);
+            
+            if (error) {
+                console.error("分頁查詢錯誤:", error);
+                break;
+            }
+            
+            if (!pageData || pageData.length === 0) {
+                hasMore = false;
+            } else {
+                allBets = allBets.concat(pageData);
+                page++;
+                if (pageData.length < pageSize) hasMore = false;
+            }
         }
         
-        console.log(`📊 找到 ${data?.length || 0} 筆投注紀錄 (總計 ${count || data?.length || 0} 筆)`);
+        console.log(`📊 共載入 ${allBets.length} 筆投注紀錄`);
         
-        // ★★★ 統計每位參賽者的數據（包含所有資料，不排除退款）★★★
+        // ----- 4. 統計每位參賽者的數據 (包含所有資料，不排除退款) -----
         const statsMap = new Map();
-        participantNames.forEach(name => { 
-            statsMap.set(name, { totalStake: 0, totalProfit: 0 }); 
+        participantNames.forEach(name => {
+            statsMap.set(name, { totalStake: 0, totalProfit: 0 });
         });
         
-        (data || []).forEach(bet => { 
-            const name = bet.participant; 
+        allBets.forEach(bet => {
+            const name = bet.participant;
             if (!statsMap.has(name)) {
-                statsMap.set(name, { totalStake: 0, totalProfit: 0 }); 
+                statsMap.set(name, { totalStake: 0, totalProfit: 0 });
             }
-            const s = statsMap.get(name); 
-            // ★★★ 包含所有 amount 和 payout（不排除退款）★★★
-            s.totalStake += bet.amount || 0; 
-            s.totalProfit += bet.payout || 0; 
+            const s = statsMap.get(name);
+            // ★★★ 關鍵：包含所有 amount 和 payout，不排除任何資料 ★★★
+            s.totalStake += bet.amount || 0;
+            s.totalProfit += bet.payout || 0;
         });
         
-        // 計算排名
+        // ----- 5. 計算排名 (與個人統計邏輯一致) -----
         const ranking = Array.from(statsMap.entries())
-            .map(([name, s]) => ({ 
-                name, 
-                totalStake: s.totalStake, 
-                totalProfit: s.totalProfit, 
-                roi: s.totalStake === 0 ? 0 : ((s.totalProfit / s.totalStake) * 100).toFixed(1) 
+            .map(([name, s]) => ({
+                name,
+                totalStake: s.totalStake,
+                totalProfit: s.totalProfit,
+                roi: s.totalStake === 0 ? 0 : ((s.totalProfit / s.totalStake) * 100).toFixed(1)
             }))
             .sort((a, b) => b.totalProfit - a.totalProfit);
         
         console.log(`🏆 排名計算完成，共 ${ranking.length} 位參賽者`);
         
-        // 建立表格 HTML
+        // ----- 6. 建立並更新表格 -----
         let html = `<div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
             <table style="width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.7rem;">
                 <thead>
@@ -1121,13 +1172,13 @@ async function loadMonthlyRanking() {
             html += `<tr><td colspan="5" style="text-align:center; padding:20px;">📭 該月份尚無投注紀錄</td></tr>`;
         } else {
             ranking.forEach((item, idx) => {
-                const roiValue = parseFloat(item.roi); 
-                const roiColor = roiValue >= 0 ? '#16a34a' : '#b91c1c'; 
+                const roiValue = parseFloat(item.roi);
+                const roiColor = roiValue >= 0 ? '#16a34a' : '#b91c1c';
                 const profitColor = item.totalProfit > 0 ? '#16a34a' : (item.totalProfit < 0 ? '#b91c1c' : '#475569');
-                let rankDisplay; 
-                if (idx === 0) rankDisplay = '🥇'; 
-                else if (idx === 1) rankDisplay = '🥈'; 
-                else if (idx === 2) rankDisplay = '🥉'; 
+                let rankDisplay;
+                if (idx === 0) rankDisplay = '🥇';
+                else if (idx === 1) rankDisplay = '🥈';
+                else if (idx === 2) rankDisplay = '🥉';
                 else rankDisplay = `${idx+1}`;
                 
                 html += `<tr style="border-bottom: 1px solid #e2e8f0;">
@@ -1145,7 +1196,7 @@ async function loadMonthlyRanking() {
         const table = document.getElementById('rankingTable');
         if (table) {
             table.innerHTML = html;
-            console.log("✅ 排名表格已更新 (共 " + (data?.length || 0) + " 筆資料)");
+            console.log("✅ 排名表格已更新 (共 " + allBets.length + " 筆資料)");
         }
         
     } catch (err) {
