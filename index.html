@@ -883,7 +883,7 @@ function updateCutoffTimeUI(time) {
     document.getElementById('betForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const betPassword = document.getElementById('betPassword').value;
-        if (betPassword !== '0607bet') { alert("投注密碼錯誤，無法提交投注"); return; }
+        if (betPassword !== 'sept2026') { alert("投注密碼錯誤，無法提交投注"); return; }
         if (!validateTotalUnits()) return alert("總注數必須為12注 (總金額$120)");
         const participant = document.getElementById('inputUserSelect').value;
         if (!participant) return alert("請選擇參賽者");
