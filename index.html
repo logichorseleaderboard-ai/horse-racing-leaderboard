@@ -780,226 +780,198 @@ function handleEnterKey(e) {
 }
     
     // ============================================================
-    // 我的投注管理
-    // ============================================================
-    
-    async function loadMyBets() {
-        if (!loggedInUser) { document.getElementById('myBetsList').innerHTML = '<div class="info-note">請先登入</div>'; return; }
-        const raceDate = document.getElementById('inputRaceDate').value;
-        if (!raceDate) { document.getElementById('myBetsList').innerHTML = '<div class="info-note">載入賽日中...</div>'; return; }
-        const { data, error } = await supabaseClient.from('bets').select('*').eq('participant', loggedInUser).eq('race_date', raceDate).order('created_at', { ascending: true });
-        if (error) { document.getElementById('myBetsList').innerHTML = '<div class="info-note">載入失敗</div>'; return; }
-        const countDisplay = document.getElementById('betCountDisplay');
-        if (countDisplay) countDisplay.textContent = `📊 已使用 ${data?.length || 0} / 2 項投注`;
-        if (!data || data.length === 0) { document.getElementById('myBetsList').innerHTML = '<div class="info-note">📭 下個賽日尚無投注</div>'; return; }
-        let html = `<div style="margin-top: 8px;">`;
-        data.forEach((bet) => {
-            const betDetail = bet.flexible_data?.horses || bet.betDetail || '詳細資料';
-            const raceNo = bet.race_no || '?';
-            const amount = bet.amount || 120;
-            const isEditable = bet.flexible_data && bet.flexible_data.units;
-            html += `<div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid ${bet.payout > 0 ? '#16a34a' : '#1e6f3f'};">
-                <div style="font-size: 0.8rem; flex: 1;">
-                    <div><strong>第 ${raceNo} 場</strong> <span style="color: #475569;">${betDetail}</span> <span style="color: #64748b; font-size: 0.7rem;">($${amount})</span>
-                    ${bet.payout > 0 ? `<span style="color: #16a34a; font-size: 0.7rem;">派彩: $${bet.payout}</span>` : ''}
-                    ${bet.refund === true ? `<span style="color: #f59e0b; font-size: 0.7rem;">🔄 退款</span>` : ''}</div>
-                    ${bet.reason ? `<div style="font-size: 0.7rem; color: #64748b;">📝 ${bet.reason}</div>` : ''}
-                </div>
-                ${isEditable ? `<div style="display: flex; gap: 4px; flex-shrink: 0; margin-left: 8px;">
-                    <button onclick="editMyBet(${bet.id})" style="background: #475569; padding: 4px 10px; font-size: 0.7rem; width: auto;">✏️</button>
-                    <button onclick="deleteMyBet(${bet.id})" style="background: #ef4444; padding: 4px 10px; font-size: 0.7rem; width: auto;">🗑️</button>
-                </div>` : `<span style="font-size: 0.6rem; color: #94a3b8;">不可編輯</span>`}
-            </div>`;
-        });
-        html += `</div>`;
-        document.getElementById('myBetsList').innerHTML = html;
+// 我的投注管理（顯示完整詳情）
+// ============================================================
+
+async function loadMyBets() {
+    if (!loggedInUser) {
+        document.getElementById('myBetsList').innerHTML = '<div class="info-note">請先登入</div>';
+        return;
     }
     
-    async function deleteMyBet(betId) {
-        if (!confirm("確定要刪除這筆投注嗎？刪除後可重新投注。")) return;
-        const { error } = await supabaseClient.from('bets').delete().eq('id', betId).eq('participant', loggedInUser);
-        if (error) { alert("刪除失敗: " + error.message); return; }
-        alert("✅ 投注已刪除，可重新投注");
-        loadMyBets(); loadRankingChart(); loadUserBets(); loadMonthlyRanking();
+    const raceDate = document.getElementById('inputRaceDate').value;
+    if (!raceDate) {
+        document.getElementById('myBetsList').innerHTML = '<div class="info-note">載入賽日中...</div>';
+        return;
     }
     
-    async function editMyBet(betId) {
-        const { data, error } = await supabaseClient.from('bets').select('*').eq('id', betId).eq('participant', loggedInUser).single();
-        if (error) { alert("載入投注資料失敗: " + error.message); return; }
-        if (!data.flexible_data || !data.flexible_data.units) { alert("此投注格式不支援編輯"); return; }
-        const fd = data.flexible_data;
-        const horses = fd.horses ? fd.horses.split(',').map(s => s.trim()) : [];
+    const { data, error } = await supabaseClient
+        .from('bets')
+        .select('*')
+        .eq('participant', loggedInUser)
+        .eq('race_date', raceDate)
+        .order('created_at', { ascending: true });
+    
+    if (error) {
+        console.error("載入投注失敗:", error);
+        document.getElementById('myBetsList').innerHTML = '<div class="info-note">載入失敗</div>';
+        return;
+    }
+    
+    // 更新投注計數
+    const countDisplay = document.getElementById('betCountDisplay');
+    if (countDisplay) {
+        countDisplay.textContent = `📊 已使用 ${data?.length || 0} / 2 項投注`;
+    }
+    
+    if (!data || data.length === 0) {
+        document.getElementById('myBetsList').innerHTML = '<div class="info-note">📭 下個賽日尚無投注</div>';
+        return;
+    }
+    
+    let html = `<div style="margin-top: 8px;">`;
+    
+    data.forEach((bet, index) => {
+        const fd = bet.flexible_data || {};
         const units = fd.units || {};
-        document.getElementById('inputRaceNo').value = data.race_no;
-        await initHorseSelects();
-        ['horse1', 'horse2', 'horse3'].forEach((id, i) => {
-            const select = document.getElementById(id);
-            if (select && horses[i]) select.value = horses[i];
-            else if (select) select.value = '';
-        });
-        document.getElementById('winUnits').value = units.win || 0;
-        document.getElementById('placeUnits').value = units.place || 0;
-        document.getElementById('quinellaUnits').value = units.quinella || 0;
-        document.getElementById('quinellaPlaceUnits').value = units.quinellaPlace || 0;
-        if (fd.comboType === 'banker') {
-            document.querySelector('input[name="comboType"][value="banker"]').checked = true;
-            document.getElementById('bankerSelectDiv').style.display = 'block';
-            updateBankerSelect();
-            if (fd.banker) document.getElementById('bankerHorseSelect').value = fd.banker;
+        const horses = fd.horses ? fd.horses.split(',').map(s => s.trim()) : [];
+        const comboType = fd.comboType;
+        const banker = fd.banker;
+        const multiplier = fd.multiplier || 1;
+        const horseCount = fd.horseCount || horses.length;
+        const raceNo = bet.race_no || '?';
+        const amount = bet.amount || 120;
+        const payout = bet.payout || 0;
+        const refund = bet.refund || false;
+        const refundAmount = bet.refund_amount || 0;
+        const isEditable = fd.units !== undefined;
+        
+        // 判斷派彩狀態顏色
+        let borderColor = '#1e6f3f';
+        let statusBadge = '';
+        if (payout > 0) {
+            borderColor = '#16a34a';
+            statusBadge = `<span style="background:#16a34a; color:white; padding:2px 8px; border-radius:12px; font-size:0.65rem;">✅ 獲利 $${payout}</span>`;
+        } else if (payout < 0) {
+            borderColor = '#ef4444';
+            statusBadge = `<span style="background:#ef4444; color:white; padding:2px 8px; border-radius:12px; font-size:0.65rem;">❌ 虧損 $${Math.abs(payout)}</span>`;
+        } else if (bet.payout === 0 && bet.amount === 0) {
+            borderColor = '#f59e0b';
+            statusBadge = `<span style="background:#f59e0b; color:white; padding:2px 8px; border-radius:12px; font-size:0.65rem;">🔄 全額退款</span>`;
         } else {
-            document.querySelector('input[name="comboType"][value="all"]').checked = true;
-            document.getElementById('bankerSelectDiv').style.display = 'none';
+            statusBadge = `<span style="background:#64748b; color:white; padding:2px 8px; border-radius:12px; font-size:0.65rem;">⏳ 待結算</span>`;
         }
-        document.getElementById('betReason').value = data.reason || '';
-        updateMultiplierDisplay(); validateTotalUnits();
-        window.editingBetId = betId;
-        const submitBtn = document.getElementById('submitBtn');
-        submitBtn.textContent = '✏️ 更新投注'; submitBtn.dataset.mode = 'edit'; submitBtn.style.background = '#f59e0b';
-        const formTitle = document.getElementById('formTitle');
-        if (formTitle) formTitle.textContent = '✏️ 編輯投注';
-        const msg = document.getElementById('betFormMessage');
-        if (msg) msg.innerHTML = `<span style="color: #f59e0b;">✏️ 正在編輯第 ${data.race_no} 場投注</span>`;
-        document.getElementById('betForm').scrollIntoView({ behavior: 'smooth' });
-    }
+        
+        // 組合資訊
+        let comboInfo = '';
+        if (comboType === 'banker' && banker) {
+            comboInfo = `<span style="background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:8px; font-size:0.65rem;">膽拖 (膽${banker})</span>`;
+        } else if (comboType === 'all' && horseCount > 1) {
+            comboInfo = `<span style="background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:8px; font-size:0.65rem;">互串 (${horseCount}匹)</span>`;
+        } else if (horseCount === 1) {
+            comboInfo = `<span style="background:#e0e7ff; color:#3730a3; padding:2px 6px; border-radius:8px; font-size:0.65rem;">單匹</span>`;
+        }
+        
+        // 投注類型分配
+        let allocationParts = [];
+        const winUnits = units.win || 0;
+        const placeUnits = units.place || 0;
+        const quinellaGroups = units.quinella || 0;
+        const quinellaPlaceGroups = units.quinellaPlace || 0;
+        
+        if (winUnits > 0) {
+            if (comboType === 'banker' && horseCount > 1) {
+                allocationParts.push(`🏆 獨贏 ${winUnits}注 (只限膽馬)`);
+            } else if (horseCount > 1) {
+                allocationParts.push(`🏆 獨贏 ${winUnits}注/匹 (共${winUnits * horseCount}注)`);
+            } else {
+                allocationParts.push(`🏆 獨贏 ${winUnits}注`);
+            }
+        }
+        if (placeUnits > 0) {
+            if (comboType === 'banker' && horseCount > 1) {
+                allocationParts.push(`📍 位置 ${placeUnits}注 (只限膽馬)`);
+            } else if (horseCount > 1) {
+                allocationParts.push(`📍 位置 ${placeUnits}注/匹 (共${placeUnits * horseCount}注)`);
+            } else {
+                allocationParts.push(`📍 位置 ${placeUnits}注`);
+            }
+        }
+        if (quinellaGroups > 0) {
+            allocationParts.push(`🔗 連贏 ${quinellaGroups}組 (x${multiplier}=${quinellaGroups * multiplier}注)`);
+        }
+        if (quinellaPlaceGroups > 0) {
+            allocationParts.push(`🎯 位置Q ${quinellaPlaceGroups}組 (x${multiplier}=${quinellaPlaceGroups * multiplier}注)`);
+        }
+        
+        // 退款訊息
+        let refundMsg = '';
+        if (refund && refundAmount > 0) {
+            if (refundAmount >= amount) {
+                refundMsg = `<div style="color:#f59e0b; font-size:0.75rem;">🔄 全額退款 $${refundAmount}（不計入統計）</div>`;
+            } else {
+                refundMsg = `<div style="color:#f59e0b; font-size:0.75rem;">⚠️ 部分退款 $${refundAmount}</div>`;
+            }
+        }
+        
+        // 建立卡片
+        html += `
+        <div style="background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; border-left: 4px solid ${borderColor}; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <!-- 標題列 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <strong style="font-size: 0.95rem;">第 ${raceNo} 場</strong>
+                    ${comboInfo}
+                    ${statusBadge}
+                </div>
+                ${isEditable ? `
+                <div style="display: flex; gap: 6px;">
+                    <button onclick="editMyBet(${bet.id})" style="background: #475569; padding: 5px 12px; font-size: 0.7rem; width: auto; border-radius: 6px;">✏️ 修改</button>
+                    <button onclick="deleteMyBet(${bet.id})" style="background: #ef4444; padding: 5px 12px; font-size: 0.7rem; width: auto; border-radius: 6px;">🗑️ 刪除</button>
+                </div>
+                ` : `<span style="font-size: 0.65rem; color: #94a3b8;">不可編輯</span>`}
+            </div>
+            
+            <!-- 選馬 -->
+            <div style="margin-bottom: 8px;">
+                <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px;">🐎 選擇馬匹</div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    ${horses.map(h => {
+                        let badgeColor = '#e2e8f0';
+                        let badgeTextColor = '#334155';
+                        if (comboType === 'banker' && parseInt(h) === parseInt(banker)) {
+                            badgeColor = '#fef3c7';
+                            badgeTextColor = '#92400e';
+                        }
+                        return `<span style="background:${badgeColor}; color:${badgeTextColor}; padding:4px 10px; border-radius:16px; font-size:0.8rem; font-weight:500;">${h} 號${comboType === 'banker' && parseInt(h) === parseInt(banker) ? ' (膽)' : ''}</span>`;
+                    }).join('')}
+                </div>
+            </div>
+            
+            <!-- 注數分配 -->
+            <div style="margin-bottom: 8px;">
+                <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px;">🎲 注數分配</div>
+                <div style="display: flex; flex-direction: column; gap: 3px;">
+                    ${allocationParts.length > 0 ? allocationParts.map(p => `<div style="font-size: 0.8rem; color: #334155;">• ${p}</div>`).join('') : '<div style="font-size: 0.8rem; color: #94a3b8;">無</div>'}
+                </div>
+            </div>
+            
+            <!-- 投注原因 -->
+            ${bet.reason ? `
+            <div style="margin-bottom: 8px;">
+                <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px;">📝 投注原因</div>
+                <div style="font-size: 0.8rem; color: #475569; background: #f8fafc; padding: 6px 10px; border-radius: 6px;">${bet.reason}</div>
+            </div>
+            ` : ''}
+            
+            <!-- 退款訊息 -->
+            ${refundMsg}
+            
+            <!-- 底部資訊 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid #f1f5f9; font-size: 0.75rem;">
+                <div style="color: #64748b;">
+                    💰 投注金額: <strong style="color: #1e6f3f;">$${amount}</strong>
+                </div>
+                <div style="color: #64748b;">
+                    ${payout !== 0 ? `📊 派彩: <strong style="color: ${payout > 0 ? '#16a34a' : '#ef4444'};">$${payout}</strong>` : '⏳ 待結算'}
+                </div>
+            </div>
+        </div>`;
+    });
     
-    function resetEditMode() {
-        const submitBtn = document.getElementById('submitBtn');
-        if (submitBtn) { submitBtn.textContent = '確認投注 (總額 $120)'; submitBtn.dataset.mode = ''; submitBtn.style.background = ''; }
-        window.editingBetId = null;
-        const formTitle = document.getElementById('formTitle');
-        if (formTitle) formTitle.textContent = '✍️ 自由分配注數 (每注$10，總額固定$120)';
-        const msg = document.getElementById('betFormMessage');
-        if (msg) msg.innerHTML = '';
-        resetBetForm();
-    }
-    
-    function resetBetForm() {
-        ['winUnits', 'placeUnits', 'quinellaUnits', 'quinellaPlaceUnits'].forEach(id => { const el = document.getElementById(id); if (el) el.value = 0; });
-        ['horse1', 'horse2', 'horse3'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-        const bankerSelect = document.getElementById('bankerHorseSelect');
-        if (bankerSelect) bankerSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
-        const comboOptions = document.getElementById('comboOptions'); if (comboOptions) comboOptions.style.display = 'none';
-        const qg = document.getElementById('quinellaGroup'); if (qg) qg.style.display = 'none';
-        const qpg = document.getElementById('quinellaPlaceGroup'); if (qpg) qpg.style.display = 'none';
-        const warning = document.getElementById('horsesCountWarning'); if (warning) warning.innerText = '';
-        const reason = document.getElementById('betReason'); if (reason) reason.value = '';
-        const allRadio = document.querySelector('input[name="comboType"][value="all"]'); if (allRadio) allRadio.checked = true;
-        const bankerDiv = document.getElementById('bankerSelectDiv'); if (bankerDiv) bankerDiv.style.display = 'none';
-        validateTotalUnits();
-    }
-        // ========== 投注相關函數 ==========
-    async function initHorseSelects() {
-        if (!currentRaceDate) return;
-        const raceNo = parseInt(document.getElementById('inputRaceNo').value);
-        if (isNaN(raceNo)) return;
-        const horses = await fetchHorsesFromAPI(currentRaceDate, raceNo);
-        const sortedHorses = [...horses].sort((a, b) => a.horseNo - b.horseNo);
-        const opts = '<option value="">-- 請選擇 --</option>' + sortedHorses.map(h => `<option value="${h.horseNo}">${h.horseNo}號 - ${h.horseName}</option>`).join('');
-        ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
-    }
-    
-    function getSelectedHorses() {
-        let horses = [];
-        let h1 = document.getElementById('horse1').value;
-        let h2 = document.getElementById('horse2').value;
-        let h3 = document.getElementById('horse3').value;
-        if (h1) horses.push(parseInt(h1));
-        if (h2) horses.push(parseInt(h2));
-        if (h3) horses.push(parseInt(h3));
-        return [...new Set(horses)];
-    }
-    
-    function updateBankerSelect() {
-        const horses = getSelectedHorses();
-        const bankerSelect = document.getElementById('bankerHorseSelect');
-        const currentVal = bankerSelect.value;
-        bankerSelect.innerHTML = '<option value="">-- 請選擇 --</option>';
-        horses.forEach(h => { bankerSelect.innerHTML += `<option value="${h}">${h} 號</option>`; });
-        if (currentVal && horses.includes(parseInt(currentVal))) bankerSelect.value = currentVal;
-        else bankerSelect.value = '';
-    }
-    
-    function getComboMultiplier() {
-        const horses = getSelectedHorses();
-        const count = horses.length;
-        if (count < 2) return 0;
-        const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
-        const bankerVal = comboType === 'banker' ? parseInt(document.getElementById('bankerHorseSelect').value) : null;
-        if (comboType === 'all') return count * (count - 1) / 2;
-        else if (comboType === 'banker' && bankerVal && horses.includes(bankerVal)) return count - 1;
-        return 0;
-    }
-    
-    function updateMultiplierDisplay() {
-        const multiplier = getComboMultiplier();
-        const displayText = multiplier > 0 ? `組合倍數: ${multiplier} 倍 (輸入1組 = ${multiplier}注)` : '組合倍數: -';
-        document.getElementById('quinellaMultiplier').innerText = displayText;
-        document.getElementById('quinellaPlaceMultiplier').innerText = displayText;
-        validateTotalUnits();
-    }
-    
-    function calculateActualTotalUnits() {
-        const horses = getSelectedHorses();
-        const horseCount = horses.length;
-        const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
-        const bankerVal = comboType === 'banker' ? parseInt(document.getElementById('bankerHorseSelect').value) : null;
-        let win = parseInt(document.getElementById('winUnits').value) || 0;
-        let place = parseInt(document.getElementById('placeUnits').value) || 0;
-        let quinellaGroups = parseInt(document.getElementById('quinellaUnits').value) || 0;
-        let quinellaPlaceGroups = parseInt(document.getElementById('quinellaPlaceUnits').value) || 0;
-        const multiplier = getComboMultiplier();
-        let winActual = 0, placeActual = 0;
-        if (horseCount === 1) { winActual = win; placeActual = place; }
-        else if (comboType === 'banker' && bankerVal && horses.includes(bankerVal)) { winActual = win; placeActual = place; }
-        else { winActual = win * horseCount; placeActual = place * horseCount; }
-        let quinellaActual = quinellaGroups * multiplier;
-        let quinellaPlaceActual = quinellaPlaceGroups * multiplier;
-        return winActual + placeActual + quinellaActual + quinellaPlaceActual;
-    }
-    
-    function validateTotalUnits() {
-        const total = calculateActualTotalUnits();
-        const errorSpan = document.getElementById('totalUnitsError');
-        const horses = getSelectedHorses();
-        const horseCount = horses.length;
-        const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
-        if (total !== 12) {
-            if (horseCount > 1 && comboType === 'all') errorSpan.innerText = `總注數必須為 12 注 (目前 ${total} 注)。注意：互串模式下，獨贏/位置注數會自動乘以 ${horseCount} 匹馬。`;
-            else if (horseCount > 1 && comboType === 'banker') errorSpan.innerText = `總注數必須為 12 注 (目前 ${total} 注)。注意：膽拖模式下，獨贏/位置只投膽馬。`;
-            else errorSpan.innerText = `總注數必須為 12 注 (目前 ${total} 注)，總金額需為 $120。`;
-            return false;
-        } else { errorSpan.innerText = ''; return true; }
-    }
-    
-    function bindBetFormEvents() {
-        const horseSelects = ['horse1', 'horse2', 'horse3'];
-        horseSelects.forEach(id => {
-            document.getElementById(id).addEventListener('change', () => {
-                const horses = getSelectedHorses();
-                const count = horses.length;
-                const warning = document.getElementById('horsesCountWarning');
-                const comboDiv = document.getElementById('comboOptions');
-                const quinellaGroup = document.getElementById('quinellaGroup');
-                const quinellaPlaceGroup = document.getElementById('quinellaPlaceGroup');
-                if (count === 0) { comboDiv.style.display = 'none'; quinellaGroup.style.display = 'none'; quinellaPlaceGroup.style.display = 'none'; warning.innerText = ''; }
-                else if (count === 1) { comboDiv.style.display = 'none'; quinellaGroup.style.display = 'none'; quinellaPlaceGroup.style.display = 'none'; warning.innerText = '⚠️ 只選1匹馬，僅能投注獨贏／位置。'; }
-                else { comboDiv.style.display = 'block'; quinellaGroup.style.display = 'block'; quinellaPlaceGroup.style.display = 'block'; warning.innerText = ''; }
-                updateBankerSelect(); updateMultiplierDisplay();
-            });
-        });
-        document.querySelectorAll('input[name="comboType"]').forEach(radio => {
-            radio.addEventListener('change', () => {
-                const comboType = document.querySelector('input[name="comboType"]:checked')?.value;
-                const bankerDiv = document.getElementById('bankerSelectDiv');
-                bankerDiv.style.display = (comboType === 'banker') ? 'block' : 'none';
-                updateMultiplierDisplay(); validateTotalUnits();
-            });
-        });
-        document.getElementById('bankerHorseSelect').addEventListener('change', updateMultiplierDisplay);
-        ['winUnits', 'placeUnits', 'quinellaUnits', 'quinellaPlaceUnits'].forEach(id => {
-            document.getElementById(id).addEventListener('input', validateTotalUnits);
-        });
-    }
+    html += `</div>`;
+    document.getElementById('myBetsList').innerHTML = html;
+}
     
     // ========== 載入賽日相關下拉選單 ==========
     async function loadRaceDaysForResult() {
