@@ -159,7 +159,7 @@
         <button id="loginBtn">🔓 登入</button>
         <div id="loginStatus" class="info-note" style="margin-top: 10px;"></div>
         <div class="info-note" style="margin-top: 10px;">
-            📌 首次使用請輸入預設 PIN 碼 <strong>0000</strong>，登入後請聯絡管理員更改。
+            📌 首次使用請輸入預設 PIN 碼 <strong>0000</strong>，登入後可自行修改 PIN 碼。
         </div>
     </div>
 
@@ -179,7 +179,10 @@
                     <span id="loggedInUserDisplay" style="font-weight: bold; color: #1e6f3f;"></span>
                     <span id="loginTimeDisplay" style="font-size: 0.7rem; color: #64748b; margin-left: 8px;"></span>
                 </div>
-                <button id="logoutBtn" style="width: auto; padding: 6px 16px; background: #ef4444; font-size: 0.8rem;">登出</button>
+                <div style="display: flex; gap: 8px;">
+                    <button id="changePinBtn" style="width: auto; padding: 6px 16px; background: #475569; font-size: 0.8rem;">🔑 修改 PIN</button>
+                    <button id="logoutBtn" style="width: auto; padding: 6px 16px; background: #ef4444; font-size: 0.8rem;">登出</button>
+                </div>
             </div>
             <div id="betCountDisplay" style="font-size: 0.8rem; color: #475569; margin-top: 4px;"></div>
         </div>
@@ -250,6 +253,32 @@
             <h3>📋 我的投注 (下個賽日)</h3>
             <div id="myBetsList">
                 <div class="info-note">載入中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 修改 PIN 碼彈出視窗 ========== -->
+    <div id="changePinModal" class="password-overlay" style="display: none;">
+        <div class="password-box">
+            <h3>🔑 修改 PIN 碼</h3>
+            <p style="font-size: 0.85rem; color: #475569; margin-bottom: 8px;">
+                參賽者: <strong id="changePinUserDisplay"></strong>
+            </p>
+            <div style="text-align: left; margin-top: 12px;">
+                <label style="font-size: 0.8rem; font-weight: 500;">目前 PIN 碼</label>
+                <input type="password" id="currentPinInput" placeholder="請輸入目前 PIN 碼" maxlength="4"
+                       style="width: 100%; padding: 10px; margin: 6px 0 12px; border: 1px solid #cbd5e1; border-radius: 12px; text-align: center; letter-spacing: 8px; font-size: 1.1rem;">
+                <label style="font-size: 0.8rem; font-weight: 500;">新 PIN 碼</label>
+                <input type="password" id="newPinInputChange" placeholder="請輸入 4 位數字" maxlength="4"
+                       style="width: 100%; padding: 10px; margin: 6px 0 12px; border: 1px solid #cbd5e1; border-radius: 12px; text-align: center; letter-spacing: 8px; font-size: 1.1rem;">
+                <label style="font-size: 0.8rem; font-weight: 500;">確認新 PIN 碼</label>
+                <input type="password" id="confirmPinInput" placeholder="請再次輸入新 PIN 碼" maxlength="4"
+                       style="width: 100%; padding: 10px; margin: 6px 0 12px; border: 1px solid #cbd5e1; border-radius: 12px; text-align: center; letter-spacing: 8px; font-size: 1.1rem;">
+                <div id="changePinError" class="error-msg" style="display: none; margin-bottom: 8px;"></div>
+            </div>
+            <div style="display: flex; justify-content: center; gap: 15px; margin-top: 12px;">
+                <button id="changePinSubmitBtn">確認修改</button>
+                <button id="changePinCancelBtn" class="secondary">取消</button>
             </div>
         </div>
     </div>
@@ -601,6 +630,154 @@
         }
         return false;
     }
+
+    // ============================================================
+// 參賽者自行修改 PIN 碼
+// ============================================================
+
+// 開啟修改 PIN 碼視窗
+function openChangePinModal() {
+    if (!loggedInUser) {
+        alert("請先登入");
+        return;
+    }
+    
+    // 重置表單
+    document.getElementById('currentPinInput').value = '';
+    document.getElementById('newPinInputChange').value = '';
+    document.getElementById('confirmPinInput').value = '';
+    document.getElementById('changePinError').style.display = 'none';
+    document.getElementById('changePinError').textContent = '';
+    document.getElementById('changePinUserDisplay').textContent = loggedInUser;
+    
+    // 顯示彈出視窗
+    document.getElementById('changePinModal').style.display = 'flex';
+    
+    // 自動聚焦
+    setTimeout(() => document.getElementById('currentPinInput').focus(), 100);
+}
+
+// 關閉修改 PIN 碼視窗
+function closeChangePinModal() {
+    document.getElementById('changePinModal').style.display = 'none';
+}
+
+// 提交修改 PIN 碼
+async function submitChangePin() {
+    const currentPin = document.getElementById('currentPinInput').value.trim();
+    const newPin = document.getElementById('newPinInputChange').value.trim();
+    const confirmPin = document.getElementById('confirmPinInput').value.trim();
+    const errorDiv = document.getElementById('changePinError');
+    
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
+    
+    // 驗證輸入
+    if (!currentPin || !/^\d{4}$/.test(currentPin)) {
+        errorDiv.textContent = '請輸入正確的目前 PIN 碼 (4 位數字)';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (!newPin || !/^\d{4}$/.test(newPin)) {
+        errorDiv.textContent = '請輸入 4 位數字的新 PIN 碼';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (newPin !== confirmPin) {
+        errorDiv.textContent = '兩次輸入的新 PIN 碼不一致';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (newPin === currentPin) {
+        errorDiv.textContent = '新 PIN 碼不能與目前 PIN 碼相同';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    try {
+        // 驗證目前 PIN 碼是否正確
+        const { data, error: fetchError } = await supabaseClient
+            .from('participants')
+            .select('pin')
+            .eq('name', loggedInUser)
+            .single();
+        
+        if (fetchError || !data) {
+            errorDiv.textContent = '無法讀取參賽者資料';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        if (data.pin !== currentPin) {
+            errorDiv.textContent = '目前 PIN 碼錯誤';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        // 更新 PIN 碼
+        const { error: updateError } = await supabaseClient
+            .from('participants')
+            .update({ pin: newPin })
+            .eq('name', loggedInUser);
+        
+        if (updateError) {
+            errorDiv.textContent = '更新失敗: ' + updateError.message;
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        // 成功
+        alert(`✅ PIN 碼已成功修改！\n\n新 PIN 碼: ${newPin}\n\n請記住您的新 PIN 碼。`);
+        closeChangePinModal();
+        
+        console.log(`✅ ${loggedInUser} 的 PIN 碼已更新`);
+        
+    } catch (err) {
+        console.error("修改 PIN 碼異常:", err);
+        errorDiv.textContent = '修改失敗: ' + err.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// 綁定修改 PIN 碼相關事件
+function bindChangePinEvents() {
+    const changePinBtn = document.getElementById('changePinBtn');
+    const submitBtn = document.getElementById('changePinSubmitBtn');
+    const cancelBtn = document.getElementById('changePinCancelBtn');
+    
+    if (changePinBtn) {
+        changePinBtn.removeEventListener('click', openChangePinModal);
+        changePinBtn.addEventListener('click', openChangePinModal);
+    }
+    
+    if (submitBtn) {
+        submitBtn.removeEventListener('click', submitChangePin);
+        submitBtn.addEventListener('click', submitChangePin);
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.removeEventListener('click', closeChangePinModal);
+        cancelBtn.addEventListener('click', closeChangePinModal);
+    }
+    
+    // Enter 鍵快速提交
+    ['currentPinInput', 'newPinInputChange', 'confirmPinInput'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.removeEventListener('keypress', handleEnterKey);
+            input.addEventListener('keypress', handleEnterKey);
+        }
+    });
+}
+
+function handleEnterKey(e) {
+    if (e.key === 'Enter') {
+        submitChangePin();
+    }
+}
     
     // ============================================================
     // 我的投注管理
@@ -1784,6 +1961,8 @@
             if (e.key === 'Enter') handleLogin();
         });
         document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+        // ★★★ 綁定修改 PIN 碼事件 ★★★
+        bindChangePinEvents();
         
         showPage('ranking');
     };
