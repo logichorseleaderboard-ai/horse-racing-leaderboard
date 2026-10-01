@@ -1,15 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from 'https://esm.sh/@supabase/supabase-js@2/cors'
+import { HorseRacingAPI } from 'npm:hkjc-api'
 
-// ===== 常數設定 =====
-const HKJC_API_BASE = 'https://racing.hkjc.com'
-const ODDS_API = 'https://bet.hkjc.com/racing/getJSON.aspx'
-
-// 彩池代碼對應
-const POOL_WIN = 'WIN'
-const POOL_PLA = 'PLA'
-const POOL_QIN = 'QIN'
-const POOL_QPL = 'QPL'
+// ===== 常數 =====
+const STAKE_PER_UNIT = 10
 
 Deno.serve(async (req) => {
   // 處理 CORS 預檢請求
@@ -33,22 +27,26 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 3. 讀取該賽日所有投注紀錄
+    // 3. 讀取該賽日未結算的投注紀錄
     const { data: bets, error: betsError } = await supabaseAdmin
       .from('bets')
       .select('*')
       .eq('race_date', raceDate)
       .not('flexible_data', 'is', null)
+      .or('settled.is.null,settled.eq.false')
 
     if (betsError) throw betsError
     if (!bets || bets.length === 0) {
       return new Response(
-        JSON.stringify({ message: '該賽日沒有投注紀錄', settledCount: 0 }),
+        JSON.stringify({ message: '該賽日沒有未結算的投注紀錄', settledCount: 0 }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // 4. 按場次分組
+    // 4. 初始化 hkjc-api
+    const horseAPI = new HorseRacingAPI()
+
+    // 5. 按場次分組
     const raceGroups = new Map<number, typeof bets>()
     bets.forEach(bet => {
       const raceNo = bet.race_no
@@ -59,25 +57,35 @@ Deno.serve(async (req) => {
     let settledCount = 0
     const errors: string[] = []
 
-    // 5. 逐場結算
+    // 6. 逐場結算
     for (const [raceNo, raceBets] of raceGroups) {
       try {
-        // 5.1 從 HKJC 取得該場派彩數據
-        const dividends = await fetchDividends(raceDate, raceNo)
+        // 6.1 用 hkjc-api 拎取派彩數據
+        const result = await horseAPI.getRaceOdds(raceNo, ['WIN', 'PLA', 'QIN', 'QPL'])
+        console.log(`第 ${raceNo} 場 hkjc-api 返回:`, JSON.stringify(result).substring(0, 800))
 
-        // 5.2 逐條投注計算派彩
+        // 6.2 解析派彩數據
+        const dividends = parseHkjcApiResult(result)
+        console.log(`第 ${raceNo} 場解析結果:`, JSON.stringify(dividends))
+
+        // 6.3 逐條投注計算派彩
         for (const bet of raceBets) {
           const payout = calculatePayout(bet, dividends)
 
           await supabaseAdmin
             .from('bets')
-            .update({ payout: payout })
+            .update({
+              payout: payout,
+              settled: true,
+              settlement_source: 'auto',
+            })
             .eq('id', bet.id)
 
           settledCount++
         }
       } catch (err) {
         errors.push(`第 ${raceNo} 場：${(err as Error).message}`)
+        console.error(`第 ${raceNo} 場結算失敗:`, err)
       }
     }
 
@@ -90,6 +98,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
+    console.error('結算失敗:', error)
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -98,39 +107,9 @@ Deno.serve(async (req) => {
 })
 
 // ===================================================================
-// 從 HKJC 取得派彩數據
+// 解析 hkjc-api 返回的派彩數據
 // ===================================================================
-async function fetchDividends(raceDate: string, raceNo: number) {
-  // 將日期格式化為 YYYY-MM-DD
-  const formattedDate = raceDate.replace(/\//g, '-')
-
-  // 方法一：使用 bet.hkjc.com 的 JSON API（較穩定）
-  const url = `${ODDS_API}?type=winplace&date=${formattedDate}&raceNo=${raceNo}`
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://bet.hkjc.com/racing/',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    const text = await response.text()
-    return parseHkjcResponse(text, raceNo)
-  } catch (err) {
-    // 方法二：如果 JSON API 失敗，改用網頁爬取
-    return await scrapeDividends(formattedDate, raceNo)
-  }
-}
-
-// ===================================================================
-// 解析 HKJC JSON API 回應
-// ===================================================================
-function parseHkjcResponse(text: string, raceNo: number) {
+function parseHkjcApiResult(result: any): Record<string, Record<string, number>> {
   const dividends: Record<string, Record<string, number>> = {
     WIN: {},
     PLA: {},
@@ -139,104 +118,55 @@ function parseHkjcResponse(text: string, raceNo: number) {
   }
 
   try {
-    // HKJC 的 JSON API 有時會回傳 JSONP 格式，需要先去掉外層包裝
-    let jsonStr = text.trim()
-    if (jsonStr.startsWith('(')) {
-      jsonStr = jsonStr.slice(1, -1)
-    }
-    const data = JSON.parse(jsonStr)
+    // ⚠️ 以下解析邏輯需要根據 hkjc-api 實際返回的 JSON 結構調整
+    // 請先睇 Supabase Logs 入面 "hkjc-api 返回" 的實際格式，再對應修改
 
-    // 解析獨贏 (WIN)
-    if (data.win) {
-      Object.entries(data.win).forEach(([horseNo, amount]) => {
+    // 常見格式一：result 直接包含各彩池
+    if (result?.win) {
+      Object.entries(result.win).forEach(([horseNo, amount]) => {
         dividends.WIN[horseNo] = parseFloat(amount as string)
       })
     }
-
-    // 解析位置 (PLA) — 可能有多匹馬
-    if (data.place) {
-      Object.entries(data.place).forEach(([horseNo, amount]) => {
+    if (result?.place) {
+      Object.entries(result.place).forEach(([horseNo, amount]) => {
         dividends.PLA[horseNo] = parseFloat(amount as string)
       })
     }
-
-    // 解析連贏 (QIN)
-    if (data.quinella) {
-      Object.entries(data.quinella).forEach(([combo, amount]) => {
-        // 組合格式可能是 "8,9" 或 "8-9"，統一轉為 "8,9" 並排序
+    if (result?.quinella) {
+      Object.entries(result.quinella).forEach(([combo, amount]) => {
         const normalized = combo.replace(/-/g, ',').split(',').map(s => s.trim()).sort((a, b) => parseInt(a) - parseInt(b)).join(',')
         dividends.QIN[normalized] = parseFloat(amount as string)
       })
     }
-
-    // 解析位置Q (QPL)
-    if (data.quinellaPlace) {
-      Object.entries(data.quinellaPlace).forEach(([combo, amount]) => {
+    if (result?.quinellaPlace) {
+      Object.entries(result.quinellaPlace).forEach(([combo, amount]) => {
         const normalized = combo.replace(/-/g, ',').split(',').map(s => s.trim()).sort((a, b) => parseInt(a) - parseInt(b)).join(',')
         dividends.QPL[normalized] = parseFloat(amount as string)
       })
     }
-  } catch (e) {
-    console.error('解析 HKJC 回應失敗:', e)
-  }
 
-  return dividends
-}
+    // 常見格式二：result 包含 dividends 陣列
+    if (result?.dividends && Array.isArray(result.dividends)) {
+      for (const d of result.dividends) {
+        const pool = d.poolType || d.pool
+        const combo = d.winningCombination || d.combination
+        const amount = parseFloat(d.dividend || d.amount)
 
-// ===================================================================
-// 備用方案：直接爬取 HKJC 賽果網頁
-// ===================================================================
-async function scrapeDividends(raceDate: string, raceNo: number) {
-  const url = `${HKJC_API_BASE}/zh-hk/local/information/results?date=${raceDate}&raceNo=${raceNo}`
-
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-  })
-
-  const html = await response.text()
-  return parseHkjcHtml(html)
-}
-
-// ===================================================================
-// 解析 HKJC 賽果網頁 HTML（備用方案）
-// ===================================================================
-function parseHkjcHtml(html: string) {
-  const dividends: Record<string, Record<string, number>> = {
-    WIN: {},
-    PLA: {},
-    QIN: {},
-    QPL: {},
-  }
-
-  // 注意：HTML 解析在 Deno 環境中較為複雜，這裡用簡單的正則表達式提取
-  // 實際使用時建議先用一個真實的 HTML 樣本測試
-
-  // 提取派彩表格中的資料列
-  // 格式類似：<tr><td>獨贏</td><td>8</td><td>358.50</td></tr>
-  const rowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*>([^<]*)<\/td>[\s\S]*?<td[^>]*>([^<]*)<\/td>[\s\S]*?<td[^>]*>([^<]*)<\/td>[\s\S]*?<\/tr>/g
-
-  let match
-  while ((match = rowRegex.exec(html)) !== null) {
-    const poolName = match[1].trim()
-    const combo = match[2].trim()
-    const amountStr = match[3].trim().replace(/,/g, '')
-    const amount = parseFloat(amountStr)
-
-    if (isNaN(amount)) continue
-
-    if (poolName.includes('獨贏')) {
-      dividends.WIN[combo] = amount
-    } else if (poolName.includes('位置') && !poolName.includes('Q')) {
-      dividends.PLA[combo] = amount
-    } else if (poolName.includes('連贏')) {
-      const normalized = combo.split(',').map(s => s.trim()).sort((a, b) => parseInt(a) - parseInt(b)).join(',')
-      dividends.QIN[normalized] = amount
-    } else if (poolName.includes('位置Q')) {
-      const normalized = combo.split(',').map(s => s.trim()).sort((a, b) => parseInt(a) - parseInt(b)).join(',')
-      dividends.QPL[normalized] = amount
+        if (pool === 'WIN') {
+          dividends.WIN[combo] = amount
+        } else if (pool === 'PLA') {
+          dividends.PLA[combo] = amount
+        } else if (pool === 'QIN') {
+          const normalized = combo.replace(/-/g, ',').split(',').map((s: string) => s.trim()).sort((a: string, b: string) => parseInt(a) - parseInt(b)).join(',')
+          dividends.QIN[normalized] = amount
+        } else if (pool === 'QPL') {
+          const normalized = combo.replace(/-/g, ',').split(',').map((s: string) => s.trim()).sort((a: string, b: string) => parseInt(a) - parseInt(b)).join(',')
+          dividends.QPL[normalized] = amount
+        }
+      }
     }
+  } catch (e) {
+    console.error('解析 hkjc-api 返回失敗:', e)
   }
 
   return dividends
@@ -255,9 +185,6 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
   const horseCount = horses.length
   const comboType = fd.comboType
   const banker = fd.banker
-
-  // 每注 $10，派彩以每 $10 為單位
-  const STAKE_PER_UNIT = 10
 
   // --- 獨贏 (WIN) ---
   if (units.win > 0) {
