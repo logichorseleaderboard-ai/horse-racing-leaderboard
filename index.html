@@ -314,9 +314,19 @@
     <div id="admin-page" class="page">
         <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
         <div id="adminPanel" style="display:none;">
-            <div class="card"><button id="toggleInputBtn" onclick="toggleInputLock()">切換封盤</button></div>
             <div class="card"><h3>⏰ 自動封盤設定</h3><div class="form-group"><label>封盤時間 (賽日當天)</label><input type="time" id="cutoffTime" step="1" value="12:30:00"><div class="bet-limit">設定後，投注頁會顯示距離封盤的倒計時</div></div><button id="saveCutoffTimeBtn" class="btn" style="background:#475569;">💾 儲存設定</button><div id="cutoffTimeStatus" class="info-note" style="margin-top:10px;"></div></div>
             <div class="card"><h3>📅 賽日自動結算 (扣款 $120)</h3><div class="form-group"><label>選擇賽日</label><select id="settleRaceDate"></select></div><button id="autoDeductBtn" class="btn" style="background:#b91c1c;">🔁 執行賽日結算 (自動扣款)</button><div id="settleResultMsg" class="info-note" style="margin-top:10px; display:none;"></div></div>
+            <div class="card">
+              <h3>🏁 自動結算賽果</h3>
+              <div class="form-group">
+                <label>選擇賽日</label>
+                <select id="autoSettleRaceDate"></select>
+              </div>
+              <button id="autoSettleBtn" class="btn" style="background:#1e6f3f;">
+                🔄 執行自動結算
+              </button>
+              <div id="autoSettleMsg" class="info-note" style="margin-top:10px; display:none;"></div>
+            </div>
             <div class="card"><h3>人員管理</h3><input type="text" id="newUserName" placeholder="新參賽者"><button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button><div id="participantList"></div></div>
             <div class="card"><h3>賽日管理</h3><input type="date" id="newRaceDate"><button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增</button><div id="raceDayList"></div></div>
             <!-- ========== PIN 碼管理 ========== -->
@@ -1175,11 +1185,20 @@ function handleEnterKey(e) {
     }
     
     async function loadRaceDaysForSettle() {
-        const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: false });
-        if (error) return;
-        const select = document.getElementById('settleRaceDate');
-        if (select) select.innerHTML = '<option value="">-- 請選擇 --</option>' + data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('');
-    }
+  const { data, error } = await supabaseClient
+    .from('race_days')
+    .select('race_date')
+    .order('race_date', { ascending: false })
+  if (error) return
+
+  // 原有的結算下拉選單
+  const select = document.getElementById('settleRaceDate')
+  if (select) select.innerHTML = '<option value="">-- 請選擇 --</option>' +
+    data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('')
+
+  // 新增：自動結算的下拉選單
+  await loadRaceDaysForAutoSettle()
+}
     
     async function loadRaceDaysForDetail() {
         const { data, error } = await supabaseClient.from('race_days').select('race_date').order('race_date', { ascending: true });
@@ -1608,6 +1627,58 @@ function handleEnterKey(e) {
         a.click();
         URL.revokeObjectURL(url);
     }
+
+    // 載入賽日選項到自動結算的下拉選單
+async function loadRaceDaysForAutoSettle() {
+  const { data, error } = await supabaseClient
+    .from('race_days')
+    .select('race_date')
+    .order('race_date', { ascending: false })
+  if (error) return
+  const select = document.getElementById('autoSettleRaceDate')
+  if (select) {
+    select.innerHTML = '<option value="">-- 請選擇 --</option>' +
+      data.map(d => `<option value="${d.race_date}">${d.race_date}</option>`).join('')
+  }
+}
+
+// 綁定自動結算按鈕
+document.getElementById('autoSettleBtn')?.addEventListener('click', async () => {
+  const raceDate = document.getElementById('autoSettleRaceDate')?.value
+  if (!raceDate) return alert('請選擇賽日')
+
+  const btn = document.getElementById('autoSettleBtn')
+  const msg = document.getElementById('autoSettleMsg')
+  btn.disabled = true
+  msg.style.display = 'block'
+  msg.innerHTML = '⏳ 結算中，請稍候...'
+
+  try {
+    const { data, error } = await supabaseClient.functions.invoke('settle-races', {
+      body: { raceDate: raceDate }
+    })
+
+    if (error) throw error
+
+    if (data.errors && data.errors.length > 0) {
+      msg.innerHTML = `⚠️ 部分場次結算失敗：<br>${data.errors.join('<br>')}<br>已成功處理 ${data.settledCount} 條紀錄。`
+    } else {
+      msg.innerHTML = `✅ 結算完成！共處理 ${data.settledCount} 條投注紀錄。`
+    }
+
+    // 重新載入相關數據
+    loadAdminBets()
+    loadMonthlyRanking()
+    loadUserBets()
+    if (document.getElementById('stats-page').classList.contains('active-page')) {
+      loadStatsForCurrentUser()
+    }
+  } catch (err) {
+    msg.innerHTML = `❌ 結算失敗：${err.message}`
+  } finally {
+    btn.disabled = false
+  }
+})
     
     // ========== 管理員其他操作 ==========
     window.deleteBet = async (id) => { if(confirm("刪除？")) { await supabaseClient.from('bets').delete().eq('id', id); loadAdminBets(); loadRankingChart(); loadStatsForCurrentUser(); loadUserBets(); loadMonthlyRanking(); } };
