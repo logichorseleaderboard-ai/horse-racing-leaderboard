@@ -9,19 +9,47 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
-    const { raceDate, racecourse } = await req.json()
-    if (!raceDate) {
+  // ===== 臨時測試代碼：確認派彩解析 =====
+  const url = new URL(req.url)
+  if (url.searchParams.get('test') === '1') {
+    try {
+      const testDate = '2026-10-01'
+      const testRaceNo = 1
+      
+      // 先試沙田
+      let html = ''
+      try {
+        html = await fetchRaceResultPage(testDate, testRaceNo, 'ST')
+        console.log('[測試] 成功抓取沙田賽果頁面')
+      } catch (e) {
+        console.log('[測試] 沙田失敗，嘗試跑馬地:', (e as Error).message)
+        html = await fetchRaceResultPage(testDate, testRaceNo, 'HV')
+        console.log('[測試] 成功抓取跑馬地賽果頁面')
+      }
+      
+      console.log('[測試] HTML 長度:', html.length)
+      console.log('[測試] HTML 前 3000 字:', html.substring(0, 3000))
+      
+      const dividends = parseDividendsFromHtml(html)
+      console.log('[測試] 解析結果:', JSON.stringify(dividends))
+      
       return new Response(
-        JSON.stringify({ error: '缺少 raceDate 參數' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ 
+          htmlLength: html.length, 
+          htmlPreview: html.substring(0, 2000),
+          dividends 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    } catch (err) {
+      console.error('[測試] 失敗:', err)
+      return new Response(
+        JSON.stringify({ error: (err as Error).message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
+  }
+  // ===== 測試代碼結束 =====
 
     // 1. 讀取未結算的投注
     const { data: bets, error: betsError } = await supabaseAdmin
