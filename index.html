@@ -1521,8 +1521,9 @@ function handleEnterKey(e) {
         const { data, error } = await supabaseClient.from('bets').select('payout, amount, refund_amount, refund, flexible_data').eq('participant', user).gte('race_date', startDate).lte('race_date', endDate).range(0, 9999);
         if (error) { document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>'; return; }
         const allData = data || [];
-        const totalStake = allData.reduce((sum, b) => sum + (b.amount || 0), 0);
-        const totalProfit = allData.reduce((sum, b) => sum + (b.payout || 0), 0);
+        const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 0), 0);
+        const totalPayout = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
+        const totalProfit = totalPayout - totalStake; // 利潤 = 派彩 - 本金
         const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
         const totalRaces = allData.length;
         const winningRaces = allData.filter(b => (b.payout || 0) > 0).length;
@@ -1573,20 +1574,23 @@ function handleEnterKey(e) {
                 else { allBets = allBets.concat(pageData); page++; if (pageData.length < pageSize) hasMore = false; }
             }
             const statsMap = new Map();
-            participantNames.forEach(name => { statsMap.set(name, { totalStake: 0, totalProfit: 0 }); });
-            allBets.forEach(bet => {
-                const name = bet.participant;
-                if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalProfit: 0 });
-                const s = statsMap.get(name);
-                s.totalStake += bet.amount || 0;
-                s.totalProfit += bet.payout || 0;
+            participantNames.forEach(name => {
+              statsMap.set(name, { totalStake: 0, totalPayout: 0 });
             });
-            const ranking = Array.from(statsMap.entries())
-                .map(([name, s]) => ({
+            (data || []).forEach(bet => {
+              const name = bet.participant;
+              if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
+              const s = statsMap.get(name);
+              s.totalStake += bet.amount || 0;
+              s.totalPayout += bet.payout || 0;
+            });
+            const ranking = Array.from(statsMap.entries()).map(([name, s]) => {
+                const totalProfit = s.totalPayout - s.totalStake; // 利潤 = 派彩 - 本金
+                  return {
                     name,
                     totalStake: s.totalStake,
-                    totalProfit: s.totalProfit,
-                    roi: s.totalStake === 0 ? 0 : ((s.totalProfit / s.totalStake) * 100).toFixed(1)
+                    totalProfit: totalProfit,
+                    roi: s.totalStake === 0 ? 0 : ((totalProfit / s.totalStake) * 100).toFixed(1)
                 }))
                 .sort((a, b) => {
                     // 先按總利潤由高到低排序
