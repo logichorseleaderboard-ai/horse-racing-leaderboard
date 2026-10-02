@@ -573,78 +573,110 @@
 
     // ===== 封盤後自動扣款 =====
 async function autoDeductAfterCutoff() {
-  if (!currentRaceDate) return;
+    if (!currentRaceDate) return;
 
-  // 檢查該賽日是否已經執行過自動扣款
-  const { data: existingAutoDeduct } = await supabaseClient
-    .from('bets')
-    .select('id')
-    .eq('race_date', currentRaceDate)
-    .eq('race_no', 0)
-    .eq('flexible_data->>auto_deduct', 'true')
-    .limit(1);
+    // 檢查該賽日是否已經執行過自動扣款
+    const { data: existingAutoDeduct } = await supabaseClient
+        .from('bets')
+        .select('id')
+        .eq('race_date', currentRaceDate)
+        .eq('race_no', 0)
+        .eq('flexible_data->>auto_deduct', 'true')
+        .limit(1);
 
-  if (existingAutoDeduct && existingAutoDeduct.length > 0) {
-    console.log(`[autoDeductAfterCutoff] ${currentRaceDate} 已執行過自動扣款，跳過`);
-    return;
-  }
-
-  console.log(`[autoDeductAfterCutoff] 開始對 ${currentRaceDate} 未投注者自動扣款`);
-
-  try {
-    // 取得所有參賽者
-    const { data: allParticipants, error: pErr } = await supabaseClient
-      .from('participants')
-      .select('name');
-    if (pErr) throw pErr;
-
-    const participantNames = allParticipants.map(p => p.name);
-
-    // 取得該賽日已有投注的參賽者
-    const { data: bets, error: bErr } = await supabaseClient
-      .from('bets')
-      .select('participant')
-      .eq('race_date', currentRaceDate);
-    if (bErr) throw bErr;
-
-    const existingParticipants = new Set(bets.map(b => b.participant));
-    const noBetParticipants = participantNames.filter(name => !existingParticipants.has(name));
-
-    if (noBetParticipants.length === 0) {
-      console.log(`[autoDeductAfterCutoff] ${currentRaceDate} 所有參賽者皆有投注，無需扣款`);
-      return;
+    if (existingAutoDeduct && existingAutoDeduct.length > 0) {
+        console.log(`[autoDeductAfterCutoff] ${currentRaceDate} 已執行過自動扣款，跳過`);
+        return;
     }
 
-    // 逐一插入自動扣款紀錄
-    for (const participant of noBetParticipants) {
-      const autoDeductData = {
-        participant: participant,
-        race_date: currentRaceDate,
-        race_no: 0,
-        banker: null,
-        legs: null,
-        payout: -120,
-        reason: `自動扣款 (${currentRaceDate} 未投注)`,
-        flexible_data: {
-          auto_deduct: true,
-          amount: 120,
-          message: `未在 ${currentRaceDate} 投注，自動扣除 $120`,
-        },
-        amount: 120,
-      };
-      await supabaseClient.from('bets').insert([autoDeductData]);
-    }
+    console.log(`[autoDeductAfterCutoff] 開始對 ${currentRaceDate} 未投注者自動扣款`);
 
-    console.log(`[autoDeductAfterCutoff] 已對 ${noBetParticipants.length} 位參賽者自動扣款 $120`);
+    try {
+        const { data: allParticipants, error: pErr } = await supabaseClient
+            .from('participants')
+            .select('name');
+        if (pErr) throw pErr;
 
-    // 重新載入相關數據
-    loadMonthlyRanking();
-    if (document.getElementById('stats-page').classList.contains('active-page')) {
-      loadStatsForCurrentUser();
+        const participantNames = allParticipants.map(p => p.name);
+
+        const { data: bets, error: bErr } = await supabaseClient
+            .from('bets')
+            .select('participant')
+            .eq('race_date', currentRaceDate);
+        if (bErr) throw bErr;
+
+        const existingParticipants = new Set(bets.map(b => b.participant));
+        const noBetParticipants = participantNames.filter(name => !existingParticipants.has(name));
+
+        if (noBetParticipants.length === 0) {
+            console.log(`[autoDeductAfterCutoff] ${currentRaceDate} 所有參賽者皆有投注，無需扣款`);
+            return;
+        }
+
+        for (const participant of noBetParticipants) {
+            const autoDeductData = {
+                participant: participant,
+                race_date: currentRaceDate,
+                race_no: 0,
+                banker: null,
+                legs: null,
+                payout: -120,
+                reason: `自動扣款 (${currentRaceDate} 未投注)`,
+                flexible_data: {
+                    auto_deduct: true,
+                    amount: 120,
+                    message: `未在 ${currentRaceDate} 投注，自動扣除 $120`,
+                },
+                amount: 120,
+            };
+            await supabaseClient.from('bets').insert([autoDeductData]);
+        }
+
+        console.log(`[autoDeductAfterCutoff] 已對 ${noBetParticipants.length} 位參賽者自動扣款 $120`);
+
+        loadMonthlyRanking();
+        if (document.getElementById('stats-page').classList.contains('active-page')) {
+            loadStatsForCurrentUser();
+        }
+    } catch (err) {
+        console.error('[autoDeductAfterCutoff] 錯誤:', err);
     }
-  } catch (err) {
-    console.error('[autoDeductAfterCutoff] 錯誤:', err);
-  }
+}
+
+// ===== 更新倒數計時顯示 =====
+function updateCountdownDisplay() {
+    const raceDate = document.getElementById('inputRaceDate')?.value;
+    const countdownEl = document.getElementById('countdownDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const lockMsg = document.getElementById('inputLockMsg');
+    if (!raceDate) { if (countdownEl) countdownEl.innerHTML = '請選擇賽日'; return; }
+    const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
+    if (countdownEl) {
+        countdownEl.innerHTML = formatCountdown(secondsLeft);
+        if (secondsLeft <= 60 && secondsLeft > 0) { countdownEl.style.color = '#ef4444'; countdownEl.style.fontWeight = 'bold'; }
+        else { countdownEl.style.color = ''; countdownEl.style.fontWeight = ''; }
+    }
+    if (secondsLeft <= 0) {
+        if (submitBtn) submitBtn.disabled = true;
+        if (lockMsg) { lockMsg.style.display = 'block'; lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`; }
+
+        // ★★★ 封盤後自動扣款 ★★★
+        if (!window._autoDeductTriggered?.[raceDate]) {
+            if (!window._autoDeductTriggered) window._autoDeductTriggered = {};
+            window._autoDeductTriggered[raceDate] = true;
+            autoDeductAfterCutoff();
+            loadFocusHorses();
+        }
+        // ★★★ 自動扣款結束 ★★★
+
+    } else {
+        if (submitBtn) submitBtn.disabled = false;
+        if (lockMsg) lockMsg.style.display = 'none';
+        // 如果未封盤，重置標記（避免跨日時卡住）
+        if (window._autoDeductTriggered?.[raceDate]) {
+            delete window._autoDeductTriggered[raceDate];
+        }
+    }
 }
     
     // ============================================================
