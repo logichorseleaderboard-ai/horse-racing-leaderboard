@@ -181,7 +181,7 @@ function parseDividendsFromHtml(html: string): Record<string, Record<string, num
 
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
   let rowMatch
-  let lastPoolName = '' // 記住上一個非空的彩池名稱
+  let lastPoolName = ''
 
   while ((rowMatch = rowRegex.exec(targetHtml)) !== null) {
     const rowHtml = rowMatch[1]
@@ -195,16 +195,25 @@ function parseDividendsFromHtml(html: string): Record<string, Record<string, num
 
     if (tds.length < 2) continue
 
-    // 如果第一格為空，沿用上一個彩池名稱
-    const poolName = tds[0] || lastPoolName
-    const combo = tds[1]
-    const amountStr = tds[2] || ''
+    let poolName = ''
+    let combo = ''
+    let amountStr = ''
+
+    if (tds.length >= 3) {
+      // 正常行：彩池名稱 | 組合 | 派彩
+      poolName = tds[0]
+      combo = tds[1]
+      amountStr = tds[2]
+      lastPoolName = poolName
+    } else if (tds.length === 2) {
+      // 跨行：組合 | 派彩（彩池名稱沿用上一個）
+      poolName = lastPoolName
+      combo = tds[0]
+      amountStr = tds[1]
+    }
+
     const amount = parseFloat(amountStr.replace(/,/g, ''))
-
     if (isNaN(amount)) continue
-
-    // 只有非空才更新 lastPoolName
-    if (tds[0]) lastPoolName = tds[0]
 
     if (poolName.includes('獨贏')) {
       dividends.WIN[combo] = amount
