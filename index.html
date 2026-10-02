@@ -1053,7 +1053,7 @@
         if (detailSelect) detailSelect.value = 'all';
     }
 
-    // ===== 是日重心馬 =====
+// ===== 是日重心馬 =====
 async function loadFocusHorses() {
   const card = document.getElementById('focusHorsesCard');
   const content = document.getElementById('focusHorsesContent');
@@ -1067,15 +1067,14 @@ async function loadFocusHorses() {
   // 檢查是否已封盤
   const secondsLeft = getSecondsUntilCutoff(currentRaceDate, currentCutoffTime);
   if (secondsLeft > 0) {
-    // 未封盤，唔顯示
     card.style.display = 'none';
     return;
   }
 
-  // 封盤後，載入該賽日所有投注紀錄
+  // 載入該賽日所有投注紀錄
   const { data: bets, error } = await supabaseClient
     .from('bets')
-    .select('flexible_data, banker, legs')
+    .select('race_no, flexible_data, banker, legs')
     .eq('race_date', currentRaceDate);
 
   if (error || !bets || bets.length === 0) {
@@ -1083,21 +1082,18 @@ async function loadFocusHorses() {
     return;
   }
 
-  // 統計每匹馬被選擇嘅次數
-  const horseCount = {};
-  
+  // 統計每匹馬（以「場次-馬號」為 key）被選擇嘅次數
+  const horseStats = {}; // { "raceNo-horseNo": { raceNo, horseNo, count } }
+
   bets.forEach(b => {
     let horses = [];
-    
+    const raceNo = b.race_no;
+
     if (b.flexible_data) {
       const fd = b.flexible_data;
       const horsesStr = fd.horses;
-      const comboType = fd.comboType;
-      const banker = fd.banker;
-      
       if (horsesStr) {
-        const horseList = horsesStr.split(',').map(s => s.trim()).filter(s => s).map(Number);
-        horses = horseList;
+        horses = horsesStr.split(',').map(s => s.trim()).filter(s => s).map(Number);
       }
     } else if (b.banker && b.banker !== '') {
       horses.push(parseInt(b.banker));
@@ -1105,19 +1101,22 @@ async function loadFocusHorses() {
         b.legs.split(',').forEach(l => horses.push(parseInt(l.trim())));
       }
     }
-    
+
     // 去重複（同一投注中同一匹馬只計一次）
     const uniqueHorses = [...new Set(horses)];
     uniqueHorses.forEach(h => {
-      if (!isNaN(h)) {
-        horseCount[h] = (horseCount[h] || 0) + 1;
+      if (!isNaN(h) && raceNo > 0) {
+        const key = `${raceNo}-${h}`;
+        if (!horseStats[key]) {
+          horseStats[key] = { raceNo, horseNo: h, count: 0 };
+        }
+        horseStats[key].count += 1;
       }
     });
   });
 
   // 排序，取前三名
-  const sorted = Object.entries(horseCount)
-    .map(([horseNo, count]) => ({ horseNo: parseInt(horseNo), count }))
+  const sorted = Object.values(horseStats)
     .sort((a, b) => b.count - a.count)
     .slice(0, 3);
 
@@ -1126,25 +1125,34 @@ async function loadFocusHorses() {
     return;
   }
 
+  // 為每匹馬取得馬名
+  const horseNames = {};
+  for (const item of sorted) {
+    const horses = await fetchHorsesFromAPI(currentRaceDate, item.raceNo);
+    const horse = horses.find(h => h.horseNo === item.horseNo);
+    horseNames[`${item.raceNo}-${item.horseNo}`] = horse ? horse.horseName : `馬匹 ${item.horseNo}`;
+  }
+
   // 顯示
   card.style.display = 'block';
-  
-  let html = '<div style="display: flex; gap: 12px; flex-wrap: wrap;">';
   const medals = ['🥇', '🥈', '🥉'];
-  const colors = ['#fef3c7', '#e2e8f0', '#fed7aa'];
-  const textColors = ['#92400e', '#475569', '#9a3412'];
-  
+
+  let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
   sorted.forEach((item, idx) => {
+    const horseName = horseNames[`${item.raceNo}-${item.horseNo}`] || `馬匹 ${item.horseNo}`;
     html += `
-      <div style="flex: 1; min-width: 100px; background: ${colors[idx]}; padding: 12px; border-radius: 16px; text-align: center;">
+      <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 12px 16px; border-radius: 12px;">
         <div style="font-size: 1.5rem;">${medals[idx]}</div>
-        <div style="font-size: 1.3rem; font-weight: bold; color: ${textColors[idx]};">${item.horseNo} 號</div>
-        <div style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">${item.count} 位參賽者選擇</div>
+        <div style="flex: 1;">
+          <div style="font-weight: bold; font-size: 1rem;">第 ${item.raceNo} 場 ${item.horseNo} 號</div>
+          <div style="font-size: 0.85rem; color: #475569;">${horseName}</div>
+        </div>
+        <div style="font-size: 0.75rem; color: #64748b;">${item.count} 人選擇</div>
       </div>
     `;
   });
   html += '</div>';
-  
+
   content.innerHTML = html;
 }
     // ========== 排位熱度圖 ==========
