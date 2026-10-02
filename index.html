@@ -1083,7 +1083,7 @@ async function loadFocusHorses() {
   }
 
   // 統計每匹馬（以「場次-馬號」為 key）被選擇嘅次數
-  const horseStats = {}; // { "raceNo-horseNo": { raceNo, horseNo, count } }
+  const horseStats = {};
 
   bets.forEach(b => {
     let horses = [];
@@ -1102,7 +1102,6 @@ async function loadFocusHorses() {
       }
     }
 
-    // 去重複（同一投注中同一匹馬只計一次）
     const uniqueHorses = [...new Set(horses)];
     uniqueHorses.forEach(h => {
       if (!isNaN(h) && raceNo > 0) {
@@ -1136,18 +1135,21 @@ async function loadFocusHorses() {
   // 顯示
   card.style.display = 'block';
   const medals = ['🥇', '🥈', '🥉'];
+  const colors = ['#fef3c7', '#e2e8f0', '#fed7aa'];
+  const textColors = ['#92400e', '#475569', '#9a3412'];
 
-  let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+  let html = '<div style="display: flex; gap: 12px; flex-wrap: wrap;">';
   sorted.forEach((item, idx) => {
     const horseName = horseNames[`${item.raceNo}-${item.horseNo}`] || `馬匹 ${item.horseNo}`;
     html += `
-      <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 12px 16px; border-radius: 12px;">
+      <div style="flex: 1; min-width: 120px; background: ${colors[idx]}; padding: 14px 12px; border-radius: 16px; text-align: center;">
         <div style="font-size: 1.5rem;">${medals[idx]}</div>
-        <div style="flex: 1;">
-          <div style="font-weight: bold; font-size: 1rem;">第 ${item.raceNo} 場 ${item.horseNo} 號</div>
-          <div style="font-size: 0.85rem; color: #475569;">${horseName}</div>
+        <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 4px;">第 ${item.raceNo} 場</div>
+        <div style="font-size: 1.3rem; font-weight: bold; color: ${textColors[idx]};">${item.horseNo} 號</div>
+        <div style="font-size: 0.8rem; color: ${textColors[idx]}; margin-top: 4px; font-weight: 500;">${horseName}</div>
+        <div style="font-size: 0.7rem; color: #64748b; margin-top: 6px; background: rgba(255,255,255,0.6); padding: 3px 6px; border-radius: 8px; display: inline-block;">
+          ${item.count} 人選擇
         </div>
-        <div style="font-size: 0.75rem; color: #64748b;">${item.count} 人選擇</div>
       </div>
     `;
   });
