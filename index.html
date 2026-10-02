@@ -998,6 +998,7 @@
     }
     
     async function initRaceNoSelects() {
+        console.log('[initRaceNoSelects] currentRaceDate:', currentRaceDate);
         if (!currentRaceDate) return;
         const raceCount = await fetchRaceCount(currentRaceDate);
         const opts = Array.from({length: raceCount}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
