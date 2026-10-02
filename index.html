@@ -309,63 +309,83 @@
         <div id="resultDisplay" style="margin-top:16px;"></div>
       </div>
     </div>
-    <!-- 管理頁 -->
-    <div id="admin-page" class="page">
-        <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
-        <div id="adminPanel" style="display:none;">
-            <div class="card"><h3>⏰ 自動封盤設定</h3><div class="form-group"><label>封盤時間 (賽日當天)</label><input type="time" id="cutoffTime" step="1" value="12:30:00"><div class="bet-limit">設定後，投注頁會顯示距離封盤的倒計時</div></div><button id="saveCutoffTimeBtn" class="btn" style="background:#475569;">💾 儲存設定</button><div id="cutoffTimeStatus" class="info-note" style="margin-top:10px;"></div></div>
-              <h3>🏁 自動結算賽果</h3>
-              <div class="form-group">
-                <label>選擇賽日</label>
-                <select id="autoSettleRaceDate"></select>
-              </div>
-              <button id="autoSettleBtn" class="btn" style="background:#1e6f3f;">
-                🔄 執行自動結算
-              </button>
-              <div id="autoSettleMsg" class="info-note" style="margin-top:10px; display:none;"></div>
-            </div>
-            <div class="card"><h3>人員管理</h3><input type="text" id="newUserName" placeholder="新參賽者"><button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button><div id="participantList"></div></div>
-            <div class="card"><h3>賽日管理</h3><input type="date" id="newRaceDate"><button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增</button><div id="raceDayList"></div></div>
-            <!-- ========== PIN 碼管理 ========== -->
-<div class="card">
-    <h3>🔐 PIN 碼管理</h3>
+<!-- 管理頁 -->
+<div id="admin-page" class="page">
+  <div id="adminAuth" class="card">
+    <input type="password" id="adminPwd" placeholder="管理密碼">
+    <button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button>
+  </div>
+  <div id="adminPanel" style="display:none;">
     
-    <!-- 單一參賽者 PIN 碼操作 -->
-    <div class="form-row">
+    <!-- 自動封盤設定 -->
+    <div class="card">
+      <h3>⏰ 自動封盤設定</h3>
+      <div class="form-group">
+        <label>封盤時間 (賽日當天)</label>
+        <input type="time" id="cutoffTime" step="1" value="12:30:00">
+        <div class="bet-limit">設定後，投注頁會顯示距離封盤的倒計時</div>
+      </div>
+      <button id="saveCutoffTimeBtn" class="btn" style="background:#475569;">💾 儲存設定</button>
+      <div id="cutoffTimeStatus" class="info-note" style="margin-top:10px;"></div>
+    </div>
+    
+    <!-- 自動結算賽果 -->
+    <div class="card">
+      <h3>🏁 自動結算賽果</h3>
+      <div class="form-group">
+        <label>選擇賽日</label>
+        <select id="autoSettleRaceDate"></select>
+      </div>
+      <button id="autoSettleBtn" class="btn" style="background:#1e6f3f;">🔄 執行自動結算</button>
+      <div id="autoSettleMsg" class="info-note" style="margin-top:10px; display:none;"></div>
+    </div>
+    
+    <!-- 人員管理 -->
+    <div class="card">
+      <h3>人員管理</h3>
+      <input type="text" id="newUserName" placeholder="新參賽者">
+      <button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button>
+      <div id="participantList"></div>
+    </div>
+    
+    <!-- 賽日管理 -->
+    <div class="card">
+      <h3>賽日管理</h3>
+      <input type="date" id="newRaceDate">
+      <button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增</button>
+      <div id="raceDayList"></div>
+    </div>
+    
+    <!-- PIN 碼管理 -->
+    <div class="card">
+      <h3>🔐 PIN 碼管理</h3>
+      <div class="form-row">
         <label>參賽者</label>
         <select id="pinParticipantSelect"></select>
-    </div>
-    <div class="form-row">
+      </div>
+      <div class="form-row">
         <label>新 PIN 碼</label>
-        <input type="password" id="newPinInput" placeholder="4 位數字" maxlength="4" 
-               style="width: 120px; text-align: center; letter-spacing: 8px; font-size: 1.2rem;">
+        <input type="password" id="newPinInput" placeholder="4 位數字" maxlength="4" style="width: 120px; text-align: center; letter-spacing: 8px; font-size: 1.2rem;">
         <button onclick="updatePin()" style="width: auto;">✏️ 更新</button>
-        <button onclick="resetPin(document.getElementById('pinParticipantSelect').value)" 
-                style="width: auto; background: #f59e0b;">🔄 隨機重設</button>
-    </div>
-    
-    <!-- PIN 碼列表 -->
-    <div id="pinList" style="margin-top: 12px; max-height: 400px; overflow-y: auto;"></div>
-    
-    <!-- 批次操作 -->
-    <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button onclick="batchResetAllPins()" 
-                style="background: #b91c1c; width: auto; padding: 6px 20px;">
-            🔄 批次重設所有 PIN 碼
-        </button>
-        <button onclick="exportPins()" 
-                style="background: #475569; width: auto; padding: 6px 20px;">
-            📥 匯出 PIN 碼 (CSV)
-        </button>
-    </div>
-    
-    <div class="info-note" style="margin-top: 12px;">
+        <button onclick="resetPin(document.getElementById('pinParticipantSelect').value)" style="width: auto; background: #f59e0b;">🔄 隨機重設</button>
+      </div>
+      <div id="pinList" style="margin-top: 12px; max-height: 400px; overflow-y: auto;"></div>
+      <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <button onclick="batchResetAllPins()" style="background: #b91c1c; width: auto; padding: 6px 20px;">🔄 批次重設所有 PIN 碼</button>
+        <button onclick="exportPins()" style="background: #475569; width: auto; padding: 6px 20px;">📥 匯出 PIN 碼 (CSV)</button>
+      </div>
+      <div class="info-note" style="margin-top: 12px;">
         💡 新參賽者預設 PIN 碼為 <strong>0000</strong>。管理員可個別重設或批次重設所有 PIN 碼。
+      </div>
     </div>
-</div>
-            <div class="card"><h3>所有投注紀錄</h3><div id="adminBetsList"></div></div>
-        </div>
+    
+    <!-- 所有投注紀錄 -->
+    <div class="card">
+      <h3>所有投注紀錄</h3>
+      <div id="adminBetsList"></div>
     </div>
+    
+  </div>
 </div>
 
 <div class="nav-bottom">
