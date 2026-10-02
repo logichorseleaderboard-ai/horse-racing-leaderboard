@@ -10,49 +10,6 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // ===== 臨時測試區塊（獨立，不影響正式結算）=====
-  const url = new URL(req.url)
-  if (url.searchParams.get('test') === '1') {
-    try {
-      const testDate = '2026-10-01'
-      const testRaceNo = 1
-
-      let html = ''
-      let usedCourse = 'ST'
-      try {
-        html = await fetchRaceResultPage(testDate, testRaceNo, 'ST')
-        console.log('[測試] 成功抓取沙田賽果頁面')
-      } catch (e) {
-        console.log('[測試] 沙田失敗，嘗試跑馬地:', (e as Error).message)
-        usedCourse = 'HV'
-        html = await fetchRaceResultPage(testDate, testRaceNo, 'HV')
-        console.log('[測試] 成功抓取跑馬地賽果頁面')
-      }
-
-      console.log('[測試] 使用馬場:', usedCourse)
-      console.log('[測試] HTML 長度:', html.length)
-
-      const dividends = parseDividendsFromHtml(html)
-      console.log('[測試] 解析結果:', JSON.stringify(dividends))
-
-      return new Response(
-        JSON.stringify({
-          usedCourse,
-          htmlLength: html.length,
-          dividends,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    } catch (err) {
-      console.error('[測試] 失敗:', err)
-      return new Response(
-        JSON.stringify({ error: (err as Error).message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
-    }
-  }
-  // ===== 測試區塊結束 =====
-
   // ===== 正式結算邏輯 =====
   try {
     const supabaseAdmin = createClient(
@@ -169,7 +126,7 @@ async function fetchRaceResultPage(raceDate: string, raceNo: number, racecourse?
 }
 
 // ===================================================================
-// 從 HTML 解析派彩數據（支援跨行累積）
+// 從 HTML 解析派彩數據（支援 rowspan 跨行）
 // ===================================================================
 function parseDividendsFromHtml(html: string): Record<string, Record<string, number>> {
   const dividends: Record<string, Record<string, number>> = {
@@ -200,13 +157,11 @@ function parseDividendsFromHtml(html: string): Record<string, Record<string, num
     let amountStr = ''
 
     if (tds.length >= 3) {
-      // 正常行：彩池名稱 | 組合 | 派彩
       poolName = tds[0]
       combo = tds[1]
       amountStr = tds[2]
       lastPoolName = poolName
     } else if (tds.length === 2) {
-      // 跨行：組合 | 派彩（彩池名稱沿用上一個）
       poolName = lastPoolName
       combo = tds[0]
       amountStr = tds[1]
