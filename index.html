@@ -986,14 +986,18 @@
     }
     
     async function loadRaceDays() {
+        console.log('[loadRaceDays] 開始');
         const { data, error } = await supabaseClient.from('race_days').select('*').order('race_date', { ascending: true });
         if (!error) raceDays = data || [];
+        console.log('[loadRaceDays] raceDays 數量:', raceDays.length);
         const today = new Date().toISOString().slice(0,10);
         const nextRace = raceDays.find(d => d.race_date >= today) || raceDays[0];
         currentRaceDate = nextRace ? nextRace.race_date : null;
+        console.log('[loadRaceDays] currentRaceDate:', currentRaceDate);
         if (currentRaceDate) document.getElementById('inputRaceDate').value = currentRaceDate;
         document.getElementById('raceDayList').innerHTML = raceDays.map(d => `<span class="badge">${d.race_date} <b onclick="deleteRaceDay(${d.id})" style="cursor:pointer;color:red;">✖</b></span>`).join(' ');
         await loadRaceDaysForResult(); await loadRaceDaysForSettle(); await loadRaceDaysForDetail(); await initRaceNoSelects();
+        console.log('[loadRaceDays] initRaceNoSelects 完成');
         updateCountdownDisplay();
     }
     
