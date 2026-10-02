@@ -1304,43 +1304,117 @@ function handleEnterKey(e) {
     
     // ========== 投注詳情 ==========
     async function loadUserBets() {
-        const user = document.getElementById('detailUserSelect').value;
-        const raceDate = document.getElementById('detailRaceDate').value;
-        const raceNo = document.getElementById('detailRaceNo').value;
-        let query = supabaseClient.from('bets').select('*').order('race_date', { ascending: true }).order('race_no', { ascending: true });
-        if (user && user !== 'all') query = query.eq('participant', user);
-        if (raceDate && raceDate !== 'all') query = query.eq('race_date', raceDate);
-        if (raceNo && raceNo !== 'all') query = query.eq('race_no', parseInt(raceNo));
-        const { data, error } = await query;
-        if (error) { document.getElementById('detailList').innerHTML = '<div class="card">載入失敗</div>'; return; }
-        if (!data || !data.length) { document.getElementById('detailList').innerHTML = '<div class="card">無符合條件的投注紀錄</div>'; return; }
-        let html = '';
-        for (let b of data) {
-            let selectedHorses = '', allocation = '', refundMsg = '', reasonText = b.reason ? `📝 原因: ${b.reason}` : '', borderColor = '#cbd5e1';
-            const netProfit = b.payout || 0; const cost = b.amount || 0; const actualPayout = netProfit + cost; const displayPayout = actualPayout >= 0 ? actualPayout : 0;
-            if (b.flexible_data && b.flexible_data.auto_deduct) {
-                selectedHorses = '-'; allocation = '⚠️ 自動扣款: $120 (未投注)'; borderColor = '#ef4444';
-            } else if (b.flexible_data && b.flexible_data.units) {
-                const fd = b.flexible_data; const units = fd.units || {}; const horses = fd.horses ? fd.horses.split(',').join('、') : ''; const comboType = fd.comboType; const banker = fd.banker; const horseCount = fd.horseCount || (horses ? horses.split('、').length : 1);
-                let comboInfo = ''; if (comboType === 'banker' && banker) { comboInfo = ` (膽拖 - 膽馬 ${banker})`; } else if (comboType === 'all' && horseCount > 1) { comboInfo = ` (互串)`; }
-                selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
-                const winUnits = units.win || 0; const placeUnits = units.place || 0; const quinellaGroups = units.quinella || 0; const quinellaPlaceGroups = units.quinellaPlace || 0; const multiplier = fd.multiplier || 1;
-                let allocationParts = [];
-                if (winUnits > 0) { if (comboType === 'banker' && horseCount > 1) { allocationParts.push(`獨贏 ${winUnits}注 (只限膽馬)`); } else if (horseCount > 1) { allocationParts.push(`獨贏 ${winUnits}注/匹 (共${winUnits * horseCount}注)`); } else { allocationParts.push(`獨贏 ${winUnits}注`); } }
-                if (placeUnits > 0) { if (comboType === 'banker' && horseCount > 1) { allocationParts.push(`位置 ${placeUnits}注 (只限膽馬)`); } else if (horseCount > 1) { allocationParts.push(`位置 ${placeUnits}注/匹 (共${placeUnits * horseCount}注)`); } else { allocationParts.push(`位置 ${placeUnits}注`); } }
-                if (quinellaGroups > 0) { allocationParts.push(`連贏 ${quinellaGroups}組 (x${multiplier}=${quinellaGroups * multiplier}注)`); }
-                if (quinellaPlaceGroups > 0) { allocationParts.push(`位置Q ${quinellaPlaceGroups}組 (x${multiplier}=${quinellaPlaceGroups * multiplier}注)`); }
-                allocation = `🎲 分配: ${allocationParts.join(' / ')}`;
-                if (b.refund === true && b.refund_amount > 0) { const originalAmount = cost + b.refund_amount; if (b.refund_amount >= originalAmount) { refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`; } else { refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`; } borderColor = '#f59e0b'; }
-            } else if (b.banker && b.banker !== '' && b.legs) {
-                selectedHorses = `🐎 膽馬: ${b.banker} / 腳馬: ${b.legs}`; allocation = '🎲 分配: 膽馬獨贏1注 + 位置3注 + 連贏2注 + 位置Q2注';
-                if (b.refund === true && b.refund_amount > 0) { const originalAmount = cost + b.refund_amount; if (b.refund_amount >= originalAmount) { refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`; } else { refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`; } borderColor = '#f59e0b'; }
-            }
-            if (actualPayout > cost && cost > 0) { borderColor = '#16a34a'; }
-            html += `<div class="card" style="border-left:4px solid ${borderColor}; margin-bottom:12px;"><div><strong>📅 ${b.race_date} 第 ${b.race_no} 場</strong></div><div>👤 參賽者: ${b.participant}</div><div>${selectedHorses}</div><div>${allocation}</div>${reasonText ? `<div>${reasonText}</div>` : ''}${refundMsg}<div>💰 派彩: $${displayPayout}</div></div>`;
+  const user = document.getElementById('detailUserSelect').value;
+  const raceDate = document.getElementById('detailRaceDate').value;
+  const raceNo = document.getElementById('detailRaceNo').value;
+  let query = supabaseClient.from('bets').select('*').order('race_date', { ascending: true }).order('race_no', { ascending: true });
+  if (user && user !== 'all') query = query.eq('participant', user);
+  if (raceDate && raceDate !== 'all') query = query.eq('race_date', raceDate);
+  if (raceNo && raceNo !== 'all') query = query.eq('race_no', parseInt(raceNo));
+  const { data, error } = await query;
+  if (error) {
+    console.error(error);
+    document.getElementById('detailList').innerHTML = '<div class="card">載入失敗</div>';
+    return;
+  }
+  if (!data || !data.length) {
+    document.getElementById('detailList').innerHTML = '<div class="card">無符合條件的投注紀錄</div>';
+    return;
+  }
+  let html = '';
+  for (let b of data) {
+    let selectedHorses = '', allocation = '', refundMsg = '', reasonText = b.reason ? `📝 原因: ${b.reason}` : '', borderColor = '#cbd5e1';
+    const displayPayout = b.payout || 0; // 直接顯示 payout，唔加本金
+
+    if (b.flexible_data && b.flexible_data.auto_deduct) {
+      selectedHorses = '-';
+      allocation = '⚠️ 自動扣款: $120 (未投注)';
+      borderColor = '#ef4444';
+    } else if (b.flexible_data && b.flexible_data.units) {
+      const fd = b.flexible_data;
+      const units = fd.units || {};
+      const horses = fd.horses ? fd.horses.split(',').join('、') : '';
+      const comboType = fd.comboType;
+      const banker = fd.banker;
+      const horseCount = fd.horseCount || (horses ? horses.split('、').length : 1);
+      let comboInfo = '';
+      if (comboType === 'banker' && banker) {
+        comboInfo = ` (膽拖 - 膽馬 ${banker})`;
+      } else if (comboType === 'all' && horseCount > 1) {
+        comboInfo = ` (互串)`;
+      }
+      selectedHorses = `🐎 選馬: ${horses}${comboInfo}`;
+      const winUnits = units.win || 0;
+      const placeUnits = units.place || 0;
+      const quinellaGroups = units.quinella || 0;
+      const quinellaPlaceGroups = units.quinellaPlace || 0;
+      const multiplier = fd.multiplier || 1;
+      let allocationParts = [];
+      if (winUnits > 0) {
+        if (comboType === 'banker' && horseCount > 1) {
+          allocationParts.push(`獨贏 ${winUnits}注 (只限膽馬)`);
+        } else if (horseCount > 1) {
+          allocationParts.push(`獨贏 ${winUnits}注/匹 (共${winUnits * horseCount}注)`);
+        } else {
+          allocationParts.push(`獨贏 ${winUnits}注`);
         }
-        document.getElementById('detailList').innerHTML = html;
+      }
+      if (placeUnits > 0) {
+        if (comboType === 'banker' && horseCount > 1) {
+          allocationParts.push(`位置 ${placeUnits}注 (只限膽馬)`);
+        } else if (horseCount > 1) {
+          allocationParts.push(`位置 ${placeUnits}注/匹 (共${placeUnits * horseCount}注)`);
+        } else {
+          allocationParts.push(`位置 ${placeUnits}注`);
+        }
+      }
+      if (quinellaGroups > 0) {
+        allocationParts.push(`連贏 ${quinellaGroups}組 (x${multiplier}=${quinellaGroups * multiplier}注)`);
+      }
+      if (quinellaPlaceGroups > 0) {
+        allocationParts.push(`位置Q ${quinellaPlaceGroups}組 (x${multiplier}=${quinellaPlaceGroups * multiplier}注)`);
+      }
+      allocation = `🎲 分配: ${allocationParts.join(' / ')}`;
+      if (b.refund === true && b.refund_amount > 0) {
+        const originalAmount = (b.amount || 0) + b.refund_amount;
+        if (b.refund_amount >= originalAmount) {
+          refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
+        } else {
+          refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`;
+        }
+        borderColor = '#f59e0b';
+      }
+    } else if (b.banker && b.banker !== '' && b.legs) {
+      selectedHorses = `🐎 膽馬: ${b.banker} / 腳馬: ${b.legs}`;
+      allocation = '🎲 分配: 膽馬獨贏1注 + 位置3注 + 連贏2注 + 位置Q2注';
+      if (b.refund === true && b.refund_amount > 0) {
+        const originalAmount = (b.amount || 0) + b.refund_amount;
+        if (b.refund_amount >= originalAmount) {
+          refundMsg = `<div style="color:#f59e0b;">🔄 退賽退款: 全額退款 $${b.refund_amount}（不計入統計）</div>`;
+        } else {
+          refundMsg = `<div style="color:#f59e0b;">⚠️ 部分退款: 退款 $${b.refund_amount}</div>`;
+        }
+        borderColor = '#f59e0b';
+      }
     }
+
+    // 顏色判斷：有派彩（>0）顯示綠色邊框
+    if (displayPayout > 0) {
+      borderColor = '#16a34a';
+    }
+
+    html += `<div class="card" style="border-left:4px solid ${borderColor}; margin-bottom:12px;">
+      <div><strong>📅 ${b.race_date} 第 ${b.race_no} 場</strong></div>
+      <div>👤 參賽者: ${b.participant}</div>
+      <div>${selectedHorses}</div>
+      <div>${allocation}</div>
+      ${reasonText ? `<div>${reasonText}</div>` : ''}
+      ${refundMsg}
+      <div>💰 派彩: $${displayPayout}</div>
+    </div>`;
+  }
+  document.getElementById('detailList').innerHTML = html;
+}
     
     // ========== 投注提交事件（整合編輯模式）==========
     document.getElementById('betForm').addEventListener('submit', async (e) => {
