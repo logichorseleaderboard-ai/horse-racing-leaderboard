@@ -314,8 +314,6 @@
         <div id="adminAuth" class="card"><input type="password" id="adminPwd" placeholder="管理密碼"><button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button></div>
         <div id="adminPanel" style="display:none;">
             <div class="card"><h3>⏰ 自動封盤設定</h3><div class="form-group"><label>封盤時間 (賽日當天)</label><input type="time" id="cutoffTime" step="1" value="12:30:00"><div class="bet-limit">設定後，投注頁會顯示距離封盤的倒計時</div></div><button id="saveCutoffTimeBtn" class="btn" style="background:#475569;">💾 儲存設定</button><div id="cutoffTimeStatus" class="info-note" style="margin-top:10px;"></div></div>
-            <div class="card"><h3>📅 賽日自動結算 (扣款 $120)</h3><div class="form-group"><label>選擇賽日</label><select id="settleRaceDate"></select></div><button id="autoDeductBtn" class="btn" style="background:#b91c1c;">🔁 執行賽日結算 (自動扣款)</button><div id="settleResultMsg" class="info-note" style="margin-top:10px; display:none;"></div></div>
-            <div class="card">
               <h3>🏁 自動結算賽果</h3>
               <div class="form-group">
                 <label>選擇賽日</label>
@@ -457,10 +455,25 @@
     if (secondsLeft <= 0) {
         if (submitBtn) submitBtn.disabled = true;
         if (lockMsg) { lockMsg.style.display = 'block'; lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`; }
+
+        // ★★★ 封盤後自動扣款 ★★★
+        if (!window._autoDeductTriggered?.[raceDate]) {
+            if (!window._autoDeductTriggered) window._autoDeductTriggered = {};
+            window._autoDeductTriggered[raceDate] = true;
+            autoDeductAfterCutoff();
+            loadFocusHorses(); // 同時載入是日重心馬
+        }
+        // ★★★ 自動扣款結束 ★★★
+
     } else {
         if (submitBtn) submitBtn.disabled = false;
         if (lockMsg) lockMsg.style.display = 'none';
+        // 如果未封盤，重置標記（避免跨日時卡住）
+        if (window._autoDeductTriggered?.[raceDate]) {
+            delete window._autoDeductTriggered[raceDate];
+        }
     }
+}
     
     // ===== 新增：封盤後自動載入重心馬 =====
     if (secondsLeft <= 0 && !window._focusHorsesLoaded) {
@@ -557,6 +570,82 @@
         if (serverHKTime) { const elapsed = Date.now() - lastSyncTime; return new Date(serverHKTime.getTime() + elapsed); }
         return new Date();
     }
+
+    // ===== 封盤後自動扣款 =====
+async function autoDeductAfterCutoff() {
+  if (!currentRaceDate) return;
+
+  // 檢查該賽日是否已經執行過自動扣款
+  const { data: existingAutoDeduct } = await supabaseClient
+    .from('bets')
+    .select('id')
+    .eq('race_date', currentRaceDate)
+    .eq('race_no', 0)
+    .eq('flexible_data->>auto_deduct', 'true')
+    .limit(1);
+
+  if (existingAutoDeduct && existingAutoDeduct.length > 0) {
+    console.log(`[autoDeductAfterCutoff] ${currentRaceDate} 已執行過自動扣款，跳過`);
+    return;
+  }
+
+  console.log(`[autoDeductAfterCutoff] 開始對 ${currentRaceDate} 未投注者自動扣款`);
+
+  try {
+    // 取得所有參賽者
+    const { data: allParticipants, error: pErr } = await supabaseClient
+      .from('participants')
+      .select('name');
+    if (pErr) throw pErr;
+
+    const participantNames = allParticipants.map(p => p.name);
+
+    // 取得該賽日已有投注的參賽者
+    const { data: bets, error: bErr } = await supabaseClient
+      .from('bets')
+      .select('participant')
+      .eq('race_date', currentRaceDate);
+    if (bErr) throw bErr;
+
+    const existingParticipants = new Set(bets.map(b => b.participant));
+    const noBetParticipants = participantNames.filter(name => !existingParticipants.has(name));
+
+    if (noBetParticipants.length === 0) {
+      console.log(`[autoDeductAfterCutoff] ${currentRaceDate} 所有參賽者皆有投注，無需扣款`);
+      return;
+    }
+
+    // 逐一插入自動扣款紀錄
+    for (const participant of noBetParticipants) {
+      const autoDeductData = {
+        participant: participant,
+        race_date: currentRaceDate,
+        race_no: 0,
+        banker: null,
+        legs: null,
+        payout: -120,
+        reason: `自動扣款 (${currentRaceDate} 未投注)`,
+        flexible_data: {
+          auto_deduct: true,
+          amount: 120,
+          message: `未在 ${currentRaceDate} 投注，自動扣除 $120`,
+        },
+        amount: 120,
+      };
+      await supabaseClient.from('bets').insert([autoDeductData]);
+    }
+
+    console.log(`[autoDeductAfterCutoff] 已對 ${noBetParticipants.length} 位參賽者自動扣款 $120`);
+
+    // 重新載入相關數據
+    loadMonthlyRanking();
+    if (document.getElementById('stats-page').classList.contains('active-page')) {
+      loadStatsForCurrentUser();
+    }
+  } catch (err) {
+    console.error('[autoDeductAfterCutoff] 錯誤:', err);
+  }
+}
     
     // ============================================================
     // PIN 碼登入系統
@@ -1324,33 +1413,6 @@ async function loadFocusHorses() {
         else resetBetForm();
     });
     
-    // ========== 自動扣款 ==========
-    async function autoDeductForNonBetting() {
-        const raceDate = document.getElementById('settleRaceDate').value;
-        if (!raceDate) { alert("請選擇賽日"); return; }
-        if (!confirm(`確定要對 ${raceDate} 沒有投注的參賽者自動扣款 $120 嗎？\n此操作無法復原。`)) return;
-        const btn = document.getElementById('autoDeductBtn');
-        const msgDiv = document.getElementById('settleResultMsg');
-        btn.disabled = true; msgDiv.style.display = 'block'; msgDiv.innerHTML = '處理中...';
-        try {
-            const { data: allParticipants, error: pErr } = await supabaseClient.from('participants').select('name');
-            if (pErr) throw pErr;
-            const participantNames = allParticipants.map(p => p.name);
-            const { data: bets, error: bErr } = await supabaseClient.from('bets').select('participant').eq('race_date', raceDate);
-            if (bErr) throw bErr;
-            const existingParticipants = new Set(bets.map(b => b.participant));
-            const noBetParticipants = participantNames.filter(name => !existingParticipants.has(name));
-            if (noBetParticipants.length === 0) { msgDiv.innerHTML = `✅ ${raceDate} 所有參賽者皆有投注，無需扣款。`; btn.disabled = false; return; }
-            for (const participant of noBetParticipants) {
-                const autoDeductData = { participant: participant, race_date: raceDate, race_no: 0, banker: null, legs: null, payout: -120, reason: `自動扣款 (${raceDate} 未投注)`, flexible_data: { auto_deduct: true, amount: 120, message: `未在 ${raceDate} 投注，自動扣除 $120` }, amount: 120 };
-                await supabaseClient.from('bets').insert([autoDeductData]);
-            }
-            msgDiv.innerHTML = `✅ 結算完成！共 ${noBetParticipants.length} 位參賽者未投注，已自動扣款 $120 每位。`;
-            await loadAdminBets(); await loadMonthlyRanking();
-            if (document.getElementById('stats-page').classList.contains('active-page')) loadStatsForCurrentUser();
-        } catch (err) { msgDiv.innerHTML = `❌ 錯誤: ${err.message}`; } finally { btn.disabled = false; }
-    }
-    
     // ========== 個人統計 ==========
     async function loadStatsForCurrentUser() {
         const user = document.getElementById('statsUserSelect').value;
@@ -1694,7 +1756,6 @@ async function loadFocusHorses() {
     document.getElementById('detailRaceDate')?.addEventListener('change', loadUserBets);
     document.getElementById('detailRaceNo')?.addEventListener('change', loadUserBets);
     document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
-    document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
     document.getElementById('saveCutoffTimeBtn')?.addEventListener('click', saveCutoffTime);
     document.getElementById('inputRaceNo')?.addEventListener('change', async () => { await initHorseSelects(); document.getElementById('horse1').value = ''; document.getElementById('horse2').value = ''; document.getElementById('horse3').value = ''; await loadFocusHorses(); });
     
