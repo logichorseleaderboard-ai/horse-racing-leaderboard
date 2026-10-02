@@ -59,6 +59,41 @@ Deno.serve(async (req) => {
         const dividends = parseDividendsFromHtml(html)
         console.log(`第 ${raceNo} 場派彩解析結果:`, JSON.stringify(dividends))
 
+        // ===== 寫入派彩數據到 race_dividends table =====
+        const dividendRows: any[] = []
+        for (const [poolType, combos] of Object.entries(dividends)) {
+          for (const [combo, amount] of Object.entries(combos)) {
+            dividendRows.push({
+              race_date: raceDate,
+              race_no: raceNo,
+              pool_type: poolType,
+              winning_combination: combo,
+              dividend: amount,
+            })
+          }
+        }
+
+        if (dividendRows.length > 0) {
+          // 先刪除該場舊紀錄，避免重複
+          await supabaseAdmin
+            .from('race_dividends')
+            .delete()
+            .eq('race_date', raceDate)
+            .eq('race_no', raceNo)
+
+          const { error: divError } = await supabaseAdmin
+            .from('race_dividends')
+            .insert(dividendRows)
+
+          if (divError) {
+            console.error(`第 ${raceNo} 場寫入派彩數據失敗:`, divError)
+          } else {
+            console.log(`第 ${raceNo} 場已寫入 ${dividendRows.length} 條派彩紀錄`)
+          }
+        }
+        // ===== 派彩數據寫入結束 =====
+
+        // 4. 逐條投注計算派彩
         for (const bet of raceBets) {
           const payout = calculatePayout(bet, dividends)
           await supabaseAdmin
