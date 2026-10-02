@@ -998,9 +998,14 @@
     }
     
     async function initRaceNoSelects() {
+        console.log('[initRaceNoSelects] 被呼叫');
         console.log('[initRaceNoSelects] currentRaceDate:', currentRaceDate);
-        if (!currentRaceDate) return;
+        if (!currentRaceDate) {
+          console.log('[initRaceNoSelects] currentRaceDate 為空，直接 return');
+          return;
+        }
         const raceCount = await fetchRaceCount(currentRaceDate);
+        console.log('[initRaceNoSelects] raceCount:', raceCount);
         const opts = Array.from({length: raceCount}, (_,i) => `<option value="${i+1}">第 ${i+1} 場</option>`).join('');
         const rankButtonsContainer = document.getElementById('rankRaceButtons');
         if (rankButtonsContainer) {
