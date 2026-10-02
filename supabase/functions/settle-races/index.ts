@@ -31,7 +31,6 @@ Deno.serve(async (req) => {
 
       console.log('[測試] 使用馬場:', usedCourse)
       console.log('[測試] HTML 長度:', html.length)
-      console.log('[測試] HTML 前 3000 字:', html.substring(0, 3000))
 
       const dividends = parseDividendsFromHtml(html)
       console.log('[測試] 解析結果:', JSON.stringify(dividends))
@@ -40,7 +39,6 @@ Deno.serve(async (req) => {
         JSON.stringify({
           usedCourse,
           htmlLength: html.length,
-          htmlPreview: html.substring(0, 2000),
           dividends,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -171,7 +169,7 @@ async function fetchRaceResultPage(raceDate: string, raceNo: number, racecourse?
 }
 
 // ===================================================================
-// 從 HTML 解析派彩數據
+// 從 HTML 解析派彩數據（支援跨行累積）
 // ===================================================================
 function parseDividendsFromHtml(html: string): Record<string, Record<string, number>> {
   const dividends: Record<string, Record<string, number>> = {
@@ -183,6 +181,7 @@ function parseDividendsFromHtml(html: string): Record<string, Record<string, num
 
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
   let rowMatch
+  let lastPoolName = '' // 記住上一個非空的彩池名稱
 
   while ((rowMatch = rowRegex.exec(targetHtml)) !== null) {
     const rowHtml = rowMatch[1]
@@ -196,12 +195,16 @@ function parseDividendsFromHtml(html: string): Record<string, Record<string, num
 
     if (tds.length < 2) continue
 
-    const poolName = tds[0]
+    // 如果第一格為空，沿用上一個彩池名稱
+    const poolName = tds[0] || lastPoolName
     const combo = tds[1]
     const amountStr = tds[2] || ''
     const amount = parseFloat(amountStr.replace(/,/g, ''))
 
     if (isNaN(amount)) continue
+
+    // 只有非空才更新 lastPoolName
+    if (tds[0]) lastPoolName = tds[0]
 
     if (poolName.includes('獨贏')) {
       dividends.WIN[combo] = amount
@@ -233,6 +236,7 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
   const comboType = fd.comboType
   const banker = fd.banker
 
+  // --- 獨贏 (WIN) ---
   if (units.win > 0) {
     if (horseCount === 1) {
       const key = horses[0]
@@ -252,6 +256,7 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
     }
   }
 
+  // --- 位置 (PLA) ---
   if (units.place > 0) {
     if (horseCount === 1) {
       const key = horses[0]
@@ -271,6 +276,7 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
     }
   }
 
+  // --- 連贏 (QIN) ---
   if (units.quinella > 0) {
     const combinations = buildCombinations(horses, comboType, banker)
     for (const combo of combinations) {
@@ -280,6 +286,7 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
     }
   }
 
+  // --- 位置Q (QPL) ---
   if (units.quinellaPlace > 0) {
     const combinations = buildCombinations(horses, comboType, banker)
     for (const combo of combinations) {
