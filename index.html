@@ -461,9 +461,13 @@
             if (!window._autoDeductTriggered) window._autoDeductTriggered = {};
             window._autoDeductTriggered[raceDate] = true;
             autoDeductAfterCutoff();
+        }
+
+        // ★★★ 封盤後自動載入重心馬 ★★★
+        if (!window._focusHorsesLoaded) {
+            window._focusHorsesLoaded = true;
             loadFocusHorses();
         }
-        // ★★★ 自動扣款結束 ★★★
 
     } else {
         if (submitBtn) submitBtn.disabled = false;
@@ -471,19 +475,12 @@
         if (window._autoDeductTriggered?.[raceDate]) {
             delete window._autoDeductTriggered[raceDate];
         }
-    }
-}
-    
-    // ===== 新增：封盤後自動載入重心馬 =====
-    if (secondsLeft <= 0 && !window._focusHorsesLoaded) {
-        window._focusHorsesLoaded = true;
-        loadFocusHorses();
-    } else if (secondsLeft > 0) {
+        // 未封盤時重置重心馬標記
         window._focusHorsesLoaded = false;
-        // 未封盤時隱藏重心馬卡片
         const card = document.getElementById('focusHorsesCard');
         if (card) card.style.display = 'none';
     }
+}
     
     // ========== 載入封盤時間 ==========
     async function loadCutoffTime() {
