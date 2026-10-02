@@ -461,14 +461,13 @@
             if (!window._autoDeductTriggered) window._autoDeductTriggered = {};
             window._autoDeductTriggered[raceDate] = true;
             autoDeductAfterCutoff();
-            loadFocusHorses(); // 同時載入是日重心馬
+            loadFocusHorses();
         }
         // ★★★ 自動扣款結束 ★★★
 
     } else {
         if (submitBtn) submitBtn.disabled = false;
         if (lockMsg) lockMsg.style.display = 'none';
-        // 如果未封盤，重置標記（避免跨日時卡住）
         if (window._autoDeductTriggered?.[raceDate]) {
             delete window._autoDeductTriggered[raceDate];
         }
