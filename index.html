@@ -1114,9 +1114,13 @@ async function loadFocusHorses() {
     });
   });
 
-  // 排序，取前三名
+  // 排序：先按選擇人數（多到少），同分時按場次（細到大），再按馬號（細到大）
   const sorted = Object.values(horseStats)
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      if (a.raceNo !== b.raceNo) return a.raceNo - b.raceNo;
+      return a.horseNo - b.horseNo;
+    })
     .slice(0, 3);
 
   if (sorted.length === 0) {
