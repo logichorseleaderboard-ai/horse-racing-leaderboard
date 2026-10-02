@@ -1586,20 +1586,21 @@ function handleEnterKey(e) {
             });
             const ranking = Array.from(statsMap.entries()).map(([name, s]) => {
                 const totalProfit = s.totalPayout - s.totalStake; // 利潤 = 派彩 - 本金
-                  return {
+                return {
                     name,
                     totalStake: s.totalStake,
                     totalProfit: totalProfit,
                     roi: s.totalStake === 0 ? 0 : ((totalProfit / s.totalStake) * 100).toFixed(1)
-                }))
-                .sort((a, b) => {
-                    // 先按總利潤由高到低排序
-                    if (b.totalProfit !== a.totalProfit) {
-                        return b.totalProfit - a.totalProfit;
-                    }
-                    // 同分時，按名稱首字母 A-Z 排序
-                    return a.name.localeCompare(b.name, 'zh-HK');
-                });
+                };
+            })
+            .sort((a, b) => {
+                // 先按總利潤由高到低排序
+                if (b.totalProfit !== a.totalProfit) {
+                    return b.totalProfit - a.totalProfit;
+                }
+                // 同分時，按名稱首字母 A-Z 排序
+                return a.name.localeCompare(b.name, 'zh-HK');
+            });
             let html = `<div style="overflow-x: auto; -webkit-overflow-scrolling: touch;"><table style="width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.7rem;"><thead><tr style="background: #e6f7ec; border-bottom: 1px solid #cbd5e1;"><th style="padding: 8px 6px; text-align: center; width: 55px;">排名</th><th style="padding: 8px 6px; text-align: left; min-width: 90px;">參賽者</th><th style="padding: 8px 6px; text-align: left; width: 70px;">總投入</th><th style="padding: 8px 6px; text-align: left; width: 70px;">總利潤</th><th style="padding: 8px 6px; text-align: left; width: 70px;">回報率</th></tr></thead><tbody>`;
             if (ranking.length === 0) { html += `<tr><td colspan="5" style="text-align:center; padding:20px;">📭 該月份尚無投注紀錄</td></tr>`; }
             else {
