@@ -134,6 +134,11 @@
 <div class="container" id="app">
     <!-- 排位頁 -->
     <div id="ranking-page" class="page active-page">
+        <!-- 新增：是日重心馬 -->
+          <div id="focusHorsesCard" class="card" style="display:none;">
+            <h2>🔥 是日重心馬</h2>
+            <div id="focusHorsesContent"></div>
+          </div>
         <div class="card"><h2>📊 排位熱度</h2><div class="form-group"><label>場次</label><div class="race-buttons-container"><div id="rankRaceButtons" style="display: inline-flex; gap: 6px;"></div></div></div><div id="rankChart"></div></div>
     </div>
     <!-- 詳情頁 -->
@@ -438,25 +443,36 @@
     
     // ========== 更新倒數計時顯示 ==========
     function updateCountdownDisplay() {
-        const raceDate = document.getElementById('inputRaceDate')?.value;
-        const countdownEl = document.getElementById('countdownDisplay');
-        const submitBtn = document.getElementById('submitBtn');
-        const lockMsg = document.getElementById('inputLockMsg');
-        if (!raceDate) { if (countdownEl) countdownEl.innerHTML = '請選擇賽日'; return; }
-        const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
-        if (countdownEl) {
-            countdownEl.innerHTML = formatCountdown(secondsLeft);
-            if (secondsLeft <= 60 && secondsLeft > 0) { countdownEl.style.color = '#ef4444'; countdownEl.style.fontWeight = 'bold'; }
-            else { countdownEl.style.color = ''; countdownEl.style.fontWeight = ''; }
-        }
-        if (secondsLeft <= 0) {
-            if (submitBtn) submitBtn.disabled = true;
-            if (lockMsg) { lockMsg.style.display = 'block'; lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`; }
-        } else {
-            if (submitBtn) submitBtn.disabled = false;
-            if (lockMsg) lockMsg.style.display = 'none';
-        }
+    const raceDate = document.getElementById('inputRaceDate')?.value;
+    const countdownEl = document.getElementById('countdownDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const lockMsg = document.getElementById('inputLockMsg');
+    if (!raceDate) { if (countdownEl) countdownEl.innerHTML = '請選擇賽日'; return; }
+    const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
+    if (countdownEl) {
+        countdownEl.innerHTML = formatCountdown(secondsLeft);
+        if (secondsLeft <= 60 && secondsLeft > 0) { countdownEl.style.color = '#ef4444'; countdownEl.style.fontWeight = 'bold'; }
+        else { countdownEl.style.color = ''; countdownEl.style.fontWeight = ''; }
     }
+    if (secondsLeft <= 0) {
+        if (submitBtn) submitBtn.disabled = true;
+        if (lockMsg) { lockMsg.style.display = 'block'; lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`; }
+    } else {
+        if (submitBtn) submitBtn.disabled = false;
+        if (lockMsg) lockMsg.style.display = 'none';
+    }
+    
+    // ===== 新增：封盤後自動載入重心馬 =====
+    if (secondsLeft <= 0 && !window._focusHorsesLoaded) {
+        window._focusHorsesLoaded = true;
+        loadFocusHorses();
+    } else if (secondsLeft > 0) {
+        window._focusHorsesLoaded = false;
+        // 未封盤時隱藏重心馬卡片
+        const card = document.getElementById('focusHorsesCard');
+        if (card) card.style.display = 'none';
+    }
+}
     
     // ========== 載入封盤時間 ==========
     async function loadCutoffTime() {
@@ -586,6 +602,7 @@
             await initHorseSelects();
             await loadMyBets();
             updateCountdownDisplay();
+            await loadFocusHorses();
             statusDiv.innerHTML = '✅ 登入成功！'; statusDiv.style.color = '#16a34a';
             document.getElementById('loginPinInput').value = '';
         } else {
@@ -627,6 +644,7 @@
                 await initHorseSelects();
                 await loadMyBets();
                 updateCountdownDisplay();
+                await loadFocusHorses();
                 return true;
             } else {
                 sessionStorage.removeItem('loggedInUser'); sessionStorage.removeItem('loginExpiry');
@@ -999,6 +1017,7 @@
         await loadRaceDaysForResult(); await loadRaceDaysForSettle(); await loadRaceDaysForDetail(); await initRaceNoSelects();
         console.log('[loadRaceDays] initRaceNoSelects 完成');
         updateCountdownDisplay();
+        await loadFocusHorses();
     }
     
     async function initRaceNoSelects() {
@@ -1033,7 +1052,101 @@
         if (detailSelect) detailSelect.innerHTML = '<option value="all">全部場次</option>' + opts;
         if (detailSelect) detailSelect.value = 'all';
     }
+
+    // ===== 是日重心馬 =====
+async function loadFocusHorses() {
+  const card = document.getElementById('focusHorsesCard');
+  const content = document.getElementById('focusHorsesContent');
+  if (!card || !content) return;
+
+  if (!currentRaceDate) {
+    card.style.display = 'none';
+    return;
+  }
+
+  // 檢查是否已封盤
+  const secondsLeft = getSecondsUntilCutoff(currentRaceDate, currentCutoffTime);
+  if (secondsLeft > 0) {
+    // 未封盤，唔顯示
+    card.style.display = 'none';
+    return;
+  }
+
+  // 封盤後，載入該賽日所有投注紀錄
+  const { data: bets, error } = await supabaseClient
+    .from('bets')
+    .select('flexible_data, banker, legs')
+    .eq('race_date', currentRaceDate);
+
+  if (error || !bets || bets.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+
+  // 統計每匹馬被選擇嘅次數
+  const horseCount = {};
+  
+  bets.forEach(b => {
+    let horses = [];
     
+    if (b.flexible_data) {
+      const fd = b.flexible_data;
+      const horsesStr = fd.horses;
+      const comboType = fd.comboType;
+      const banker = fd.banker;
+      
+      if (horsesStr) {
+        const horseList = horsesStr.split(',').map(s => s.trim()).filter(s => s).map(Number);
+        horses = horseList;
+      }
+    } else if (b.banker && b.banker !== '') {
+      horses.push(parseInt(b.banker));
+      if (b.legs) {
+        b.legs.split(',').forEach(l => horses.push(parseInt(l.trim())));
+      }
+    }
+    
+    // 去重複（同一投注中同一匹馬只計一次）
+    const uniqueHorses = [...new Set(horses)];
+    uniqueHorses.forEach(h => {
+      if (!isNaN(h)) {
+        horseCount[h] = (horseCount[h] || 0) + 1;
+      }
+    });
+  });
+
+  // 排序，取前三名
+  const sorted = Object.entries(horseCount)
+    .map(([horseNo, count]) => ({ horseNo: parseInt(horseNo), count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  if (sorted.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+
+  // 顯示
+  card.style.display = 'block';
+  
+  let html = '<div style="display: flex; gap: 12px; flex-wrap: wrap;">';
+  const medals = ['🥇', '🥈', '🥉'];
+  const colors = ['#fef3c7', '#e2e8f0', '#fed7aa'];
+  const textColors = ['#92400e', '#475569', '#9a3412'];
+  
+  sorted.forEach((item, idx) => {
+    html += `
+      <div style="flex: 1; min-width: 100px; background: ${colors[idx]}; padding: 12px; border-radius: 16px; text-align: center;">
+        <div style="font-size: 1.5rem;">${medals[idx]}</div>
+        <div style="font-size: 1.3rem; font-weight: bold; color: ${textColors[idx]};">${item.horseNo} 號</div>
+        <div style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">${item.count} 位參賽者選擇</div>
+      </div>
+    `;
+  });
+  html += '</div>';
+  
+  content.innerHTML = html;
+}
     // ========== 排位熱度圖 ==========
     async function loadRankingChart() {
         if (!currentRaceDate) { document.getElementById('rankChart').innerHTML = '<div class="card">請先選擇賽日</div>'; return; }
@@ -1554,7 +1667,7 @@
         document.getElementById(`${pageId}-page`).classList.add('active-page');
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         document.querySelector(`.nav-btn[data-page="${pageId}"]`).classList.add('active');
-        if(pageId === 'ranking') loadRankingChart();
+        if(pageId === 'ranking') { loadRankingChart(); loadFocusHorses(); }
         if(pageId === 'detail') loadUserBets();
         if(pageId === 'admin' && adminUnlocked) { loadAdminBets(); loadPinManagement(); }
         if(pageId === 'stats') { loadStatsForCurrentUser(); loadMonthlyRanking(); }
@@ -1569,7 +1682,7 @@
     document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
     document.getElementById('autoDeductBtn')?.addEventListener('click', autoDeductForNonBetting);
     document.getElementById('saveCutoffTimeBtn')?.addEventListener('click', saveCutoffTime);
-    document.getElementById('inputRaceNo')?.addEventListener('change', async () => { await initHorseSelects(); document.getElementById('horse1').value = ''; document.getElementById('horse2').value = ''; document.getElementById('horse3').value = ''; });
+    document.getElementById('inputRaceNo')?.addEventListener('change', async () => { await initHorseSelects(); document.getElementById('horse1').value = ''; document.getElementById('horse2').value = ''; document.getElementById('horse3').value = ''; await loadFocusHorses(); });
     
     // ========== 頁面初始化 ==========
     window.onload = async () => {
@@ -1582,6 +1695,7 @@
         await loadRaceDays();
         await initRaceNoSelects();
         await loadRankingChart();
+        await loadFocusHorses();
         bindBetFormEvents();
         await loadCutoffTime();
         if (typeof initCountdown === 'function') initCountdown();
