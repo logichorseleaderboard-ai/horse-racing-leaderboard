@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
       .from('bets')
       .select('*')
       .eq('race_date', raceDate)
+      .gt('race_no', 0)  // 排除 race_no = 0 的自動扣款紀錄
       .not('flexible_data', 'is', null)
       .or('settled.is.null,settled.eq.false')
 
