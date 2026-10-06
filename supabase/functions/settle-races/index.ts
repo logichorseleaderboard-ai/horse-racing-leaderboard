@@ -5,12 +5,10 @@ import { corsHeaders } from 'https://esm.sh/@supabase/supabase-js@2/cors'
 const STAKE_PER_UNIT = 10
 
 Deno.serve(async (req) => {
-  // 處理 CORS 預檢請求
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // ===== 正式結算邏輯 =====
   try {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -25,12 +23,12 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 1. 讀取未結算的投注
+    // 1. 讀取未結算的投注（排除 race_no = 0 的自動扣款）
     const { data: bets, error: betsError } = await supabaseAdmin
       .from('bets')
       .select('*')
       .eq('race_date', raceDate)
-      .gt('race_no', 0)  // 排除 race_no = 0 的自動扣款紀錄
+      .gt('race_no', 0)
       .not('flexible_data', 'is', null)
       .or('settled.is.null,settled.eq.false')
 
@@ -58,7 +56,9 @@ Deno.serve(async (req) => {
       try {
         const html = await fetchRaceResultPage(raceDate, raceNo, racecourse)
         const dividends = parseDividendsFromHtml(html)
+        const scratchedHorses = parseScratchedHorses(html)
         console.log(`第 ${raceNo} 場派彩解析結果:`, JSON.stringify(dividends))
+        console.log(`第 ${raceNo} 場退賽馬匹:`, scratchedHorses)
 
         // ===== 寫入派彩數據到 race_dividends table =====
         const dividendRows: any[] = []
@@ -75,7 +75,6 @@ Deno.serve(async (req) => {
         }
 
         if (dividendRows.length > 0) {
-          // 先刪除該場舊紀錄，避免重複
           await supabaseAdmin
             .from('race_dividends')
             .delete()
@@ -94,13 +93,15 @@ Deno.serve(async (req) => {
         }
         // ===== 派彩數據寫入結束 =====
 
-        // 4. 逐條投注計算派彩
+        // 4. 逐條投注計算派彩同退款
         for (const bet of raceBets) {
-          const payout = calculatePayout(bet, dividends)
+          const { payout, refundAmount } = calculatePayout(bet, dividends, scratchedHorses)
           await supabaseAdmin
             .from('bets')
             .update({
               payout: payout,
+              refund: refundAmount > 0,
+              refund_amount: refundAmount,
               settled: true,
               settlement_source: 'auto',
             })
@@ -159,6 +160,41 @@ async function fetchRaceResultPage(raceDate: string, raceNo: number, racecourse?
   }
 
   throw new Error(`找不到 ${raceDate} 第 ${raceNo} 場的賽果頁面`)
+}
+
+// ===================================================================
+// 解析退賽馬匹
+// ===================================================================
+function parseScratchedHorses(html: string): number[] {
+  const scratched: number[] = []
+
+  // 搵賽果表入面嘅資料列
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
+  let rowMatch
+
+  while ((rowMatch = rowRegex.exec(html)) !== null) {
+    const rowHtml = rowMatch[1]
+
+    // 提取所有 td 內容
+    const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
+    const tds: string[] = []
+    let tdMatch
+    while ((tdMatch = tdRegex.exec(rowHtml)) !== null) {
+      tds.push(tdMatch[1].replace(/<[^>]*>/g, '').trim())
+    }
+
+    // 退賽馬匹嘅特徵：名次為空 + 馬號有效 + 後面有 "---"
+    if (tds.length >= 3) {
+      const rank = tds[0]
+      const horseNo = parseInt(tds[1])
+
+      if (!rank && !isNaN(horseNo) && tds.some(t => t === '---')) {
+        scratched.push(horseNo)
+      }
+    }
+  }
+
+  return scratched
 }
 
 // ===================================================================
@@ -223,12 +259,17 @@ function parseDividendsFromHtml(html: string): Record<string, Record<string, num
 }
 
 // ===================================================================
-// 計算派彩
+// 計算派彩同退款
 // ===================================================================
-function calculatePayout(bet: any, dividends: Record<string, Record<string, number>>): number {
+function calculatePayout(
+  bet: any,
+  dividends: Record<string, Record<string, number>>,
+  scratchedHorses: number[]
+): { payout: number, refundAmount: number } {
   let totalPayout = 0
+  let refundAmount = 0
   const fd = bet.flexible_data
-  if (!fd || !fd.units) return 0
+  if (!fd || !fd.units) return { payout: 0, refundAmount: 0 }
 
   const units = fd.units
   const horses: string[] = fd.horses ? fd.horses.split(',').map((s: string) => s.trim()) : []
@@ -236,19 +277,71 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
   const comboType = fd.comboType
   const banker = fd.banker
 
-  // --- 獨贏 (WIN) ---
+  const scratchedSet = new Set(scratchedHorses.map(String))
+  const scratchedInBet = horses.filter(h => scratchedSet.has(h))
+
+  // ===== 退款計算 =====
+  if (scratchedInBet.length > 0) {
+    // 獨贏/位置
+    if (units.win > 0) {
+      if (horseCount === 1) {
+        // 單匹：退賽就全退
+        if (scratchedInBet.length > 0) refundAmount += units.win * STAKE_PER_UNIT
+      } else if (comboType === 'banker' && banker) {
+        // 膽拖：膽馬退賽就全退
+        if (scratchedSet.has(banker)) {
+          refundAmount += units.win * STAKE_PER_UNIT
+        }
+      } else {
+        // 互串：每匹退賽馬匹退款
+        refundAmount += units.win * scratchedInBet.length * STAKE_PER_UNIT
+      }
+    }
+    if (units.place > 0) {
+      if (horseCount === 1) {
+        if (scratchedInBet.length > 0) refundAmount += units.place * STAKE_PER_UNIT
+      } else if (comboType === 'banker' && banker) {
+        if (scratchedSet.has(banker)) {
+          refundAmount += units.place * STAKE_PER_UNIT
+        }
+      } else {
+        refundAmount += units.place * scratchedInBet.length * STAKE_PER_UNIT
+      }
+    }
+
+    // 連贏/位置Q：計算包含退賽馬匹嘅組合退款
+    if (units.quinella > 0 || units.quinellaPlace > 0) {
+      const allCombinations = buildCombinations(horses, comboType, banker)
+      const scratchedCombinations = allCombinations.filter(combo => {
+        const comboHorses = combo.split(',')
+        return comboHorses.some(h => scratchedSet.has(h))
+      })
+      
+      if (units.quinella > 0) {
+        refundAmount += units.quinella * scratchedCombinations.length * STAKE_PER_UNIT
+      }
+      if (units.quinellaPlace > 0) {
+        refundAmount += units.quinellaPlace * scratchedCombinations.length * STAKE_PER_UNIT
+      }
+    }
+  }
+
+  // ===== 派彩計算（只計算未退賽馬匹嘅組合）=====
+  const activeHorses = horses.filter(h => !scratchedSet.has(h))
+
+  // 獨贏
   if (units.win > 0) {
     if (horseCount === 1) {
       const key = horses[0]
-      if (dividends.WIN[key]) {
+      if (!scratchedSet.has(key) && dividends.WIN[key]) {
         totalPayout += units.win * (dividends.WIN[key] / 10) * STAKE_PER_UNIT
       }
     } else if (comboType === 'banker' && banker) {
-      if (dividends.WIN[banker]) {
+      if (!scratchedSet.has(banker) && dividends.WIN[banker]) {
         totalPayout += units.win * (dividends.WIN[banker] / 10) * STAKE_PER_UNIT
       }
     } else {
-      for (const h of horses) {
+      for (const h of activeHorses) {
         if (dividends.WIN[h]) {
           totalPayout += units.win * (dividends.WIN[h] / 10) * STAKE_PER_UNIT
         }
@@ -256,19 +349,19 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
     }
   }
 
-  // --- 位置 (PLA) ---
+  // 位置
   if (units.place > 0) {
     if (horseCount === 1) {
       const key = horses[0]
-      if (dividends.PLA[key]) {
+      if (!scratchedSet.has(key) && dividends.PLA[key]) {
         totalPayout += units.place * (dividends.PLA[key] / 10) * STAKE_PER_UNIT
       }
     } else if (comboType === 'banker' && banker) {
-      if (dividends.PLA[banker]) {
+      if (!scratchedSet.has(banker) && dividends.PLA[banker]) {
         totalPayout += units.place * (dividends.PLA[banker] / 10) * STAKE_PER_UNIT
       }
     } else {
-      for (const h of horses) {
+      for (const h of activeHorses) {
         if (dividends.PLA[h]) {
           totalPayout += units.place * (dividends.PLA[h] / 10) * STAKE_PER_UNIT
         }
@@ -276,27 +369,30 @@ function calculatePayout(bet: any, dividends: Record<string, Record<string, numb
     }
   }
 
-  // --- 連贏 (QIN) ---
+  // 連贏
   if (units.quinella > 0) {
-    const combinations = buildCombinations(horses, comboType, banker)
-    for (const combo of combinations) {
+    const activeCombinations = buildCombinations(activeHorses, comboType, banker)
+    for (const combo of activeCombinations) {
       if (dividends.QIN[combo]) {
         totalPayout += units.quinella * (dividends.QIN[combo] / 10) * STAKE_PER_UNIT
       }
     }
   }
 
-  // --- 位置Q (QPL) ---
+  // 位置Q
   if (units.quinellaPlace > 0) {
-    const combinations = buildCombinations(horses, comboType, banker)
-    for (const combo of combinations) {
+    const activeCombinations = buildCombinations(activeHorses, comboType, banker)
+    for (const combo of activeCombinations) {
       if (dividends.QPL[combo]) {
         totalPayout += units.quinellaPlace * (dividends.QPL[combo] / 10) * STAKE_PER_UNIT
       }
     }
   }
 
-  return Math.round(totalPayout * 100) / 100
+  return {
+    payout: Math.round(totalPayout * 100) / 100,
+    refundAmount: Math.round(refundAmount * 100) / 100,
+  }
 }
 
 // ===================================================================
