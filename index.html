@@ -1468,43 +1468,74 @@ async function loadFocusHorses() {
     
     // ========== 個人統計 ==========
     async function loadStatsForCurrentUser() {
-        const user = document.getElementById('statsUserSelect').value;
-        if (!user) { document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>'; return; }
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
-        let startDate, endDate;
-        if (month === 6 || month === 7) {
-            startDate = `${year}-06-01`;
-            const lastDayOfJuly = new Date(year, 7, 0).getDate();
-            endDate = `${year}-07-${lastDayOfJuly}`;
-        } else {
-            const monthStr = String(month).padStart(2, '0');
-            startDate = `${year}-${monthStr}-01`;
-            const lastDay = new Date(year, month, 0).getDate();
-            endDate = `${year}-${monthStr}-${lastDay}`;
-        }
-        const { data, error } = await supabaseClient.from('bets').select('payout, amount, refund_amount, refund, flexible_data').eq('participant', user).gte('race_date', startDate).lte('race_date', endDate).range(0, 9999);
-        if (error) { document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>'; return; }
-        const allData = data || [];
-        const totalStake = (data || []).reduce((sum, b) => sum + ((b.amount || 0) - (b.refund_amount || 0)), 0);
-        const totalPayout = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
-        const totalProfit = totalPayout - totalStake;
-        const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
-        const totalRaces = allData.length;
-        const winningRaces = allData.filter(b => (b.payout || 0) > 0).length;
-        const winRate = totalRaces !== 0 ? ((winningRaces / totalRaces) * 100).toFixed(1) : 0;
-        const profitColor = totalProfit >= 0 ? '#16a34a' : '#b91c1c';
-        const roiColor = roi >= 0 ? '#16a34a' : '#b91c1c';
-        document.getElementById('statsDisplay').innerHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center;">
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">總投入</div><div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">$${totalStake.toLocaleString()}</div></div>
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">總利潤</div><div style="font-size: 1.3rem; font-weight: bold; color: ${profitColor};">$${totalProfit.toLocaleString()}</div></div>
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">勝率</div><div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">${winRate}%</div></div>
-                <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;"><div style="font-size: 0.75rem; color: #64748b;">回報率</div><div style="font-size: 1.3rem; font-weight: bold; color: ${roiColor};">${roi}%</div></div>
-            </div>
-            <div style="margin-top: 8px; font-size: 0.7rem; color: #64748b; text-align: center;">共 ${totalRaces} 筆投注 (${winningRaces} 筆獲利)</div>`;
-    }
+  const user = document.getElementById('statsUserSelect').value;
+  if (!user) {
+    document.getElementById('statsDisplay').innerHTML = '<div class="card">請選擇參賽者</div>';
+    return;
+  }
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  let startDate, endDate;
+  if (month === 6 || month === 7) {
+    startDate = `${year}-06-01`;
+    const lastDayOfJuly = new Date(year, 7, 0).getDate();
+    endDate = `${year}-07-${lastDayOfJuly}`;
+  } else {
+    const monthStr = String(month).padStart(2, '0');
+    startDate = `${year}-${monthStr}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    endDate = `${year}-${monthStr}-${lastDay}`;
+  }
+  const { data, error } = await supabaseClient
+    .from('bets')
+    .select('payout, amount, refund_amount, refund, flexible_data')
+    .eq('participant', user)
+    .gte('race_date', startDate)
+    .lte('race_date', endDate)
+    .range(0, 9999);
+
+  if (error) {
+    document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>';
+    return;
+  }
+
+  const allData = data || [];
+  // ★★★ 修改：總投入扣除退款金額 ★★★
+  const totalStake = (data || []).reduce((sum, b) => sum + ((b.amount || 0) - (b.refund_amount || 0)), 0);
+  const totalPayout = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
+  const totalProfit = totalPayout - totalStake;
+  const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
+  const totalRaces = allData.length;
+  const winningRaces = allData.filter(b => (b.payout || 0) > 0).length;
+  const winRate = totalRaces !== 0 ? ((winningRaces / totalRaces) * 100).toFixed(1) : 0;
+  const profitColor = totalProfit >= 0 ? '#16a34a' : '#b91c1c';
+  const roiColor = roi >= 0 ? '#16a34a' : '#b91c1c';
+
+  document.getElementById('statsDisplay').innerHTML = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: center;">
+      <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+        <div style="font-size: 0.75rem; color: #64748b;">總投入</div>
+        <div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">$${totalStake.toLocaleString()}</div>
+      </div>
+      <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+        <div style="font-size: 0.75rem; color: #64748b;">總利潤</div>
+        <div style="font-size: 1.3rem; font-weight: bold; color: ${profitColor};">$${totalProfit.toLocaleString()}</div>
+      </div>
+      <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+        <div style="font-size: 0.75rem; color: #64748b;">勝率</div>
+        <div style="font-size: 1.3rem; font-weight: bold; color: #1e6f3f;">${winRate}%</div>
+      </div>
+      <div style="background: #f8fafc; padding: 14px 8px; border-radius: 16px;">
+        <div style="font-size: 0.75rem; color: #64748b;">回報率</div>
+        <div style="font-size: 1.3rem; font-weight: bold; color: ${roiColor};">${roi}%</div>
+      </div>
+    </div>
+    <div style="margin-top: 8px; font-size: 0.7rem; color: #64748b; text-align: center;">
+      共 ${totalRaces} 筆投注 (${winningRaces} 筆獲利)
+    </div>
+  `;
+}
     
     // ========== 每月排名 ==========
     async function loadMonthlyRanking() {
