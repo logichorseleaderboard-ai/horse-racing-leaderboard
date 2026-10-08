@@ -1481,7 +1481,7 @@ async function loadFocusHorses() {
         const { data, error } = await supabaseClient.from('bets').select('payout, amount, refund_amount, refund, flexible_data').eq('participant', user).gte('race_date', startDate).lte('race_date', endDate).range(0, 9999);
         if (error) { document.getElementById('statsDisplay').innerHTML = '<div class="card">查詢失敗</div>'; return; }
         const allData = data || [];
-        const totalStake = (data || []).reduce((sum, b) => sum + (b.amount || 0), 0);
+        const totalStake = (data || []).reduce((sum, b) => sum + ((b.amount || 0) - (b.refund_amount || 0)), 0);
         const totalPayout = (data || []).reduce((sum, b) => sum + (b.payout || 0), 0);
         const totalProfit = totalPayout - totalStake;
         const roi = totalStake !== 0 ? ((totalProfit / totalStake) * 100).toFixed(1) : 0;
@@ -1537,11 +1537,11 @@ async function loadFocusHorses() {
             const statsMap = new Map();
             participantNames.forEach(name => { statsMap.set(name, { totalStake: 0, totalPayout: 0 }); });
             (allBets || []).forEach(bet => {
-                const name = bet.participant;
-                if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
-                const s = statsMap.get(name);
-                s.totalStake += bet.amount || 0;
-                s.totalPayout += bet.payout || 0;
+              const name = bet.participant;
+              if (!statsMap.has(name)) statsMap.set(name, { totalStake: 0, totalPayout: 0 });
+              const s = statsMap.get(name);
+              s.totalStake += (bet.amount || 0) - (bet.refund_amount || 0);
+              s.totalPayout += bet.payout || 0;
             });
             const ranking = Array.from(statsMap.entries()).map(([name, s]) => {
                 const totalProfit = s.totalPayout - s.totalStake;
