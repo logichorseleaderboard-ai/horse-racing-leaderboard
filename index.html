@@ -508,11 +508,11 @@
             const { data, error } = await supabaseClient.from('system_settings').select('value').eq('key', 'cutoff_time').maybeSingle();
             if (error) { currentCutoffTime = '19:00:00'; updateCutoffTimeUI(currentCutoffTime); return; }
             if (data && data.value) { currentCutoffTime = data.value; updateCutoffTimeUI(currentCutoffTime); }
-            else { currentCutoffTime = '15:45:00'; updateCutoffTimeUI(currentCutoffTime);
-                try { await supabaseClient.from('system_settings').insert({ key: 'cutoff_time', value: '15:45:00' }); } catch (e) {}
+            else { currentCutoffTime = '19:00:00'; updateCutoffTimeUI(currentCutoffTime);
+                try { await supabaseClient.from('system_settings').insert({ key: 'cutoff_time', value: '19:00:00' }); } catch (e) {}
             }
             updateCountdownDisplay();
-        } catch (err) { currentCutoffTime = '15:45:00'; updateCutoffTimeUI(currentCutoffTime); }
+        } catch (err) { currentCutoffTime = '19:00:00'; updateCutoffTimeUI(currentCutoffTime); }
     }
     
     // ========== 更新封盤時間 UI ==========
