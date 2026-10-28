@@ -659,14 +659,25 @@ function updateTimeUI() {
 async function autoDeductAfterCutoff() {
     if (!currentRaceDate) return;
 
-    // ★★★ 絕對防護罩：再次確認是否已過自動扣款時間 ★★★
+    console.log("[扣款檢查] 準備檢查是否到達扣款時間...");
+
+    // ★★★ 終極防護：強制向伺服器重新同步一次時間，絕不用手機時間 ★★★
+    const syncSuccess = await syncServerTime(); 
+    if (!syncSuccess) {
+        console.log("[防守攔截] 無法取得伺服器時間，為安全起見拒絕扣款。");
+        return; // 如果同步失敗，直接中斷，唔好扣！
+    }
+
+    // 用最新嘅伺服器時間去計
     const secondsUntilDeduct = getSecondsUntilCutoff(currentRaceDate, currentAutoDeductTime);
     
     // 如果時間未到（大於 0），或者時間解析錯誤（NaN / -1），直接中斷！
     if (secondsUntilDeduct > 0 || isNaN(secondsUntilDeduct) || secondsUntilDeduct === -1) {
-        console.log(`[防守攔截] 尚未到達扣款時間 (${currentAutoDeductTime})，拒絕執行扣款。`);
+        console.log(`[防守攔截] 尚未到達扣款時間 (${currentAutoDeductTime})，距離扣款仲有 ${secondsUntilDeduct} 秒。拒絕執行。`);
         return; 
     }
+
+    console.log(`[防護通過] 已到達扣款時間 (${currentAutoDeductTime})，檢查數據庫...`);
 
     // 檢查該賽日是否已經執行過自動扣款
     const { data: existingAutoDeduct } = await supabaseClient
@@ -681,8 +692,6 @@ async function autoDeductAfterCutoff() {
         console.log(`[autoDeductAfterCutoff] ${currentRaceDate} 已執行過自動扣款，跳過`);
         return;
     }
-
-    console.log(`[autoDeductAfterCutoff] 開始對 ${currentRaceDate} 未投注者自動扣款`);
 
     // ... 下面保留你原本嘅 try { ... } catch 扣款邏輯 ...
     try {
@@ -714,7 +723,7 @@ async function autoDeductAfterCutoff() {
                 race_no: 0,
                 banker: null,
                 legs: null,
-                payout: 0, // ★ 注意：這裡必須是 0，不是 -120
+                payout: 0, // 確保係 0
                 reason: `自動扣款 (${currentRaceDate} 未投注)`,
                 flexible_data: {
                     auto_deduct: true,
@@ -726,7 +735,7 @@ async function autoDeductAfterCutoff() {
             await supabaseClient.from('bets').insert([autoDeductData]);
         }
 
-        console.log(`[autoDeductAfterCutoff] 已對 ${noBetParticipants.length} 位參賽者自動扣款 $120`);
+        console.log(`[成功] 已對 ${noBetParticipants.length} 位參賽者自動扣款 $120`);
 
         loadMonthlyRanking();
         if (document.getElementById('stats-page').classList.contains('active-page')) {
@@ -736,6 +745,7 @@ async function autoDeductAfterCutoff() {
         console.error('[autoDeductAfterCutoff] 錯誤:', err);
     }
 }
+    
 // ===== 更新倒數計時顯示 =====
 function updateCountdownDisplay() {
     const raceDate = document.getElementById('inputRaceDate')?.value;
