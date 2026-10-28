@@ -473,7 +473,6 @@ async function saveCutoffTime() {
         return `${secs}秒`;
     }
     
-    // ========== 更新倒數計時顯示 ==========
 // ========== 更新倒數計時顯示 ==========
 function updateCountdownDisplay() {
     const raceDate = document.getElementById('inputRaceDate')?.value;
@@ -486,9 +485,9 @@ function updateCountdownDisplay() {
         return; 
     }
     
+    // 計算距離封盤時間
     const secondsLeft = getSecondsUntilCutoff(raceDate, currentCutoffTime);
     
-    // 處理 UI 顯示
     if (countdownEl) {
         countdownEl.innerHTML = formatCountdown(secondsLeft);
         if (secondsLeft <= 60 && secondsLeft > 0) { 
@@ -508,25 +507,9 @@ function updateCountdownDisplay() {
             lockMsg.innerHTML = `🔒 已封盤 (賽日 ${raceDate} ${currentCutoffTime} 截止)`; 
         }
 
-        // ★★★ 封盤後自動扣款（加入嚴格限制）★★★
-        // 條件 1：目前選擇的賽日，必須等於系統的目標賽日 (currentRaceDate)
-        // 條件 2：秒數不能是 NaN (避免時區或格式錯誤)
-        if (raceDate === currentRaceDate && !isNaN(secondsLeft)) {
-            if (!window._autoDeductTriggered?.[raceDate]) {
-                if (!window._autoDeductTriggered) window._autoDeductTriggered = {};
-                window._autoDeductTriggered[raceDate] = true;
-                
-                console.log(`[安全觸發] 執行自動扣款：賽日 ${raceDate}，時間 ${currentCutoffTime}`);
-                autoDeductAfterCutoff();
-            }
-        } else {
-            // 如果用戶手動切換到過去/未來的其他賽日，不會觸發扣款
-            if (!window._autoDeductTriggered?.[raceDate]) {
-                console.log(`[安全攔截] 未觸發扣款：所選賽日 (${raceDate}) 不是當前目標賽日 (${currentRaceDate})`);
-            }
-        }
+        // ★★★ 前端已不再執行自動扣款，交由 Supabase Cron Job 處理 ★★★
 
-        // ★★★ 封盤後自動載入重心馬 ★★★
+        // 只保留封盤後自動載入重心馬
         if (!window._focusHorsesLoaded) {
             window._focusHorsesLoaded = true;
             loadFocusHorses();
@@ -537,11 +520,7 @@ function updateCountdownDisplay() {
         if (submitBtn) submitBtn.disabled = false;
         if (lockMsg) lockMsg.style.display = 'none';
         
-        // 重置標記
-        if (window._autoDeductTriggered?.[raceDate]) {
-            delete window._autoDeductTriggered[raceDate];
-        }
-        
+        // 重置重心馬狀態
         window._focusHorsesLoaded = false;
         const card = document.getElementById('focusHorsesCard');
         if (card) card.style.display = 'none';
