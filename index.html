@@ -328,7 +328,7 @@
   
       <div class="form-group" style="margin-top: 10px;">
         <label style="color: #b91c1c;">自動扣款時間 (未投注者扣 $120)</label>
-        <input type="time" id="autoDeductTime" step="1" value="18:00:00">
+        <input type="time" id="autoDeductTime" step="1" value="19:30:00">
         <div class="bet-limit">到達此時間後，系統會自動為未投注者扣款</div>
       </div>
 
@@ -413,7 +413,7 @@
     let participants = [], raceDays = [], currentRaceDate = null, adminUnlocked = false, resultUnlocked = false, betUnlocked = false;
     let countdownInterval = null;
     let currentCutoffTime = '19:00:00';
-    let currentAutoDeductTime = '19:00:00';
+    let currentAutoDeductTime = '19:30:00';
     let serverHKTime = null;
     let lastSyncTime = 0;
     
@@ -557,8 +557,18 @@ async function loadCutoffTime() {
             const cutoff = data.find(d => d.key === 'cutoff_time');
             const autoDeduct = data.find(d => d.key === 'auto_deduct_time');
 
-            if (cutoff) currentCutoffTime = cutoff.value;
-            if (autoDeduct) currentAutoDeductTime = autoDeduct.value;
+            // 確保有值且格式正確，否則使用預設值
+            if (cutoff && cutoff.value && cutoff.value.includes(':')) {
+                currentCutoffTime = cutoff.value;
+            } else {
+                currentCutoffTime = '19:00:00';
+            }
+
+            if (autoDeduct && autoDeduct.value && autoDeduct.value.includes(':')) {
+                currentAutoDeductTime = autoDeduct.value;
+            } else {
+                currentAutoDeductTime = '19:30:00';
+            }
             
             updateTimeUI();
         }
@@ -649,6 +659,15 @@ function updateTimeUI() {
 async function autoDeductAfterCutoff() {
     if (!currentRaceDate) return;
 
+    // ★★★ 絕對防護罩：再次確認是否已過自動扣款時間 ★★★
+    const secondsUntilDeduct = getSecondsUntilCutoff(currentRaceDate, currentAutoDeductTime);
+    
+    // 如果時間未到（大於 0），或者時間解析錯誤（NaN / -1），直接中斷！
+    if (secondsUntilDeduct > 0 || isNaN(secondsUntilDeduct) || secondsUntilDeduct === -1) {
+        console.log(`[防守攔截] 尚未到達扣款時間 (${currentAutoDeductTime})，拒絕執行扣款。`);
+        return; 
+    }
+
     // 檢查該賽日是否已經執行過自動扣款
     const { data: existingAutoDeduct } = await supabaseClient
         .from('bets')
@@ -665,6 +684,7 @@ async function autoDeductAfterCutoff() {
 
     console.log(`[autoDeductAfterCutoff] 開始對 ${currentRaceDate} 未投注者自動扣款`);
 
+    // ... 下面保留你原本嘅 try { ... } catch 扣款邏輯 ...
     try {
         const { data: allParticipants, error: pErr } = await supabaseClient
             .from('participants')
@@ -694,7 +714,7 @@ async function autoDeductAfterCutoff() {
                 race_no: 0,
                 banker: null,
                 legs: null,
-                payout: 0,
+                payout: 0, // ★ 注意：這裡必須是 0，不是 -120
                 reason: `自動扣款 (${currentRaceDate} 未投注)`,
                 flexible_data: {
                     auto_deduct: true,
@@ -716,7 +736,6 @@ async function autoDeductAfterCutoff() {
         console.error('[autoDeductAfterCutoff] 錯誤:', err);
     }
 }
-
 // ===== 更新倒數計時顯示 =====
 function updateCountdownDisplay() {
     const raceDate = document.getElementById('inputRaceDate')?.value;
