@@ -316,36 +316,36 @@
             </div>
 
             <!-- 報名成功及付款區 (預設隱藏) -->
-<div id="registerPaymentArea" style="display: none;">
-  <h3 style="color: #16a34a; margin-bottom: 10px;">✅ 報名成功！</h3>
-  <p style="font-size: 0.85rem; color: #475569; margin-bottom: 15px;">
-    您嘅預設 PIN 碼為 <strong style="color: #b91c1c; font-size: 1.2rem;">0000</strong><br>
-    請使用以下任何一種方法繳交報名費。入數後請截圖通知管理員開通。
-  </p>
+            <div id="registerPaymentArea" style="display: none;">
+              <h3 style="color: #16a34a; margin-bottom: 10px;">✅ 報名成功！</h3>
+              <p style="font-size: 0.85rem; color: #475569; margin-bottom: 15px;">
+                您嘅預設 PIN 碼為 <strong style="color: #b91c1c; font-size: 1.2rem;">0000</strong><br>
+                報名費需經管理員審核，請付款後點擊下方按鈕發送截圖。
+              </p>
 
-  <!-- 付款方法 1：FPS / 銀行轉賬 -->
-  <div style="background: #f8fafc; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: left; border: 1px solid #e2e8f0;">
-    <h4 style="color: #1e293b; margin-bottom: 8px; font-size: 0.95rem;">1️⃣ 銀行轉帳 / FPS (轉數快)</h4>
-    <div style="font-size: 0.85rem; line-height: 1.5; color: #334155;">
-      <div>轉數快 ID：<strong style="color: #b91c1c; font-size: 1rem; user-select: all;">122318280</strong></div>
-      <div>銀行帳號：<strong style="color: #b91c1c; font-size: 1rem; user-select: all;">869063253695</strong></div>
-      <div>銀行名稱：ZA Bank (387)</div>
-      <div>帳戶名稱：Logic Horse Limited</div>
-    </div>
-  </div>
+              <!-- FPS 資訊 -->
+              <div style="background: #f8fafc; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: left; border: 1px solid #e2e8f0;">
+                <h4 style="color: #1e293b; margin-bottom: 8px; font-size: 0.95rem;">1️⃣ FPS / 銀行轉帳</h4>
+                <div style="font-size: 0.85rem; line-height: 1.5; color: #334155;">
+                  <div>轉數快 ID：<strong style="color: #b91c1c; font-size: 1rem; user-select: all;">122318280</strong></div>
+                  <div>銀行帳號：<strong style="color: #b91c1c; font-size: 1rem; user-select: all;">869063253695</strong></div>
+                  <div>帳戶名稱：Logic Horse Limited</div>
+                </div>
+              </div>
 
-  <!-- 付款方法 2：PayMe -->
-  <div style="background: #f8fafc; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center; border: 1px solid #e2e8f0;">
-    <h4 style="color: #1e293b; margin-bottom: 8px; font-size: 0.95rem;">2️⃣ PayMe 轉賬</h4>
-    <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 10px;">請用 PayMe App 掃描下方 QR Code</p>
-    
-    <!-- ⚠️ 請確保 payme.jpg 已經上傳到你的網站 -->
-    <img src="payme.jpg" alt="PayMe QR Code" style="width: 200px; height: 200px; border-radius: 8px; margin: 0 auto; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-  </div>
+              <!-- PayMe QR Code (請確保 payme.jpg 存在) -->
+              <div style="background: #f8fafc; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center; border: 1px solid #e2e8f0;">
+                <h4 style="color: #1e293b; margin-bottom: 8px; font-size: 0.95rem;">2️⃣ PayMe 轉賬</h4>
+                <img src="payme.jpg" alt="PayMe QR Code" style="width: 200px; height: 200px; border-radius: 8px; margin: 0 auto; display: block;">
+              </div>
 
-  <button id="closePaymentBtn" class="secondary" style="width: 100%;">我已付款，關閉視窗</button>
-</div>
+              <!-- WhatsApp 按鈕 -->
+              <a id="whatsappSendBtn" href="#" target="_blank" style="display: block; background: #25D366; color: white; text-decoration: none; padding: 12px; border-radius: 40px; font-weight: bold; margin-bottom: 10px;">
+                💬 發送付款截圖給管理員
+              </a>
 
+              <button id="closePaymentBtn" class="secondary" style="width: 100%;">我已發送，關閉視窗</button>
+            </div>
         </div>
     </div>
 </div>
@@ -901,40 +901,80 @@ function updateCountdownDisplay() {
     }
     
     async function handleLogin() {
-        const participant = document.getElementById('loginParticipantSelect').value;
-        const pin = document.getElementById('loginPinInput').value.trim();
-        const errorDiv = document.getElementById('loginError');
-        const statusDiv = document.getElementById('loginStatus');
-        errorDiv.style.display = 'none'; errorDiv.textContent = '';
-        if (!participant) { errorDiv.textContent = '請選擇您的名稱'; errorDiv.style.display = 'block'; return; }
-        if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) { errorDiv.textContent = '請輸入 4 位數字 PIN 碼'; errorDiv.style.display = 'block'; return; }
-        const result = await verifyPin(participant, pin);
-        if (result.success) {
-            loggedInUser = participant; loginExpiry = Date.now() + LOGIN_DURATION;
-            sessionStorage.setItem('loggedInUser', participant);
-            sessionStorage.setItem('loginExpiry', loginExpiry.toString());
-            document.getElementById('pinLoginArea').style.display = 'none';
-            document.getElementById('betContentArea').style.display = 'block';
-            document.getElementById('loggedInUserDisplay').textContent = participant;
-            document.getElementById('loginTimeDisplay').textContent = `(有效期至 ${new Date(loginExpiry).toLocaleTimeString()})`;
-            const today = new Date().toISOString().slice(0, 10);
-            const { data: raceData } = await supabaseClient.from('race_days').select('race_date').gte('race_date', today).order('race_date', { ascending: true }).limit(1);
-            if (raceData && raceData.length > 0) {
-                document.getElementById('nextRaceDateDisplay').textContent = raceData[0].race_date;
-                document.getElementById('inputRaceDate').value = raceData[0].race_date;
-            }
-            await initHorseSelects();
-            await loadMyBets();
-            updateCountdownDisplay();
-            await loadFocusHorses();
-            statusDiv.innerHTML = '✅ 登入成功！'; statusDiv.style.color = '#16a34a';
-            document.getElementById('loginPinInput').value = '';
-        } else {
-            errorDiv.textContent = result.message; errorDiv.style.display = 'block';
-            document.getElementById('loginPinInput').value = '';
-            document.getElementById('loginPinInput').focus();
-        }
+    const participant = document.getElementById('loginParticipantSelect').value;
+    const pin = document.getElementById('loginPinInput').value.trim();
+    const errorDiv = document.getElementById('loginError');
+    const statusDiv = document.getElementById('loginStatus');
+    
+    if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
+    
+    if (!participant) { 
+        if (errorDiv) { errorDiv.textContent = '請選擇您的名稱'; errorDiv.style.display = 'block'; }
+        return; 
     }
+    if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) { 
+        if (errorDiv) { errorDiv.textContent = '請輸入 4 位數字 PIN 碼'; errorDiv.style.display = 'block'; }
+        return; 
+    }
+
+    // 1. 驗證 PIN 碼
+    const result = await verifyPin(participant, pin);
+    
+    if (result.success) {
+        // 2. ★★★ 檢查審核狀態 ★★★
+        const { data: pData, error: pError } = await supabaseClient
+            .from('participants')
+            .select('is_approved')
+            .eq('name', participant)
+            .single();
+
+        // 如果資料庫中明確標記為 false (未通過)
+        if (pData && pData.is_approved === false) {
+            if (errorDiv) {
+                errorDiv.innerHTML = '⏳ 您的報名正在審核中。<br>請確保已將付款截圖發送給管理員，待管理員確認後即可登入。';
+                errorDiv.style.display = 'block';
+            }
+            return; // 攔截登入
+        }
+
+        // 3. 登入成功邏輯
+        loggedInUser = participant; 
+        loginExpiry = Date.now() + LOGIN_DURATION;
+        sessionStorage.setItem('loggedInUser', participant);
+        sessionStorage.setItem('loginExpiry', loginExpiry.toString());
+        
+        document.getElementById('pinLoginArea').style.display = 'none';
+        document.getElementById('betContentArea').style.display = 'block';
+        document.getElementById('loggedInUserDisplay').textContent = participant;
+        document.getElementById('loginTimeDisplay').textContent = `(有效期至 ${new Date(loginExpiry).toLocaleTimeString()})`;
+        
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: raceData } = await supabaseClient.from('race_days').select('race_date').gte('race_date', today).order('race_date', { ascending: true }).limit(1);
+        if (raceData && raceData.length > 0) {
+            document.getElementById('nextRaceDateDisplay').textContent = raceData[0].race_date;
+            document.getElementById('inputRaceDate').value = raceData[0].race_date;
+        }
+        
+        await initHorseSelects();
+        await loadMyBets();
+        updateCountdownDisplay();
+        
+        if (statusDiv) {
+            statusDiv.innerHTML = '✅ 登入成功！'; 
+            statusDiv.style.color = '#16a34a';
+        }
+        document.getElementById('loginPinInput').value = '';
+        
+    } else {
+        // PIN 碼錯誤
+        if (errorDiv) {
+            errorDiv.textContent = result.message; 
+            errorDiv.style.display = 'block';
+        }
+        document.getElementById('loginPinInput').value = '';
+        document.getElementById('loginPinInput').focus();
+    }
+}
     
     function handleLogout() {
         loggedInUser = null; loginExpiry = null;
@@ -1319,13 +1359,62 @@ function updateCountdownDisplay() {
     }
     
     async function loadParticipants() {
-        const { data, error } = await supabaseClient.from('participants').select('*').order('name');
-        if (!error) participants = data || [];
-        const opt = participants.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-        document.getElementById('statsUserSelect').innerHTML = '<option value="">-- 請選擇 --</option>' + opt;
-        document.getElementById('detailUserSelect').innerHTML = '<option value="all">全部參賽者</option>' + opt;
-        document.getElementById('participantList').innerHTML = participants.map(p => `<span class="badge">${p.name} <b onclick="deleteParticipant(${p.id})" style="cursor:pointer;color:red;">✖</b></span>`).join(' ');
+    const { data, error } = await supabaseClient.from('participants').select('*').order('name');
+    if (!error) participants = data || [];
+    
+    // 更新下拉選單 (統計、詳情、登入)
+    const opt = participants.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    
+    const statsSelect = document.getElementById('statsUserSelect');
+    if (statsSelect) statsSelect.innerHTML = '<option value="">-- 請選擇 --</option>' + opt;
+    
+    const detailSelect = document.getElementById('detailUserSelect');
+    if (detailSelect) detailSelect.innerHTML = '<option value="all">全部參賽者</option>' + opt;
+    
+    const loginSelect = document.getElementById('loginParticipantSelect');
+    if (loginSelect) loginSelect.innerHTML = '<option value="">-- 請選擇 --</option>' + opt;
+
+    // 更新管理頁的人員列表 (加入審核狀態與按鈕)
+    const listContainer = document.getElementById('participantList');
+    if (listContainer) {
+        listContainer.innerHTML = participants.map(p => {
+            // 兼容舊資料：如果 is_approved 不是 false，都當作已通過
+            const isApproved = p.is_approved !== false; 
+            
+            const statusBadge = isApproved 
+                ? `<span style="color:#16a34a; font-size:0.75rem; margin-left:4px;">(已通過)</span>`
+                : `<span style="color:#b91c1c; font-size:0.75rem; font-weight:bold; margin-left:4px;">(待審核)</span>`;
+            
+            const approveBtn = isApproved 
+                ? '' 
+                : `<button onclick="approveParticipant(${p.id}, '${p.name}')" style="background:#16a34a; color:white; border:none; padding:2px 6px; font-size:0.7rem; width:auto; border-radius:4px; margin-left:6px; cursor:pointer;">✅ 通過</button>`;
+
+            // 刪除按鈕
+            const deleteBtn = `<b onclick="deleteParticipant(${p.id})" style="cursor:pointer; color:#ef4444; margin-left:8px; font-size:1rem;">✖</b>`;
+
+            return `<span class="badge" style="display:inline-flex; align-items:center; padding: 6px 10px; margin-bottom: 6px; border-radius: 8px; background: #f1f5f9;">
+                ${p.name} ${statusBadge} ${approveBtn} ${deleteBtn}
+            </span>`;
+        }).join(' ');
     }
+}
+
+// ===== 管理員一鍵批核通過 =====
+window.approveParticipant = async (id, name) => {
+    if (!confirm(`確定要通過「${name}」的報名審核嗎？`)) return;
+    
+    const { error } = await supabaseClient
+        .from('participants')
+        .update({ is_approved: true })
+        .eq('id', id);
+        
+    if (error) {
+        alert("審核失敗: " + error.message);
+    } else {
+        alert(`✅ 已成功通過 ${name} 的報名！佢現在可以使用 PIN 碼登入了。`);
+        await loadParticipants(); // 重新載入名單刷新畫面
+    }
+};
     
     async function loadRaceDays() {
         console.log('[loadRaceDays] 開始');
@@ -2237,24 +2326,17 @@ window.verifyAdmin = function() {
     document.getElementById('inputRaceNo')?.addEventListener('change', async () => { await initHorseSelects(); document.getElementById('horse1').value = ''; document.getElementById('horse2').value = ''; document.getElementById('horse3').value = ''; await loadFocusHorses(); });
 
     // ===== 自助報名系統 =====
-let currentPaymentLink = '#';
-
+let currentWhatsapp = '61425110595';
 async function loadRegistrationSettings() {
     try {
-        const { data } = await supabaseClient.from('system_settings').select('key, value').in('key', ['registration_open', 'payment_link']);
+        const { data } = await supabaseClient.from('system_settings').select('key, value').in('key', ['registration_open', 'admin_whatsapp']);
         if (data) {
             const isOpen = data.find(d => d.key === 'registration_open')?.value === 'true';
-            const payLink = data.find(d => d.key === 'payment_link')?.value;
-            if (payLink) currentPaymentLink = payLink;
+            const waNum = data.find(d => d.key === 'admin_whatsapp')?.value;
+            if (waNum) currentWhatsapp = waNum;
 
             const btn = document.getElementById('openRegisterBtn');
-            if (btn) {
-                if (isOpen) {
-                    btn.style.display = 'block';
-                } else {
-                    btn.style.display = 'none';
-                }
-            }
+            if (btn) btn.style.display = isOpen ? 'block' : 'none';
         }
     } catch (e) { console.error("載入報名設定失敗", e); }
 }
@@ -2274,12 +2356,23 @@ function closeRegisterModal() {
 }
 
 async function submitRegister() {
-    const name = document.getElementById('registerNameInput').value.trim();
+    const nameInput = document.getElementById('registerNameInput');
+    const name = nameInput.value.trim();
     const errorDiv = document.getElementById('registerError');
     const submitBtn = document.getElementById('registerSubmitBtn');
 
+    // 清除舊有錯誤
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
+
+    // 1. 基本驗證
     if (!name) {
         errorDiv.textContent = '請輸入名稱';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    if (name.length > 15) {
+        errorDiv.textContent = '名稱不能超過 15 個字';
         errorDiv.style.display = 'block';
         return;
     }
@@ -2288,8 +2381,14 @@ async function submitRegister() {
     submitBtn.textContent = '處理中...';
 
     try {
-        // 檢查名稱是否重複
-        const { data: existing } = await supabaseClient.from('participants').select('name').eq('name', name);
+        // 2. 檢查名稱是否重複
+        const { data: existing, error: checkError } = await supabaseClient
+            .from('participants')
+            .select('name')
+            .eq('name', name);
+
+        if (checkError) throw checkError;
+
         if (existing && existing.length > 0) {
             errorDiv.textContent = '❌ 此名稱已被使用，請換一個。';
             errorDiv.style.display = 'block';
@@ -2298,23 +2397,45 @@ async function submitRegister() {
             return;
         }
 
-        // 寫入資料庫 (預設 PIN 碼 0000)
-        const { error } = await supabaseClient.from('participants').insert([{ name: name, pin: '0000' }]);
-        if (error) throw error;
+        // 3. 寫入資料庫 (預設 PIN 為 0000，預設為未審核)
+        const { error: insertError } = await supabaseClient
+            .from('participants')
+            .insert([{ 
+                name: name, 
+                pin: '0000',
+                is_approved: false // 強制設為未審核
+            }]);
 
-        // 顯示付款區塊
+        if (insertError) throw insertError;
+
+        // 4. 切換 UI 顯示付款區塊
         document.getElementById('registerFormArea').style.display = 'none';
         document.getElementById('registerPaymentArea').style.display = 'block';
+
+        // 5. 生成 WhatsApp 連結 (替換為你嘅澳洲號碼)
+        const adminWhatsapp = '61425110595'; 
+        const waText = encodeURIComponent(`你好，我係 Logic Horse 新參賽者「${name}」，已入數，附上付款截圖：`);
+        const waUrl = `https://wa.me/${adminWhatsapp}?text=${waText}`;
         
-        // 重新載入登入選單，並預填名字
-        await loadLoginParticipants();
+        // 綁定落 WhatsApp 按鈕
+        document.getElementById('whatsappSendBtn').href = waUrl;
+
+        // 6. 重新載入登入選單，並預填名字 (方便佢關閉視窗後登入)
+        if (typeof loadLoginParticipants === 'function') {
+            await loadLoginParticipants();
+        }
         document.getElementById('loginParticipantSelect').value = name;
+        
+        // 7. 自動將預設 PIN 填埋落去，等佢一撳就登入到
+        const pinInput = document.getElementById('loginPinInput');
+        if (pinInput) pinInput.value = '0000';
 
     } catch (err) {
-        console.error(err);
+        console.error("報名失敗:", err);
         errorDiv.textContent = '❌ 系統錯誤，請稍後再試。';
         errorDiv.style.display = 'block';
     } finally {
+        // 恢復按鈕狀態
         submitBtn.disabled = false;
         submitBtn.textContent = '確認報名';
     }
