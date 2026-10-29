@@ -2449,9 +2449,6 @@ document.getElementById('registerNameInput')?.addEventListener('keypress', (e) =
     if (e.key === 'Enter') submitRegister();
 });
 
-// 喺 window.onload 入面呼叫（請加到現有的 window.onload 尾部）
-// await loadRegistrationSettings();
-
     async function loadAdminRegistrationSettings() {
     const { data } = await supabaseClient.from('system_settings').select('key, value').in('key', ['registration_open', 'payment_link']);
     if (data) {
@@ -2493,6 +2490,20 @@ document.getElementById('toggleRegistrationBtn')?.addEventListener('click', asyn
     await loadRegistrationSettings(); // 更新前端的按鈕顯示
     alert(`✅ 已${newStatus === 'true' ? '開放' : '截止'}報名`);
 });
+
+    // ===== 監聽參賽者資料表變化 (Real-time) =====
+function setupParticipantsRealtime() {
+    supabaseClient
+        .channel('public:participants')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, payload => {
+            console.log('🔄 偵測到參賽者資料變動，自動刷新名單！', payload);
+            
+            // 當有人新增或修改時，自動刷新所有名單
+            loadParticipants();
+            if (typeof loadLoginParticipants === 'function') loadLoginParticipants();
+        })
+        .subscribe();
+}
     
     // ========== 頁面初始化 ==========
 window.onload = async () => {
@@ -2537,6 +2548,9 @@ window.onload = async () => {
     
     // 載入報名設定 (如果有加嘅話)
     if (typeof loadRegistrationSettings === 'function') await loadRegistrationSettings();
+
+    // 啟動實時監聽
+    setupParticipantsRealtime();
 
     // 預設顯示首頁
     showPage('ranking');
