@@ -370,112 +370,58 @@
         <div id="resultDisplay" style="margin-top:16px;"></div>
       </div>
     </div>
+    
 <!-- 管理頁 -->
 <div id="admin-page" class="page">
+  
+  <!-- 密碼驗證區 (永遠喺最頂) -->
   <div id="adminAuth" class="card">
     <input type="password" id="adminPwd" placeholder="管理密碼">
     <button onclick="verifyAdmin()" style="margin-top:8px;">驗證</button>
   </div>
+  
+  <!-- 所有管理功能必須包喺 adminPanel 入面 -->
   <div id="adminPanel" style="display:none;">
     
-    <!-- 自動封盤與扣款設定 -->
+    <!-- 封盤與扣款設定 -->
     <div class="card">
       <h3>⏰ 封盤與扣款設定</h3>
-      
-      <div class="form-group">
-        <label>封盤時間 (賽日當天停止投注)</label>
-        <input type="time" id="cutoffTime" step="1" value="19:00:00">
-      </div>
-  
-      <div class="form-group" style="margin-top: 10px;">
-        <label style="color: #b91c1c;">自動扣款時間 (未投注者扣 $120)</label>
-        <input type="time" id="autoDeductTime" step="1" value="19:30:00">
-        <div class="bet-limit">到達此時間後，系統會自動為未投注者扣款</div>
-      </div>
-
-      <button id="saveCutoffTimeBtn" class="btn" style="background:#475569; margin-top: 10px;">💾 儲存設定</button>
-      <div id="cutoffTimeStatus" class="info-note" style="margin-top:10px;"></div>
+      <!-- ... 你原本嘅設定內容 ... -->
     </div>
-    
-    <!-- 自動結算賽果 -->
+
+    <!-- 自動結算 -->
     <div class="card">
       <h3>🏁 自動結算賽果</h3>
-      <div class="form-group">
-        <label>選擇賽日</label>
-        <select id="autoSettleRaceDate"></select>
-      </div>
-      <button id="autoSettleBtn" class="btn" style="background:#1e6f3f;">🔄 執行自動結算</button>
-      <div id="autoSettleMsg" class="info-note" style="margin-top:10px; display:none;"></div>
+      <!-- ... 你原本嘅結算內容 ... -->
     </div>
-    
+
     <!-- 人員管理 -->
-<div class="card">
-  <h3>人員管理</h3>
-  <div style="display: flex; gap: 8px; align-items: center;">
-    <input type="text" id="newUserName" placeholder="新參賽者" style="flex: 1;">
-    <button onclick="addParticipant()" style="background:#334155; width: auto; padding: 10px 15px; margin: 0;">➕ 新增</button>
-    <button onclick="deleteAllParticipants()" style="background:#b91c1c; width: auto; padding: 10px 15px; margin: 0;">🗑️ 全刪</button>
-  </div>
-  <div id="participantList" style="margin-top: 10px;"></div>
-</div>
-      
-  <h3>📝 報名管理設定</h3>
-  
-  <div class="form-group">
-    <label>付款連結 (PayMe / FPS / Stripe 等)</label>
-    <input type="text" id="paymentLinkInput" placeholder="https://...">
-  </div>
-  
-  <div style="display: flex; gap: 10px; margin-top: 15px;">
-    <button id="savePaymentLinkBtn" class="btn" style="background: #475569; flex: 1;">💾 儲存付款連結</button>
-    <button id="toggleRegistrationBtn" class="btn" style="flex: 1;">🔴 截止報名</button>
-  </div>
-  
-  <div id="registrationStatusMsg" class="info-note" style="margin-top: 10px;"></div>
-</div>
-    
+    <div class="card">
+      <h3>人員管理</h3>
+      <!-- ... 你原本嘅人員內容 ... -->
+    </div>
+
     <!-- 賽日管理 -->
-<div class="card">
-  <h3>賽日管理</h3>
-  <div style="display: flex; gap: 8px; align-items: center;">
-    <input type="date" id="newRaceDate" style="flex: 1;">
-    <button onclick="addRaceDay()" style="background:#334155; width: auto; padding: 10px 15px; margin: 0;">📅 新增</button>
-    <button onclick="deleteAllRaceDays()" style="background:#b91c1c; width: auto; padding: 10px 15px; margin: 0;">🗑️ 全刪</button>
-  </div>
-  <div id="raceDayList" style="margin-top: 10px;"></div>
-</div>
-    
+    <div class="card">
+      <h3>賽日管理</h3>
+      <!-- ... 你原本嘅賽日內容 ... -->
+    </div>
+
     <!-- PIN 碼管理 -->
     <div class="card">
       <h3>🔐 PIN 碼管理</h3>
-      <div class="form-row">
-        <label>參賽者</label>
-        <select id="pinParticipantSelect"></select>
-      </div>
-      <div class="form-row">
-        <label>新 PIN 碼</label>
-        <input type="password" id="newPinInput" placeholder="4 位數字" maxlength="4" style="width: 120px; text-align: center; letter-spacing: 8px; font-size: 1.2rem;">
-        <button onclick="updatePin()" style="width: auto;">✏️ 更新</button>
-        <button onclick="resetPin(document.getElementById('pinParticipantSelect').value)" style="width: auto; background: #f59e0b;">🔄 隨機重設</button>
-      </div>
-      <div id="pinList" style="margin-top: 12px; max-height: 400px; overflow-y: auto;"></div>
-      <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button onclick="batchResetAllPins()" style="background: #b91c1c; width: auto; padding: 6px 20px;">🔄 批次重設所有 PIN 碼</button>
-        <button onclick="exportPins()" style="background: #475569; width: auto; padding: 6px 20px;">📥 匯出 PIN 碼 (CSV)</button>
-      </div>
-      <div class="info-note" style="margin-top: 12px;">
-        💡 新參賽者預設 PIN 碼為 <strong>0000</strong>。管理員可個別重設或批次重設所有 PIN 碼。
-      </div>
+      <!-- ... 你原本嘅 PIN 碼內容 ... -->
     </div>
-    
+
     <!-- 所有投注紀錄 -->
     <div class="card">
       <h3>所有投注紀錄</h3>
       <div id="adminBetsList"></div>
     </div>
-    
-  </div>
-</div>
+
+  </div> <!-- ★★★ 呢個 </div> 係用嚟閂 adminPanel 嘅！一定要喺最尾。★★★ -->
+
+</div> <!-- 呢個係閂 admin-page -->
 
 <div class="nav-bottom">
     <button class="nav-btn" data-page="ranking"><span>📊</span><span>熱度</span></button>
