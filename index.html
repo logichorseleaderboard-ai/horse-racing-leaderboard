@@ -145,7 +145,7 @@
     <div id="detail-page" class="page">
         <div class="card"><h2>🔍 投注詳情</h2><div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;"><div class="form-group" style="flex: 1; min-width: 120px;"><label>賽日</label><select id="detailRaceDate"></select></div><div class="form-group" style="flex: 1; min-width: 120px;"><label>參賽者</label><select id="detailUserSelect"><option value="all">全部參賽者</option></select></div><div class="form-group" style="flex: 1; min-width: 100px;"><label>場次</label><select id="detailRaceNo"><option value="all">全部場次</option></select></div></div><div id="detailList"></div></div>
     </div>
-    <!-- ========= 投注頁 ========= -->
+<!-- ========= 投注頁 ========= -->
 <div id="input-page" class="page">
     <!-- PIN 登入區 -->
     <div id="pinLoginArea" class="card">
@@ -162,6 +162,14 @@
             <div id="loginError" class="error-msg" style="display:none; margin-top: 6px;"></div>
         </div>
         <button id="loginBtn">🔓 登入</button>
+        
+        <!-- ★★★ 新增：自助報名按鈕 ★★★ -->
+        <div style="margin-top: 15px; text-align: center;">
+            <button id="openRegisterBtn" onclick="openRegisterModal(event)" style="background: #475569; padding: 10px; font-size: 0.85rem; width: 100%;">
+                📝 新用戶自助報名
+            </button>
+        </div>
+
         <div id="loginStatus" class="info-note" style="margin-top: 10px;"></div>
         <div class="info-note" style="margin-top: 10px;">
             📌 首次使用請輸入預設 PIN 碼 <strong>0000</strong>，登入後可自行修改 PIN 碼。
@@ -287,6 +295,43 @@
             </div>
         </div>
     </div>
+
+    <!-- ========== 自助報名彈出視窗 ========== -->
+    <div id="registerModal" class="password-overlay" style="display: none; z-index: 2000;">
+        <div class="password-box" style="min-width: 300px;">
+            
+            <!-- 報名表單區 -->
+            <div id="registerFormArea">
+                <h3 style="color: #1e6f3f; margin-bottom: 15px;">📝 新用戶報名</h3>
+                <div class="form-group" style="text-align: left;">
+                    <label>參賽者名稱</label>
+                    <input type="text" id="registerNameInput" placeholder="請輸入名稱" style="width: 100%; padding: 10px; margin-top: 5px;">
+                </div>
+                <div id="registerError" class="error-msg" style="display: none; text-align: left;"></div>
+                
+                <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+                    <button id="registerSubmitBtn" style="background: #1e6f3f;">確認報名</button>
+                    <button id="registerCancelBtn" class="secondary">取消</button>
+                </div>
+            </div>
+
+            <!-- 報名成功及付款區 (預設隱藏) -->
+            <div id="registerPaymentArea" style="display: none;">
+                <h3 style="color: #16a34a; margin-bottom: 10px;">✅ 報名成功！</h3>
+                <p style="font-size: 0.85rem; color: #475569; margin-bottom: 15px;">
+                    您嘅預設 PIN 碼為 <strong style="color: #b91c1c; font-size: 1.2rem;">0000</strong><br>
+                    請點擊下方連結繳交報名費，繳費後即可登入投注。
+                </p>
+                
+                <a id="paymentLinkBtn" href="#" target="_blank" style="display: block; background: #1e6f3f; color: white; text-decoration: none; padding: 12px; border-radius: 40px; font-weight: bold; margin-bottom: 15px;">
+                    💳 前往付款
+                </a>
+                
+                <button id="closePaymentBtn" class="secondary" style="width: 100%;">關閉</button>
+            </div>
+
+        </div>
+    </div>
 </div>
     <!-- 分析頁 -->
     <div id="stats-page" class="page">
@@ -354,6 +399,22 @@
       <button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button>
       <div id="participantList"></div>
     </div>
+
+      <div class="card">
+  <h3>📝 報名管理設定</h3>
+  
+  <div class="form-group">
+    <label>付款連結 (PayMe / FPS / Stripe 等)</label>
+    <input type="text" id="paymentLinkInput" placeholder="https://...">
+  </div>
+  
+  <div style="display: flex; gap: 10px; margin-top: 15px;">
+    <button id="savePaymentLinkBtn" class="btn" style="background: #475569; flex: 1;">💾 儲存付款連結</button>
+    <button id="toggleRegistrationBtn" class="btn" style="flex: 1;">🔴 截止報名</button>
+  </div>
+  
+  <div id="registrationStatusMsg" class="info-note" style="margin-top: 10px;"></div>
+</div>
     
     <!-- 賽日管理 -->
     <div class="card">
@@ -2005,6 +2066,144 @@ async function loadUserBets() {
     document.getElementById('statsUserSelect')?.addEventListener('change', loadStatsForCurrentUser);
     document.getElementById('saveCutoffTimeBtn')?.addEventListener('click', saveCutoffTime);
     document.getElementById('inputRaceNo')?.addEventListener('change', async () => { await initHorseSelects(); document.getElementById('horse1').value = ''; document.getElementById('horse2').value = ''; document.getElementById('horse3').value = ''; await loadFocusHorses(); });
+
+    // ===== 自助報名系統 =====
+let currentPaymentLink = '#';
+
+async function loadRegistrationSettings() {
+    try {
+        const { data } = await supabaseClient.from('system_settings').select('key, value').in('key', ['registration_open', 'payment_link']);
+        if (data) {
+            const isOpen = data.find(d => d.key === 'registration_open')?.value === 'true';
+            const payLink = data.find(d => d.key === 'payment_link')?.value;
+            if (payLink) currentPaymentLink = payLink;
+
+            const btn = document.getElementById('openRegisterBtn');
+            if (btn) {
+                if (isOpen) {
+                    btn.style.display = 'block';
+                } else {
+                    btn.style.display = 'none';
+                }
+            }
+        }
+    } catch (e) { console.error("載入報名設定失敗", e); }
+}
+
+function openRegisterModal(e) {
+    if (e) e.preventDefault();
+    document.getElementById('registerFormArea').style.display = 'block';
+    document.getElementById('registerPaymentArea').style.display = 'none';
+    document.getElementById('registerNameInput').value = '';
+    document.getElementById('registerError').style.display = 'none';
+    document.getElementById('registerModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('registerNameInput').focus(), 100);
+}
+
+function closeRegisterModal() {
+    document.getElementById('registerModal').style.display = 'none';
+}
+
+async function submitRegister() {
+    const name = document.getElementById('registerNameInput').value.trim();
+    const errorDiv = document.getElementById('registerError');
+    const submitBtn = document.getElementById('registerSubmitBtn');
+
+    if (!name) {
+        errorDiv.textContent = '請輸入名稱';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '處理中...';
+
+    try {
+        // 檢查名稱是否重複
+        const { data: existing } = await supabaseClient.from('participants').select('name').eq('name', name);
+        if (existing && existing.length > 0) {
+            errorDiv.textContent = '❌ 此名稱已被使用，請換一個。';
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = '確認報名';
+            return;
+        }
+
+        // 寫入資料庫 (預設 PIN 碼 0000)
+        const { error } = await supabaseClient.from('participants').insert([{ name: name, pin: '0000' }]);
+        if (error) throw error;
+
+        // 顯示付款區塊
+        document.getElementById('registerFormArea').style.display = 'none';
+        document.getElementById('registerPaymentArea').style.display = 'block';
+        document.getElementById('paymentLinkBtn').href = currentPaymentLink;
+
+        // 重新載入登入選單，並預填名字
+        await loadLoginParticipants();
+        document.getElementById('loginParticipantSelect').value = name;
+
+    } catch (err) {
+        console.error(err);
+        errorDiv.textContent = '❌ 系統錯誤，請稍後再試。';
+        errorDiv.style.display = 'block';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '確認報名';
+    }
+}
+
+// 綁定報名事件
+document.getElementById('registerSubmitBtn')?.addEventListener('click', submitRegister);
+document.getElementById('registerCancelBtn')?.addEventListener('click', closeRegisterModal);
+document.getElementById('closePaymentBtn')?.addEventListener('click', closeRegisterModal);
+document.getElementById('registerNameInput')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') submitRegister();
+});
+
+// 喺 window.onload 入面呼叫（請加到現有的 window.onload 尾部）
+// await loadRegistrationSettings();
+
+    async function loadAdminRegistrationSettings() {
+    const { data } = await supabaseClient.from('system_settings').select('key, value').in('key', ['registration_open', 'payment_link']);
+    if (data) {
+        const isOpen = data.find(d => d.key === 'registration_open')?.value === 'true';
+        const payLink = data.find(d => d.key === 'payment_link')?.value || '';
+
+        const linkInput = document.getElementById('paymentLinkInput');
+        if (linkInput) linkInput.value = payLink;
+
+        const toggleBtn = document.getElementById('toggleRegistrationBtn');
+        if (toggleBtn) {
+            toggleBtn.innerText = isOpen ? '🔴 截止報名' : '🟢 開放報名';
+            toggleBtn.style.background = isOpen ? '#be123c' : '#1e6f3f';
+        }
+
+        const statusDiv = document.getElementById('registrationStatusMsg');
+        if (statusDiv) {
+            statusDiv.innerHTML = `目前狀態：<strong>${isOpen ? '接受報名中' : '已截止報名'}</strong>`;
+        }
+    }
+}
+
+// 儲存付款連結
+document.getElementById('savePaymentLinkBtn')?.addEventListener('click', async () => {
+    const link = document.getElementById('paymentLinkInput').value.trim();
+    const { error } = await supabaseClient.from('system_settings').upsert({ key: 'payment_link', value: link }, { onConflict: 'key' });
+    if (error) alert("儲存失敗: " + error.message);
+    else alert("✅ 付款連結已更新");
+});
+
+// 切換報名狀態
+document.getElementById('toggleRegistrationBtn')?.addEventListener('click', async () => {
+    const { data } = await supabaseClient.from('system_settings').select('value').eq('key', 'registration_open').single();
+    const newStatus = data.value === 'true' ? 'false' : 'true';
+    
+    await supabaseClient.from('system_settings').upsert({ key: 'registration_open', value: newStatus }, { onConflict: 'key' });
+    
+    await loadAdminRegistrationSettings();
+    await loadRegistrationSettings(); // 更新前端的按鈕顯示
+    alert(`✅ 已${newStatus === 'true' ? '開放' : '截止'}報名`);
+});
     
     // ========== 頁面初始化 ==========
     window.onload = async () => {
@@ -2023,6 +2222,7 @@ async function loadUserBets() {
         if (typeof initCountdown === 'function') initCountdown();
         await applyInputLockStatus();
         await loadLoginParticipants();
+        await loadRegistrationSettings();
         const isLoggedIn = await checkLoginStatus();
         if (!isLoggedIn) {
             document.getElementById('pinLoginArea').style.display = 'block';
