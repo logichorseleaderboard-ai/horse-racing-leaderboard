@@ -316,19 +316,35 @@
             </div>
 
             <!-- 報名成功及付款區 (預設隱藏) -->
-            <div id="registerPaymentArea" style="display: none;">
-                <h3 style="color: #16a34a; margin-bottom: 10px;">✅ 報名成功！</h3>
-                <p style="font-size: 0.85rem; color: #475569; margin-bottom: 15px;">
-                    您嘅預設 PIN 碼為 <strong style="color: #b91c1c; font-size: 1.2rem;">0000</strong><br>
-                    請點擊下方連結繳交報名費，繳費後即可登入投注。
-                </p>
-                
-                <a id="paymentLinkBtn" href="#" target="_blank" style="display: block; background: #1e6f3f; color: white; text-decoration: none; padding: 12px; border-radius: 40px; font-weight: bold; margin-bottom: 15px;">
-                    💳 前往付款
-                </a>
-                
-                <button id="closePaymentBtn" class="secondary" style="width: 100%;">關閉</button>
-            </div>
+<div id="registerPaymentArea" style="display: none;">
+  <h3 style="color: #16a34a; margin-bottom: 10px;">✅ 報名成功！</h3>
+  <p style="font-size: 0.85rem; color: #475569; margin-bottom: 15px;">
+    您嘅預設 PIN 碼為 <strong style="color: #b91c1c; font-size: 1.2rem;">0000</strong><br>
+    請使用以下任何一種方法繳交報名費。入數後請截圖通知管理員開通。
+  </p>
+
+  <!-- 付款方法 1：FPS / 銀行轉賬 -->
+  <div style="background: #f8fafc; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: left; border: 1px solid #e2e8f0;">
+    <h4 style="color: #1e293b; margin-bottom: 8px; font-size: 0.95rem;">1️⃣ 銀行轉帳 / FPS (轉數快)</h4>
+    <div style="font-size: 0.85rem; line-height: 1.5; color: #334155;">
+      <div>轉數快 ID：<strong style="color: #b91c1c; font-size: 1rem; user-select: all;">122318280</strong></div>
+      <div>銀行帳號：<strong style="color: #b91c1c; font-size: 1rem; user-select: all;">869063253695</strong></div>
+      <div>銀行名稱：ZA Bank (387)</div>
+      <div>帳戶名稱：Logic Horse Limited</div>
+    </div>
+  </div>
+
+  <!-- 付款方法 2：PayMe -->
+  <div style="background: #f8fafc; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center; border: 1px solid #e2e8f0;">
+    <h4 style="color: #1e293b; margin-bottom: 8px; font-size: 0.95rem;">2️⃣ PayMe 轉賬</h4>
+    <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 10px;">請用 PayMe App 掃描下方 QR Code</p>
+    
+    <!-- ⚠️ 請確保 payme.jpg 已經上傳到你的網站 -->
+    <img src="payme.jpg" alt="PayMe QR Code" style="width: 200px; height: 200px; border-radius: 8px; margin: 0 auto; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+  </div>
+
+  <button id="closePaymentBtn" class="secondary" style="width: 100%;">我已付款，關閉視窗</button>
+</div>
 
         </div>
     </div>
@@ -2136,8 +2152,7 @@ async function submitRegister() {
         // 顯示付款區塊
         document.getElementById('registerFormArea').style.display = 'none';
         document.getElementById('registerPaymentArea').style.display = 'block';
-        document.getElementById('paymentLinkBtn').href = currentPaymentLink;
-
+        
         // 重新載入登入選單，並預填名字
         await loadLoginParticipants();
         document.getElementById('loginParticipantSelect').value = name;
