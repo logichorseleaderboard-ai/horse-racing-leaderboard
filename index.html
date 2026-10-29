@@ -2190,16 +2190,36 @@ window.verifyAdmin = function() {
     
     // ========== 頁面切換與驗證 ==========
     function showPage(pageId) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-        document.getElementById(`${pageId}-page`).classList.add('active-page');
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.nav-btn[data-page="${pageId}"]`).classList.add('active');
-        if(pageId === 'ranking') { loadRankingChart(); loadFocusHorses(); }
-        if(pageId === 'detail') loadUserBets();
-        if(pageId === 'admin' && adminUnlocked) { loadAdminBets(); loadPinManagement(); }
-        if(pageId === 'stats') { loadStatsForCurrentUser(); loadMonthlyRanking(); }
-        if(pageId === 'result') { loadResultDisplay(); }
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+    document.getElementById(`${pageId}-page`).classList.add('active-page');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.nav-btn[data-page="${pageId}"]`).classList.add('active');
+    
+    if (pageId === 'ranking') loadRankingChart();
+    if (pageId === 'detail') loadUserBets();
+    if (pageId === 'stats') { loadStatsForCurrentUser(); loadMonthlyRanking(); }
+    if (pageId === 'result') { loadResultDisplay(); }
+    
+    // ★★★ 修正：管理頁的安全檢查 ★★★
+    if (pageId === 'admin') {
+        const adminAuth = document.getElementById('adminAuth');
+        const adminPanel = document.getElementById('adminPanel');
+        
+        if (!adminUnlocked) {
+            // 未解鎖：強制顯示密碼框，隱藏所有管理內容
+            if (adminAuth) adminAuth.style.display = 'block';
+            if (adminPanel) adminPanel.style.display = 'none';
+        } else {
+            // 已解鎖：隱藏密碼框，顯示管理內容
+            if (adminAuth) adminAuth.style.display = 'none';
+            if (adminPanel) adminPanel.style.display = 'block';
+            loadAdminBets();
+            loadPinManagement();
+            // 如果你有加入報名管理設定，亦可以喺度 load
+            if (typeof loadAdminRegistrationSettings === 'function') loadAdminRegistrationSettings();
+        }
     }
+}
     
     // ========== 事件綁定 ==========
     document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
