@@ -2368,34 +2368,65 @@ document.getElementById('toggleRegistrationBtn')?.addEventListener('click', asyn
 });
     
     // ========== 頁面初始化 ==========
-    window.onload = async () => {
-        if (sessionStorage.getItem('resultUnlocked') === 'true') resultUnlocked = true;
-        const emptyOpts = '<option value="">-- 請選擇 --</option>';
-        ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = emptyOpts; });
-        const loadingOpts = '<option value="">載入中...</option>';
-        ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = loadingOpts; });
-        await loadParticipants();
-        await loadRaceDays();
-        await initRaceNoSelects();
-        await loadRankingChart();
-        await loadFocusHorses();
-        bindBetFormEvents();
-        await loadCutoffTime();
-        if (typeof initCountdown === 'function') initCountdown();
-        await applyInputLockStatus();
-        await loadLoginParticipants();
-        await loadRegistrationSettings();
-        const isLoggedIn = await checkLoginStatus();
-        if (!isLoggedIn) {
-            document.getElementById('pinLoginArea').style.display = 'block';
-            document.getElementById('betContentArea').style.display = 'none';
-        }
-        document.getElementById('loginBtn')?.addEventListener('click', handleLogin);
-        document.getElementById('loginPinInput')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
-        document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
-        bindChangePinEvents();
-        showPage('ranking');
-    };
+window.onload = async () => {
+    if (sessionStorage.getItem('resultUnlocked') === 'true') resultUnlocked = true;
+    
+    const emptyOpts = '<option value="">-- 請選擇 --</option>';
+    ['horse1', 'horse2', 'horse3', 'bankerHorseSelect'].forEach(id => { 
+        const el = document.getElementById(id); 
+        if (el) el.innerHTML = emptyOpts; 
+    });
+    
+    const loadingOpts = '<option value="">載入中...</option>';
+    ['rankRaceNo', 'inputRaceNo', 'resultRaceNo', 'detailRaceNo'].forEach(id => { 
+        const el = document.getElementById(id); 
+        if (el) el.innerHTML = loadingOpts; 
+    });
+    
+    // 載入各項數據
+    await loadParticipants();
+    await loadRaceDays();
+    await initRaceNoSelects();
+    await loadRankingChart();
+    bindBetFormEvents();
+    await loadCutoffTime();
+    
+    if (typeof initCountdown === 'function') initCountdown();
+    await applyInputLockStatus();
+    
+    // PIN 登入初始化
+    await loadLoginParticipants();
+    const isLoggedIn = await checkLoginStatus();
+    if (!isLoggedIn) {
+        document.getElementById('pinLoginArea').style.display = 'block';
+        document.getElementById('betContentArea').style.display = 'none';
+    }
+    document.getElementById('loginBtn')?.addEventListener('click', handleLogin);
+    document.getElementById('loginPinInput')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
+    });
+    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+    bindChangePinEvents();
+    
+    // 載入報名設定 (如果有加嘅話)
+    if (typeof loadRegistrationSettings === 'function') await loadRegistrationSettings();
+
+    // 預設顯示首頁
+    showPage('ranking');
+
+    // ★★★ 終極強制安全檢查 (最尾執行，確保蓋過所有設定) ★★★
+    const adminPanel = document.getElementById('adminPanel');
+    const adminAuth = document.getElementById('adminAuth');
+    
+    if (adminUnlocked === false) {
+        if (adminPanel) adminPanel.style.display = 'none';
+        if (adminAuth) adminAuth.style.display = 'block';
+        console.log("安全檢查：未解鎖，已強制隱藏管理面板。");
+    } else {
+        if (adminPanel) adminPanel.style.display = 'block';
+        if (adminAuth) adminAuth.style.display = 'none';
+    }
+};
 </script>
 </body>
 </html>
