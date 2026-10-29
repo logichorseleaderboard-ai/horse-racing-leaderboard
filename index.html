@@ -409,14 +409,16 @@
     </div>
     
     <!-- 人員管理 -->
-    <div class="card">
-      <h3>人員管理</h3>
-      <input type="text" id="newUserName" placeholder="新參賽者">
-      <button onclick="addParticipant()" style="background:#334155; margin-top:5px;">➕ 新增</button>
-      <div id="participantList"></div>
-    </div>
-
-      <div class="card">
+<div class="card">
+  <h3>人員管理</h3>
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <input type="text" id="newUserName" placeholder="新參賽者" style="flex: 1;">
+    <button onclick="addParticipant()" style="background:#334155; width: auto; padding: 10px 15px; margin: 0;">➕ 新增</button>
+    <button onclick="deleteAllParticipants()" style="background:#b91c1c; width: auto; padding: 10px 15px; margin: 0;">🗑️ 全刪</button>
+  </div>
+  <div id="participantList" style="margin-top: 10px;"></div>
+</div>
+      
   <h3>📝 報名管理設定</h3>
   
   <div class="form-group">
@@ -433,12 +435,15 @@
 </div>
     
     <!-- 賽日管理 -->
-    <div class="card">
-      <h3>賽日管理</h3>
-      <input type="date" id="newRaceDate">
-      <button onclick="addRaceDay()" style="background:#334155; margin-top:5px;">📅 新增</button>
-      <div id="raceDayList"></div>
-    </div>
+<div class="card">
+  <h3>賽日管理</h3>
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <input type="date" id="newRaceDate" style="flex: 1;">
+    <button onclick="addRaceDay()" style="background:#334155; width: auto; padding: 10px 15px; margin: 0;">📅 新增</button>
+    <button onclick="deleteAllRaceDays()" style="background:#b91c1c; width: auto; padding: 10px 15px; margin: 0;">🗑️ 全刪</button>
+  </div>
+  <div id="raceDayList" style="margin-top: 10px;"></div>
+</div>
     
     <!-- PIN 碼管理 -->
     <div class="card">
@@ -1955,27 +1960,149 @@ async function loadUserBets() {
     });
     
     // ========== 管理員其他操作 ==========
-    window.deleteBet = async (id) => { if(confirm("刪除？")) { await supabaseClient.from('bets').delete().eq('id', id); loadAdminBets(); loadRankingChart(); loadStatsForCurrentUser(); loadUserBets(); loadMonthlyRanking(); } };
-    window.deleteParticipant = async (id) => { if(confirm("刪除參賽者會刪除所有投注")) { const p = participants.find(p=>p.id===id); if(p) await supabaseClient.from('bets').delete().eq('participant', p.name); await supabaseClient.from('participants').delete().eq('id', id); loadParticipants(); loadAdminBets(); loadRankingChart(); loadUserBets(); loadMonthlyRanking(); } };
-    window.deleteRaceDay = async (id) => { if(confirm("刪除賽日會刪除該日所有投注")) { const d = raceDays.find(r=>r.id===id); if(d) await supabaseClient.from('bets').delete().eq('race_date', d.race_date); await supabaseClient.from('race_days').delete().eq('id', id); loadRaceDays(); loadAdminBets(); loadUserBets(); loadMonthlyRanking(); } };
-    window.addParticipant = async () => { const name = document.getElementById('newUserName').value.trim(); if(name) { await supabaseClient.from('participants').insert([{name}]); document.getElementById('newUserName').value=''; loadParticipants(); loadMonthlyRanking(); } };
-    window.addRaceDay = async () => { const date = document.getElementById('newRaceDate').value; if(date) { await supabaseClient.from('race_days').insert([{race_date:date}]); loadRaceDays(); } };
+window.deleteBet = async (id) => { 
+    if(confirm("刪除？")) { 
+        await supabaseClient.from('bets').delete().eq('id', id); 
+        loadAdminBets(); loadRankingChart(); loadStatsForCurrentUser(); loadUserBets(); loadMonthlyRanking(); 
+    } 
+};
+
+window.deleteParticipant = async (id) => { 
+    if(confirm("刪除參賽者會刪除所有投注")) { 
+        const p = participants.find(p=>p.id===id); 
+        if(p) await supabaseClient.from('bets').delete().eq('participant', p.name); 
+        await supabaseClient.from('participants').delete().eq('id', id); 
+        loadParticipants(); loadAdminBets(); loadRankingChart(); loadUserBets(); loadMonthlyRanking(); 
+    } 
+};
+
+window.deleteRaceDay = async (id) => { 
+    if(confirm("刪除賽日會刪除該日所有投注")) { 
+        const d = raceDays.find(r=>r.id===id); 
+        if(d) await supabaseClient.from('bets').delete().eq('race_date', d.race_date); 
+        await supabaseClient.from('race_days').delete().eq('id', id); 
+        loadRaceDays(); loadAdminBets(); loadUserBets(); loadMonthlyRanking(); 
+    } 
+};
+
+window.addParticipant = async () => { 
+    const name = document.getElementById('newUserName').value.trim(); 
+    if(name) { 
+        await supabaseClient.from('participants').insert([{name}]); 
+        document.getElementById('newUserName').value=''; 
+        loadParticipants(); loadMonthlyRanking(); 
+    } 
+};
+
+window.addRaceDay = async () => { 
+    const date = document.getElementById('newRaceDate').value; 
+    if(date) { 
+        await supabaseClient.from('race_days').insert([{race_date:date}]); 
+        loadRaceDays(); 
+    } 
+};
+
+// ===== 一鍵刪除所有人員 =====
+window.deleteAllParticipants = async () => {
+    if (!confirm("⚠️ 警告：這將刪除【所有】參賽者及其所有投注紀錄！\n此操作無法復原，確定要繼續嗎？")) return;
     
-    window.verifyAdmin = function() {
-        const pwdInput = document.getElementById('adminPwd');
-        const checkPwd = () => {
-            if (pwdInput.value === 'LBadmin') {
-                adminUnlocked = true;
-                document.getElementById('adminAuth').style.display = 'none';
-                document.getElementById('adminPanel').style.display = 'block';
-                loadAdminBets();
-                loadPinManagement();
-            } else { alert("密碼錯誤"); }
-        };
-        const btn = document.querySelector('#adminAuth button');
-        if (btn) btn.onclick = checkPwd;
-        pwdInput.onkeypress = (e) => { if (e.key === 'Enter') { checkPwd(); } };
+    const verify = prompt("請輸入 'DELETE' 以確認刪除所有參賽者：");
+    if (verify !== 'DELETE') {
+        alert("❌ 取消刪除");
+        return;
+    }
+
+    try {
+        // 1. 先刪除所有投注紀錄 (bets)
+        const { error: betsError } = await supabaseClient
+            .from('bets')
+            .delete()
+            .neq('id', 0);
+
+        if (betsError) throw betsError;
+
+        // 2. 再刪除所有參賽者 (participants)
+        const { error: pError } = await supabaseClient
+            .from('participants')
+            .delete()
+            .neq('id', 0);
+
+        if (pError) throw pError;
+
+        alert("✅ 已成功刪除所有參賽者及相關投注紀錄。");
+        
+        // 重新載入相關數據
+        loadParticipants();
+        loadAdminBets();
+        loadPinManagement();
+        loadRankingChart();
+        loadUserBets();
+        loadMonthlyRanking();
+        loadLoginParticipants(); // 更新登入頁的下拉選單
+
+    } catch (err) {
+        console.error("一鍵刪除人員失敗:", err);
+        alert("❌ 刪除失敗: " + err.message);
+    }
+};
+
+// ===== 一鍵刪除所有賽日 =====
+window.deleteAllRaceDays = async () => {
+    if (!confirm("⚠️ 警告：這將刪除【所有】賽日及其所有投注紀錄！\n此操作無法復原，確定要繼續嗎？")) return;
+    
+    const verify = prompt("請輸入 'DELETE' 以確認刪除所有賽日：");
+    if (verify !== 'DELETE') {
+        alert("❌ 取消刪除");
+        return;
+    }
+
+    try {
+        // 1. 先刪除所有投注紀錄 (bets)
+        const { error: betsError } = await supabaseClient
+            .from('bets')
+            .delete()
+            .neq('id', 0);
+
+        if (betsError) throw betsError;
+
+        // 2. 再刪除所有賽日 (race_days)
+        const { error: rError } = await supabaseClient
+            .from('race_days')
+            .delete()
+            .neq('id', 0);
+
+        if (rError) throw rError;
+
+        alert("✅ 已成功刪除所有賽日及相關投注紀錄。");
+        
+        // 重新載入相關數據
+        loadRaceDays();
+        loadAdminBets();
+        loadUserBets();
+        loadMonthlyRanking();
+        loadRankingChart();
+
+    } catch (err) {
+        console.error("一鍵刪除賽日失敗:", err);
+        alert("❌ 刪除失敗: " + err.message);
+    }
+};
+
+window.verifyAdmin = function() {
+    const pwdInput = document.getElementById('adminPwd');
+    const checkPwd = () => {
+        if (pwdInput.value === 'LBadmin') {
+            adminUnlocked = true;
+            document.getElementById('adminAuth').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            loadAdminBets();
+            loadPinManagement();
+        } else { alert("密碼錯誤"); }
     };
+    const btn = document.querySelector('#adminAuth button');
+    if (btn) btn.onclick = checkPwd;
+    pwdInput.onkeypress = (e) => { if (e.key === 'Enter') { checkPwd(); } };
+};
     
     async function applyInputLockStatus() {
         try {
